@@ -97,8 +97,8 @@ public class Util {
         }else{
             fileName = folderAndName + "-" + dateTimeFormat.format(dateTime) + ".data";
         }
-        File file = new File(fileName);
-        if (!file.getParentFile().exists()) {
+        File file = sonar.DataDir.file(fileName);
+        if (file.getParentFile() != null && !file.getParentFile().exists()) {
             if (!file.getParentFile().mkdirs()) {
                 System.out.println("[X] Failed to create path for logfile '" + fileName + "'.");
             }
