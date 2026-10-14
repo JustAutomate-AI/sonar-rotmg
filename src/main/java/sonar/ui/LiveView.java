@@ -253,10 +253,13 @@ class LiveView {
      */
     private javax.swing.JComponent damageHeader() {
         javax.swing.Box row = javax.swing.Box.createHorizontalBox();
+        row.add(mvpShare);
+        row.add(javax.swing.Box.createHorizontalStrut(4));
         row.add(damageShare);
         row.add(javax.swing.Box.createHorizontalStrut(8));
         row.add(scope);
         damageShare.setToolTipText("Copy this board as an image, ready to paste into Discord");
+        mvpShare.setToolTipText("Copy the top player on the final boss as a card, with their gear");
         return row;
     }
 
@@ -370,6 +373,8 @@ class LiveView {
     private final SonarButton shareButton = new SonarButton("All", false, this::shareResults);
     /** The same share, on the board itself. */
     private final SonarButton damageShare = new SonarButton("", false, this::shareBossResults).icon("share");
+    /** The star that leaves: one player rather than the whole board. */
+    private final SonarButton mvpShare = new SonarButton("", false, this::shareMvp).icon("share-star");
     /** Live or Review, the two states of the Instance page. */
     private final Segmented reviewMode = new Segmented(new String[]{"Live", "Review"}, 0, this::setReviewMode);
     /** The finished instance last opened, so Review can return to it without going through the list again. */
@@ -555,6 +560,38 @@ class LiveView {
         } catch (Exception e) {
             e.printStackTrace();
             flashShareButton(shareBossButton, "", "Couldn't export");
+        }
+    }
+
+    /**
+     * The one player who led the fight that mattered, as a card.
+     * <p>
+     * Same two destinations as the board share - the clipboard to paste straight into
+     * a Discord, and a file on disk for later.
+     */
+    private void shareMvp() {
+        LiveModel m = shown();
+        if (!m.tracked) {
+            flashShareButton(mvpShare, "", "No instance yet");
+            return;
+        }
+        // how someone looked is only sent while they are in sight; fill the rest in from memory
+        PlayerLook.fill(m.whole.rows);
+        for (LiveModel.Target t : m.targets) PlayerLook.fill(t.rows);
+        for (LiveModel.Group gr : m.groups) PlayerLook.fill(gr.target.rows);
+        MvpCard.Pick pick = MvpCard.pick(m);
+        if (pick == null) {
+            flashShareButton(mvpShare, "", "No damage yet");
+            return;
+        }
+        try {
+            java.awt.image.BufferedImage img = MvpCard.render(m, pick);
+            ResultsImage.copyToClipboard(img);
+            ResultsImage.saveToDisk(img, m.instance + " mvp");
+            flashShareButton(mvpShare, "", "Copied!");
+        } catch (Exception e) {
+            e.printStackTrace();
+            flashShareButton(mvpShare, "", "Couldn't export");
         }
     }
 
@@ -2097,6 +2134,55 @@ class LiveView {
                         && Glyph.spriteReads(Glyph.entitySprite(ids[2])) && Glyph.spriteReads(Glyph.entitySprite(ids[3])));
         report.accept("a void crack is too dark to draw as itself and falls back to a mark",
                 !Glyph.spriteReads(Glyph.entitySprite(0xb6b1)));
+        // ---- the MVP card: which fight it is about, and who it names ----
+        LiveModel mvpRun = new LiveModel();
+        mvpRun.tracked = true;
+        LiveModel.Target mini = fight(mvpRun, "Archbishop", 500000, 0, 40000, true, true);
+        LiveModel.Target last = fight(mvpRun, "Oryx 3", 900000, 50000, 190000, true, false);
+        last.finalBoss = true;
+        addRow(mini, 1, "Carry", 400000);
+        addRow(mini, 2, "Burst", 50000);
+        addRow(last, 1, "Carry", 300000);
+        addRow(last, 2, "Burst", 600000);
+        mvpRun.targets.add(mini);
+        mvpRun.targets.add(last);
+        mvpRun.sumBosses();
+
+        MvpCard.Pick onFinal = MvpCard.pick(mvpRun);
+        // the card is about the fight the game marks as the final boss, not the biggest pile of damage
+        report.accept("the card is about the final boss", onFinal != null && onFinal.fight == last);
+        // and names whoever led that fight, even though the other player did more across the run
+        report.accept("and names whoever led that fight",
+                onFinal != null && "Burst".equals(onFinal.player.name));
+        report.accept("the run total is the supporting figure, not the deciding one",
+                mvpRun.bosses.row(1) != null && mvpRun.bosses.row(1).damage == 700000
+                        && mvpRun.bosses.row(2) != null && mvpRun.bosses.row(2).damage == 650000);
+
+        // with no final boss named, the biggest boss fought stands in
+        LiveModel noFinal = new LiveModel();
+        noFinal.tracked = true;
+        LiveModel.Target small = fight(noFinal, "Lesser", 100000, 0, 10000, true, true);
+        LiveModel.Target big = fight(noFinal, "Greater", 800000, 20000, 60000, true, true);
+        addRow(small, 1, "A", 90000);
+        addRow(big, 1, "B", 700000);
+        noFinal.targets.add(small);
+        noFinal.targets.add(big);
+        noFinal.sumBosses();
+        MvpCard.Pick fallback = MvpCard.pick(noFinal);
+        report.accept("with no final boss named, the biggest one stands in",
+                fallback != null && fallback.fight == big && !fallback.overall);
+
+        // a run with no boss at all falls back to the instance, and says so
+        LiveModel trash = new LiveModel();
+        trash.tracked = true;
+        addRow(trash.whole, 1, "Solo", 1234);
+        MvpCard.Pick overall = MvpCard.pick(trash);
+        report.accept("a run with no boss falls back to the whole instance",
+                overall != null && overall.overall && "Solo".equals(overall.player.name));
+
+        // nothing hit at all has no card to make
+        report.accept("nothing hit at all makes no card", MvpCard.pick(new LiveModel()) == null);
+
         report.accept("the void dressing is drawn quieter than what you are hunting",
                 ShattersRadar.tier(0xb6b1) == ShattersRadar.VOID
                         && ShattersRadar.tier(ShattersRadar.STONE_IDOL) == ShattersRadar.OBJECTIVE);
@@ -2150,6 +2236,16 @@ class LiveView {
     }
 
     /** A stand-in enemy for the self-test, with one player's hit on it. */
+    /** A player on one fight, for the self-test's made-up runs. */
+    private static void addRow(LiveModel.Target t, int id, String name, long damage) {
+        LiveModel.Row r = new LiveModel.Row();
+        r.id = id;
+        r.name = name;
+        r.cls = "Wizard";
+        r.damage = damage;
+        t.rows.add(r);
+    }
+
     private static LiveModel.Target fight(LiveModel m, String name, int maxHp, long from, long to, boolean segment, boolean miniboss) {
         LiveModel.Target t = new LiveModel.Target();
         t.id = name.hashCode() + (int) from;

@@ -239,6 +239,29 @@ final class Glyph {
             head.lineTo(14, 9.8);
             head.closePath();
             g2.fill(head);
+        } else if ("share-star".equals(name)) {
+            // the same arrow leaving, but what it carries is one player rather than the board
+            java.awt.geom.Path2D.Double star = new java.awt.geom.Path2D.Double();
+            double cx = 7.6, cy = 11.4, outer = 6.4, inner = 2.7;
+            for (int i = 0; i < 10; i++) {
+                double r = (i % 2 == 0) ? outer : inner;
+                double a = -Math.PI / 2 + i * Math.PI / 5;
+                double px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+                if (i == 0) star.moveTo(px, py);
+                else star.lineTo(px, py);
+            }
+            star.closePath();
+            g2.fill(star);
+            // away to the upper right, clear of the star's points
+            p.moveTo(14.2, 8.4);
+            p.lineTo(17.6, 5);
+            g2.draw(p);
+            java.awt.geom.Path2D.Double head = new java.awt.geom.Path2D.Double();
+            head.moveTo(13.6, 3.4);
+            head.lineTo(19.2, 3.4);
+            head.lineTo(19.2, 9);
+            head.closePath();
+            g2.fill(head);
         }
         g2.dispose();
     }

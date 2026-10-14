@@ -2,6 +2,29 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.3.0
+
+**Share the MVP on their own, gear and all**
+- A second share button on the damage board, a star leaving rather than the plain arrow. It copies one player as a card: the character as they look in game, their class, what they were holding, and the enchants on each piece.
+- Who it picks is whoever did the most damage to the final boss - the fight that actually mattered - with their total across every boss in the run printed underneath as the figure that backs the choice up rather than makes it. Somebody who turns up for one phase and bursts it does not quietly outrank the player who carried the whole run.
+- Also on the card: damage on that boss and what share of its health that was, damage per second, biggest hit and hit count. Enough to answer how they got there, not just that they did.
+- A run with no boss falls back to whoever did the most damage overall, and says "Top damage" rather than "MVP".
+- Copies to the clipboard and saves to disk, the same as the board share, so it can go straight into a Discord.
+
+**The chat keywords can be edited again**
+- The list of words that ring the private-message ping has always been read and acted on, but the window that edited it went with the old interface, so entries could be used and not changed. Settings has a "Words to watch for" section now.
+- A word in quotes only counts as a whole word, which is what the matcher has always keyed on. The section shows that as a "whole word" tag rather than making anyone remember the quoting.
+
+**"join" counts as a dungeon call**
+- Said on its own it means the same as "j", and the ping did not fire for it. It does now, with the same gating: party chat, and not while you are already inside one. "join my guild" and "joining" still do not, being a recruit and a sentence rather than a call.
+
+**A fresh install rings for both the things worth hearing**
+- The dungeon call used to be off by default while the white bag ping was on. They do two different jobs - getting into a run, and not missing a drop - and both are on now. An install that has already been through Settings keeps whatever it was set to.
+
+---
+
+216 self-test assertions pass.
+
 ## 2.2.0
 
 **Unpack it and run it. That is the install.**
