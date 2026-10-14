@@ -989,6 +989,22 @@ class LiveView {
     void selfTest() {
         java.util.function.BiConsumer<String, Boolean> report = (name, ok) -> System.out.println((ok ? "PASS " : "FAIL ") + name);
 
+        // This suite drives the real interface: it clicks an enemy in the list, opens a
+        // finished instance out of the history, steps back through past runs. All of that
+        // needs something to act on, which in practice means -Dsonar.demo.
+        //
+        // Run without it, the suite used to report three ordinary-looking failures and then
+        // throw out of pasts.get(-1) on the empty list. That reads exactly like a broken
+        // app rather than a missing flag, and it cost a long detour: the crash was taken for
+        // a real defect, blamed on the release before it, and reported as 204 assertions not
+        // having run for two versions. They had. Say what is missing instead.
+        if (shown().targets.size() < 2 || pasts.isEmpty()) {
+            System.out.println("SKIP the self-test needs demo data to drive: add -Dsonar.demo=1");
+            System.out.println("     (it clicks enemies and opens past instances, and there are "
+                    + shown().targets.size() + " enemies and " + pasts.size() + " past instances here)");
+            return;
+        }
+
         // the windows keep their places: a drag on the title bar or the corner does nothing at all
         Rectangle home = damageWindow.getBounds();
         mouse(damageWindow, java.awt.event.MouseEvent.MOUSE_PRESSED, 60, 26, 500, 300);
