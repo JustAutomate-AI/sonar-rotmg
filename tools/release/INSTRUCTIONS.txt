@@ -1,0 +1,138 @@
+SONAR - damage tracker for Realm of the Mad God
+================================================
+
+Sonar reads the game's network traffic on your own PC and shows who is dealing
+how much damage in the instance you are in. It never changes, blocks or sends
+anything. Windows 10 or 11 (64-bit) only.
+
+
+INSTALL
+-------
+
+1. Unpack the whole zip to a normal folder, for example Documents\Sonar.
+   Do not run it from inside the zip, and avoid Program Files and OneDrive.
+
+2. Double-click  Setup.bat
+
+   If Windows shows "Windows protected your PC", click "More info" and then
+   "Run anyway". This appears because the file was downloaded.
+
+3. Setup checks what Sonar needs and offers to get anything that is missing:
+
+     Java (64-bit, version 11 or newer)
+         Choose "Install automatically", or use the download page it offers.
+
+     Npcap (the driver that lets Sonar read network packets)
+         Setup opens the download page. Run the Npcap installer and
+           - keep  "Install Npcap in WinPcap API-compatible Mode"  ticked
+           - leave "Restrict Npcap driver's access to Administrators only" unticked
+         then return to the Setup window and press Enter.
+
+     Realm of the Mad God
+         Optional, but item and enemy names and icons come from the game files.
+
+4. Setup then tests packet capture, prepares the game data, creates Sonar.exe
+   in this folder and puts a "Sonar" shortcut on your desktop.
+   When it ends with all lines marked OK, you are done.
+
+
+RUN
+---
+
+1. Start the game.
+2. Open Sonar (the desktop shortcut, or Sonar.exe in this folder).
+3. Press "Start sniffer" in the top right corner.
+4. Enter a new area in the game, for example the Nexus. Sonar needs to see an
+   area load once before it can follow the game.
+
+The sniffer has to be started each time you open Sonar, and it stops when you
+close Sonar.
+
+To keep Sonar on the taskbar, right-click its desktop shortcut (on Windows 11
+choose "Show more options" first), or right-click the Sonar button on the
+taskbar while it is running, and choose "Pin to taskbar". Setup also adds
+Sonar to the Start menu.
+
+
+USING IT
+--------
+
+Live          The damage list, your own numbers and the current fight.
+              Overall / Enemy / Bosses   which damage is counted
+              DPS / Total                damage per second or total damage dealt
+              Everyone / Party           all players or only your party
+              Click a player's bar to see what their damage came from.
+              Click the rank number at the left end of a bar to add that
+              player to your party or remove them.
+              "Reset" (small, top right of the damage list) sets the damage
+              shown for this instance to zero. It needs a second click to
+              confirm, and the arrow that appears beside it undoes it.
+              The two arrows beside the instance name step back through
+              finished instances and forward again to the live one.
+Players       Everyone who dealt damage. Pick one to see their damage by item,
+              their hits, biggest hit and equipment. Your party is listed
+              here too; click a member to remove them.
+Instance      Details of the area, every enemy hit, finished instances and
+              your character's eight stats. Click an enemy or a finished
+              instance to see it on the Live page.
+More          Chat, Key-pops, Security, Characters, Statistics, Daily Quests,
+              My Info and the original DPS Logger, as tabs across the top.
+
+Windows can be dragged by their title, resized from the right and bottom edge
+and closed with the X. "Windows" brings closed ones back and "Reset layout"
+restores the defaults. Your layout and party are remembered.
+
+
+IF SOMETHING DOES NOT WORK
+--------------------------
+
+Double-click  Diagnose.bat . It changes nothing and reports what is wrong.
+
+  Nothing shows after starting the sniffer
+      Turn off any VPN, run only one game client, and enter a new area.
+  "You are missing a program called Npcap"
+      Reinstall Npcap with "WinPcap API-compatible Mode" ticked.
+  The sniffer stops with "Stream Constructor reached 50 packets"
+      This is packet loss, usually Wi-Fi. Use a network cable if you can.
+  Wrong or missing names after a game update
+      Run Setup.bat again.
+  Sonar does not open
+      Run "Start Sonar (debug console).bat" to see the error.
+
+
+UPDATING
+--------
+
+Sonar looks for a newer version each time it starts, and "Check for updates"
+at the bottom of the left rail does the same on demand. When there is one,
+choose "Update and restart": Sonar downloads it, closes, installs it and
+starts again. Your layout, party and settings are kept.
+
+If the automatic update fails, download the new zip from the release page,
+unpack it over this folder and run Setup.bat.
+
+
+UNINSTALL
+---------
+
+Delete this folder, the desktop shortcut and the Sonar entry in the Start menu
+(right-click it > Open file location > delete). Unpin it from the taskbar if
+you pinned it. Java and Npcap are separate
+programs and can be removed from Windows Settings > Apps if you no longer
+want them.
+
+
+ABOUT
+-----
+
+Sonar is published by JustAutomate-AI. MIT licence - see LICENSE.md, which
+covers the packet-capture and asset code it is built from.
+Source code: https://github.com/JustAutomate-AI/sonar-rotmg
+
+Sonar.exe carries JustAutomate-AI as its company name (right-click it,
+Properties, Details). It is not code-signed, so Windows security prompts still
+say "Unknown publisher"; that label only changes with a paid signing
+certificate.
+
+Third-party tools are a grey area under the game's terms of service.
+Use Sonar at your own risk.
