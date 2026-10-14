@@ -139,6 +139,19 @@ public class CrucibleBonusManager {
     }
 
     /**
+     * Feeds in a payload from somewhere other than the wire, for the demo and for probes.
+     * A live packet always wins: this only fills a table nothing has described yet.
+     */
+    public static synchronized void loadPayload(String json) {
+        if (json == null || json.isEmpty() || !bonusesById.isEmpty()) return;
+        try {
+            processJsonData(json, "file");
+        } catch (Exception e) {
+            System.out.println("[Crucible] could not read the payload: " + e.getMessage());
+        }
+    }
+
+    /**
      * Processes a CrucibleResponsePacket to extract and store damage multipliers.
      */
     public static void processCrucibleResponse(Packet packet) {

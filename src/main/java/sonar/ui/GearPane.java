@@ -242,6 +242,47 @@ class GearPane extends Pane {
         }
         if (!full && note.isEmpty()) note = "The game does not send this player's own stats";
         g.drawString(SonarTheme.fit(note, g.getFontMetrics(), width), 0, ny);
+
+        // What a crucible or a blood ritual is doing to this character, stated rather than
+        // folded into the figures above. The server sends stats with none of it applied - a
+        // maxed Huntress reads her bare class maximum whatever she is wearing - so quietly
+        // scaling the numbers here would invent a total nothing else agrees with. The
+        // multipliers are the server's own, read from the table it sends, and they are shown
+        // as what they are.
+        String season = seasonLine();
+        if (!season.isEmpty()) {
+            g.setColor(SonarTheme.GOLD);
+            g.drawString(SonarTheme.fit(season, g.getFontMetrics(), width), 0, ny + 16);
+        }
+    }
+
+    /** The crucible and blood ritual this player carries, and what each one changes. */
+    private String seasonLine() {
+        if (row == null) return "";
+        StringBuilder b = new StringBuilder();
+        java.util.Map<String, Double> stats =
+                sonar.backend.data.CrucibleBonusManager.statMultipliersFor(row.crucibleId);
+        if (stats != null && !stats.isEmpty()) {
+            String title = sonar.backend.data.CrucibleBonusManager.titleOf(row.crucibleId);
+            b.append(title == null ? "Crucible" : title).append(':');
+            for (java.util.Map.Entry<String, Double> e : stats.entrySet()) {
+                b.append(' ').append(e.getKey()).append(' ').append(times(e.getValue()));
+            }
+        }
+        java.util.Map<Integer, Double> ritual =
+                sonar.backend.data.CrucibleBonusManager.bonusesFor(row.ritualId);
+        if (ritual != null && !ritual.isEmpty()) {
+            if (b.length() > 0) b.append("   ·   ");
+            String title = sonar.backend.data.CrucibleBonusManager.titleOf(row.ritualId);
+            b.append("Blood ritual").append(title == null ? "" : " " + title).append(':');
+            if (ritual.get(4) != null) b.append(" health ").append(times(ritual.get(4)));
+            if (ritual.get(5) != null) b.append("  damage ").append(times(ritual.get(5)));
+        }
+        return b.toString();
+    }
+
+    private static String times(double multiplier) {
+        return String.format("x%.2f", multiplier);
     }
 
     /**

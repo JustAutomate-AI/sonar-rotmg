@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.6.0
+
+**What a Crucible or Blood Ritual is doing to a character, said plainly**
+- The stats panel carries a line naming the crucible and the ritual step the chosen player has on, and what each one changes: "S31 Crucible: VIT x1.30 WIS x1.10  ·  Blood ritual 1: health x0.80 damage x1.24".
+- The figures are the server's own, read from the table it sends. They are shown as multipliers rather than folded into the stats above, because the game sends stats with none of it applied - a maxed Huntress reads her bare class maximum whatever she is wearing - and quietly scaling them here would invent a total that nothing else agrees with.
+- The demo carries a real captured payload, so its ids decode to real figures rather than to nothing.
+
 ## 2.5.1
 
 **Potions to max was wrong for exalted characters**

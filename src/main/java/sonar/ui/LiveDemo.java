@@ -61,6 +61,18 @@ final class LiveDemo {
     }
 
     static void start(LiveView view) {
+        // a real payload, captured from a live server, so the demo's crucible and ritual ids
+        // decode to the figures the game actually sends rather than to nothing
+        try (java.io.InputStream in = LiveDemo.class.getResourceAsStream("/data/crucible-sample.json")) {
+            if (in != null) {
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
+                sonar.backend.data.CrucibleBonusManager.loadPayload(out.toString("UTF-8"));
+            }
+        } catch (Exception e) {
+            // the demo simply shows no season figures without it
+        }
         Random random = new Random(7);
         Object key = new Object();
         long[][] damage = new long[ENEMIES.length][PLAYERS.length];
@@ -307,9 +319,11 @@ final class LiveDemo {
         r.skin = skinFor(r.cls, p);
         // a believable spread of marks: some seasonal, fewer in the crucible, fewer still
         // trading health away, so the roster shows every combination at once
-        r.seasonal = p % 3 != 2;
-        if (r.seasonal && p % 2 == 0) r.crucibleId = "demo-crucible";
-        if (r.seasonal && p % 4 == 0) r.ritualId = "demo-ritual";
+        r.seasonal = p % 3 != 2 || r.me;
+        // the ids the live server really sends, so the demo describes a real crucible and a
+        // real ritual step rather than two names that decode to nothing
+        if (r.seasonal && (p % 2 == 0 || r.me)) r.crucibleId = "4862928936796160";
+        if (r.seasonal && (p % 4 == 0 || r.me)) r.ritualId = "5027802235043840";
         int[] worn = dyesFor(p);
         r.dyeMain = worn[0];
         r.dyeAccessory = worn[1];
