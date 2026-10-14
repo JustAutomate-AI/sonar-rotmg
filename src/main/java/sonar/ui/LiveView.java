@@ -1552,6 +1552,12 @@ class LiveView {
         report.accept("a vial call counts as a dungeon call too",
                 sonar.ChatPings.isJoinCall("jv") && sonar.ChatPings.isJoinCall("JV!")
                         && sonar.ChatPings.isJoinCall("jjv"));
+        // "join" spelled out is the same call; "join my guild" is a recruit, not a dungeon
+        report.accept("join spelled out is a dungeon call",
+                sonar.ChatPings.isJoinCall("join") && sonar.ChatPings.isJoinCall("JOIN!")
+                        && sonar.ChatPings.isJoinCall(" Join ")
+                        && !sonar.ChatPings.isJoinCall("join my guild")
+                        && !sonar.ChatPings.isJoinCall("joining"));
         // a v with no j is not a call, and a word that merely holds those letters never was
         report.accept("a bare v is not a dungeon call",
                 !sonar.ChatPings.isJoinCall("v") && !sonar.ChatPings.isJoinCall("vv")

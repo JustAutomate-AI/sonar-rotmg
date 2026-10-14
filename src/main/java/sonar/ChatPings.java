@@ -114,6 +114,11 @@ public class ChatPings {
         if (text == null) return false;
         String t = text.trim().toLowerCase();
         if (t.isEmpty()) return false;
+        // "join" said on its own is the same call spelled out; "join my guild" is not,
+        // so only the bare word counts, with whatever punctuation it was said with
+        int end = t.length();
+        while (end > 0 && "!.? ".indexOf(t.charAt(end - 1)) >= 0) end--;
+        if (t.substring(0, end).equals("join")) return true;
         for (int i = 0; i < t.length(); i++) {
             char c = t.charAt(i);
             if (c != 'j' && c != 'v' && c != '!' && c != '.' && c != ' ') return false;
