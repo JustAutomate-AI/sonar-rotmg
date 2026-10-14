@@ -144,8 +144,18 @@ final class CalcPane extends JPanel {
     }
 
     private static final String[] NUMERALS = {"", "I", "II", "III", "IV"};
-    /** One colour per enchant level, lowest to highest. */
-    private static final Color[] TIERS = {SonarTheme.MUTED, new Color(0x6fdc8c), new Color(0x6aa8ff), SonarTheme.VIOLET, SonarTheme.GOLD};
+    /**
+     * One colour per enchant level, lowest to highest.
+     * <p>
+     * Fixed, and deliberately not drawn from the theme. This is a legend: a reader
+     * learns that blue means level two and carries that between pages and between
+     * screenshots, so it has to mean the same thing whichever ground it is sitting on.
+     * The first of these used to be the theme's muted tone, which made level zero a
+     * different grey in every theme and also froze on whichever theme loaded first.
+     */
+    private static final Color[] TIERS = {
+            new Color(0xa9a3b4), new Color(0x6fdc8c), new Color(0x6aa8ff),
+            SonarTheme.VIOLET, SonarTheme.GOLD};
 
     /** The colour of an enchant level, 0 (none) to 4, for anything outside this page that shows enchants. */
     static Color tierColor(int tier) {
@@ -779,7 +789,7 @@ final class CalcPane extends JPanel {
                     for (int e = 0; e < b.enchants.get(i).size(); e++) {
                         Item mark = b.enchants.get(i).get(e);
                         if (Glyph.sprite(g, mark.sheet, mark.sheetIndex, tx + 2 + e * 10, ty + TILE - 11, 10, 1f)) continue;
-                        g.setColor(TIERS[mark.tier]);
+                        g.setColor(tierColor(mark.tier));
                         g.fill(new java.awt.geom.Ellipse2D.Double(tx + 4 + e * 7, ty + TILE - 8, 5, 5));
                     }
                     if (it == null || !Glyph.item(g, it.name, tx + 6, ty + 6, TILE - 12)) {
@@ -843,7 +853,7 @@ final class CalcPane extends JPanel {
                         }
                         // the game's own symbol for that level (its frame grows with the level), dimmed unless in use
                         if (!Glyph.sprite(g, level.sheet, level.sheetIndex, px + 2, ey, 20, on ? 1f : 0.4f)) {
-                            g.setColor(on ? TIERS[tier] : SonarTheme.alpha(TIERS[tier], 0.5));
+                            g.setColor(on ? tierColor(tier) : SonarTheme.alpha(tierColor(tier), 0.5));
                             g.setFont(SonarTheme.bold(10f));
                             g.drawString(NUMERALS[tier], px + (24 - g.getFontMetrics().stringWidth(NUMERALS[tier])) / 2f, ey + 14);
                         }

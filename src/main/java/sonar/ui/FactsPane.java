@@ -101,10 +101,13 @@ class FactsPane extends Pane {
         }
         int y = 0;
         if (hasHeadline) {
+            // the one figure a panel exists to show, in the accent rather than plain text:
+            // every panel used to open with the same white number, so nothing on the page
+            // told the eye where to land first
             g.setFont(SonarTheme.bold(30f));
-            g.setColor(SonarTheme.TEXT);
             FontMetrics fm = g.getFontMetrics();
-            g.drawString(SonarTheme.fit(SonarTheme.number(Math.round(headline.get())), fm, width), 0, 30);
+            SonarTheme.glow(g, SonarTheme.fit(SonarTheme.number(Math.round(headline.get())), fm, width),
+                    0, 30, SonarTheme.accent());
             g.setFont(SonarTheme.font(12f));
             g.setColor(SonarTheme.MUTED);
             g.drawString(SonarTheme.fit(caption, g.getFontMetrics(), width), 0, 48);

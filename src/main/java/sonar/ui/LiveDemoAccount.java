@@ -1,0 +1,321 @@
+package sonar.ui;
+
+import sonar.game.RealmCharacter;
+import sonar.game.RealmCharacterStats;
+import sonar.game.enums.CharacterClass;
+
+/**
+ * One made-up account, consistent with itself, so every page has something real
+ * to draw.
+ * <p>
+ * Before this, demo mode filled in the damage pages and left the rest empty:
+ * Characters, Collection, Party finder and Fame all showed their empty state,
+ * and the Calculator had no weapon equipped, so its curve was flat and the
+ * colour-coded build bars never appeared at all. Those are the pages hardest to
+ * reach in a real session - they need an account to have been played, not just
+ * a dungeon to be running - which made them the pages least likely to be looked
+ * at before a release.
+ * <p>
+ * Everything here is built the way the live path builds it. The characters are
+ * real {@link RealmCharacter} objects, their fame is worked out by
+ * {@link FameBonus#of}, their stat ceilings come from {@link CharacterClass},
+ * their gear comes from the game's own equipment rules and their skins from
+ * skins.xml. Nothing is a figure typed in to look plausible, because a demo
+ * built on invented numbers hides the faults a demo exists to show - and one
+ * invented number, a skin id that was really a class id, is what put a grey box
+ * on every character in every screenshot this app has ever shipped.
+ */
+final class LiveDemoAccount {
+
+    private LiveDemoAccount() {
+    }
+
+    /**
+     * The account's characters: class, level, how far the stats are along, and the
+     * pet. Picked to cover the cases the pages have to handle rather than to look
+     * impressive - one fully maxed, one seasonal, one freshly rolled, one dead.
+     */
+    private static final Object[][] ROSTER = {
+            // class, level, fame, exp, how far stats are to maxed (0-1), pet, rarity, seasonal, dead
+            {"Wizard", 20, 4812L, 1_650_000L, 1.00, "Pudding", 4, false, false},
+            {"Necromancer", 20, 2630L, 1_210_000L, 0.92, "Mister Mordecai", 3, false, false},
+            {"Paladin", 20, 1184L, 980_000L, 0.78, "Sir Barks", 3, false, false},
+            {"Huntress", 20, 640L, 820_000L, 0.61, "Tangerine", 2, true, false},
+            {"Samurai", 14, 96L, 94_000L, 0.22, "", 0, false, false},
+            {"Knight", 20, 1902L, 1_010_000L, 0.85, "Olive", 3, false, true},
+    };
+
+    /**
+     * Dungeon completions for the account's best character, as a player with a few
+     * thousand hours would have them: the easy ones in the hundreds, the hard ones
+     * in the dozens, the newest in single figures.
+     */
+    private static void dungeons(RealmCharacterStats s) {
+        s.the_shatters = 23;
+        s.lost_halls = 41;
+        s.cultist_hideout = 38;
+        s.the_void = 29;
+        s.oryxs_sanctuary = 12;
+        s.the_nest = 64;
+        s.fungal_cavern = 57;
+        s.the_crawling_depths = 71;
+        s.ice_tomb = 44;
+        s.tomb_of_the_ancients = 96;
+        s.undead_lair = 212;
+        s.abyss_of_demons = 188;
+        s.snake_pit = 240;
+        s.sprite_world = 164;
+        s.manor_of_the_immortals = 83;
+        s.toxic_sewers = 151;
+        s.puppet_masters_encore = 18;
+        s.moonlight_village = 9;
+        s.secluded_thicket = 31;
+        s.lair_of_draconis = 47;
+        s.mountain_temple = 26;
+        s.cursed_library = 35;
+        s.kogbold_steamworks = 22;
+        s.advanced_kogbold_steamworks = 6;
+    }
+
+    /** Everything a character's fame is worked out from, scaled to how far along it is. */
+    private static RealmCharacterStats stats(double along, boolean best) {
+        RealmCharacterStats s = new RealmCharacterStats();
+        s.tiles_discovered = (int) (4_100_000 * along);
+        s.quests_completed = (int) (1_480 * along);
+        s.shots_fired = (int) (980_000 * along);
+        s.hits = (int) (486_000 * along);
+        s.ability_used = (int) (74_000 * along);
+        s.teleports = (int) (3_900 * along);
+        s.potions_drunk = (int) (2_650 * along);
+        s.party_level_ups = (int) (1_120 * along);
+        s.minutes_active = (int) (58_000 * along);
+        s.kills = (int) (142_000 * along);
+        s.assists = (int) (38_000 * along);
+        s.god_kills = (int) (31_000 * along);
+        s.lesser_gods_kills = (int) (9_400 * along);
+        s.oryx_kills = (int) (118 * along);
+        s.encounter_kills = (int) (640 * along);
+        s.hero_kills = (int) (1_950 * along);
+        s.cube_kills = (int) (410 * along);
+        s.critter_kills = (int) (6_200 * along);
+        s.beast_kills = (int) (18_400 * along);
+        s.humanoid_kills = (int) (21_700 * along);
+        s.undead_kills = (int) (26_900 * along);
+        s.nature_kills = (int) (11_300 * along);
+        s.construct_kills = (int) (8_800 * along);
+        s.grotesque_kills = (int) (14_600 * along);
+        s.structure_kills = (int) (3_100 * along);
+        s.ruins_enemy_kills = (int) (9_400 * along);
+        s.forest_enemy_kills = (int) (12_100 * along);
+        s.plains_enemy_kills = (int) (10_800 * along);
+        s.desert_enemy_kills = (int) (7_600 * along);
+        s.dark_forest_enemy_kills = (int) (6_300 * along);
+        s.undead_forest_enemy_kills = (int) (5_100 * along);
+        s.beach_enemy_kills = (int) (4_400 * along);
+        s.wither_enemy_kills = (int) (3_800 * along);
+        // only the account's best character has run the hard dungeons enough to matter
+        if (best) dungeons(s);
+        return s;
+    }
+
+    /**
+     * Builds the account onto the model: the character list, each one's fame, what
+     * the account owns, and the gear the Calculator reads for the live character.
+     */
+    static void fill(LiveModel m) {
+        int[] inventoryPool = {-1, -1, -1, -1, -1, -1, -1, -1};
+        for (int i = 0; i < ROSTER.length; i++) {
+            Object[] spec = ROSTER[i];
+            String cls = (String) spec[0];
+            int classId = CharacterClass.idByName(cls);
+            if (classId < 0) continue;
+
+            double along = (Double) spec[4];
+            boolean best = i == 0;
+
+            RealmCharacter c = new RealmCharacter();
+            c.charId = 7100 + i;
+            c.classNum = (short) classId;
+            c.classString = cls;
+            c.level = (Integer) spec[1];
+            c.fame = (Long) spec[2];
+            c.exp = (Long) spec[3];
+            c.seasonal = (Boolean) spec[7];
+            c.skin = LiveDemo.skinFor(cls, i * 3 + 1);
+            c.petName = (String) spec[5];
+            c.petRarity = (Integer) spec[6];
+            c.charStats = stats(along, best);
+
+            int[] kit = LiveDemo.kitFor(cls);
+            c.equipment = new int[]{kit[0], kit[1], kit[2], kit[3], -1, -1, -1, -1,
+                    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+
+            // What the gear lends. Set before the stats, because the game's figures already
+            // carry it and "maxed" is judged with it taken back off again.
+            int[] boost = new int[8];
+            boost[2] = 8;
+            boost[3] = 12;
+            boost[5] = 6;
+
+            // The stats this class can reach, and how far this character is along them.
+            // Players max one stat at a time rather than raising all eight together, so
+            // "along" decides how many are finished, not how far every one of them got.
+            int[] cap = CharacterClass.getStats(classId);
+            int[] stat = new int[8];
+            int done = (int) Math.round(along * 8);
+            for (int k = 0; k < 8; k++) {
+                int ceiling = cap == null ? 0 : cap[k];
+                if (ceiling <= 0) continue;
+                stat[k] = k < done ? ceiling + boost[k]
+                        : (int) Math.round(ceiling * (0.55 + 0.35 * along)) + boost[k];
+            }
+            c.hp = stat[0];
+            c.mp = stat[1];
+            c.atk = stat[2];
+            c.def = stat[3];
+            c.spd = stat[4];
+            c.dex = stat[5];
+            c.vit = stat[6];
+            c.wis = stat[7];
+
+            LiveModel.CharSummary s = new LiveModel.CharSummary();
+            s.id = c.charId;
+            s.className = cls;
+            s.level = c.level;
+            s.fame = c.fame;
+            s.exp = c.exp;
+            s.seasonal = c.seasonal;
+            s.current = best;
+            s.lost = (Boolean) spec[8] ? System.currentTimeMillis() - 86_400_000L * 3 : 0;
+            s.skin = c.skin;
+            int[] worn = LiveDemo.dyesFor(i * 3 + 1);
+            s.dyeMain = worn[0];
+            s.dyeAccessory = worn[1];
+            s.petName = c.petName;
+            s.petRarity = c.petRarity;
+
+            for (int k = 0; k < 8; k++) {
+                s.maxStat[k] = cap == null ? 0 : cap[k];
+                s.statBoost[k] = boost[k];
+                // the character's own exaltation, which raises the ceiling as well as the stat
+                s.exalt[k] = (int) Math.round(along * (k < 2 ? 3 : 2));
+                s.stat[k] = stat[k] + (k < done ? s.exalt[k] : 0);
+            }
+            for (int k = 0; k < 4; k++) {
+                s.gearIds[k] = kit[k];
+                s.gearNames[k] = LiveModel.itemName(kit[k]);
+                LiveModel.ITEM_IDS.put(s.gearNames[k], kit[k]);
+            }
+            System.arraycopy(inventoryPool, 0, s.inventory, 0, 8);
+            m.chars.add(s);
+
+            // the real derivation, not a number typed in: the same call the live path makes
+            FameBonus.Breakdown b = FameBonus.of(c);
+            if (b.known) {
+                int[] raw = {c.hp, c.mp, c.atk, c.def, c.spd, c.dex, c.vit, c.wis};
+                int[] ceiling = cap == null ? null : cap.clone();
+                for (int k = 0; k < 8 && ceiling != null; k++) {
+                    if (s.base(k) > 0) raw[k] = s.base(k);
+                    if (s.cap(k) > 0) ceiling[k] = s.cap(k);
+                }
+                FameBonus.addMaxedStats(b, raw, ceiling);
+                // the game reports this figure itself for a character it has seen played
+                if (best) b.reported = b.total() + 140;
+                m.fame.add(b);
+            }
+
+            // everything worn counts towards what the account holds
+            for (int id : kit) m.ownForDemo(id, 1);
+        }
+        m.fame.sort((p, q) -> Long.compare(q.total(), p.total()));
+
+        collections(m);
+        parties();
+
+        // the Calculator reads this: with it empty the page had no weapon, so the curve was
+        // flat and the colour-coded build bars never drew at all
+        if (!m.chars.isEmpty()) {
+            LiveModel.CharSummary first = m.chars.get(0);
+            System.arraycopy(first.gearIds, 0, m.myGear, 0, 4);
+        }
+    }
+
+    /**
+     * What the account has collected, taken from the real drop table rather than
+     * invented: a long-played account has most of the old dungeons finished, a good
+     * part of the mid ones and a scattering of the newest.
+     * <p>
+     * The Collection page also needs to have been told a vault was seen at all -
+     * without that it says it is still waiting, which is what it did in demo mode.
+     */
+    private static void collections(LiveModel m) {
+        m.regularVaultKnown = true;
+        m.seasonalVaultKnown = true;
+        int d = 0;
+        for (java.util.Map.Entry<String, java.util.List<Integer>> e : Collection.dropsForDemo().entrySet()) {
+            java.util.List<Integer> drops = e.getValue();
+            if (drops == null || drops.isEmpty()) continue;
+            // a spread across dungeons rather than the same fraction everywhere, so the page
+            // has something to sort: a few finished, most partway, some barely started
+            double share = ((d * 37) % 100) / 100.0;
+            share = share * share;
+            int have = (int) Math.round(drops.size() * share);
+            for (int i = 0; i < have; i++) {
+                int id = drops.get(i);
+                m.ownForDemo(id, 1);
+                m.ownSideForDemo(false, id, 1);
+                if (i % 3 == 0) m.ownSideForDemo(true, id, 1);
+            }
+            d++;
+        }
+    }
+
+    /**
+     * Party listings, as the finder really receives them: through the same call the
+     * packet handler makes, so the demo exercises the sorting, the filters and the
+     * copy-to-clipboard rather than a hand-filled list.
+     * <p>
+     * Written the way players really write them, abbreviations and all, because the
+     * page has to stay readable when the text is not tidy.
+     */
+    private static void parties() {
+        Object[][] listings = {
+                // description, players, max, type, privacy, maxed stats needed, server
+                {"o3 exalt run, 8/8 only, disc in party", 18, 20, 1, 1, 8, 0},
+                {"shatters farm - no rush, all welcome :)", 11, 20, 1, 1, 0, 1},
+                {"LH -> cult -> void, exp players", 19, 20, 1, 1, 6, 0},
+                {"nest chains, bring a key", 6, 20, 1, 1, 0, 2},
+                {"trading shiny doom bow, offers", 2, 5, 4, 1, 0, 1},
+                {"realm clearing + events, chill", 14, 20, 2, 1, 0, 3},
+                {"ddocks/cdepths for the newer players", 4, 20, 1, 1, 0, 2},
+                {"MBC runs, 6/8 min", 20, 20, 1, 2, 6, 0},
+        };
+        sonar.packets.data.PartyData[] data = new sonar.packets.data.PartyData[listings.length];
+        for (int i = 0; i < listings.length; i++) {
+            Object[] l = listings[i];
+            sonar.packets.data.PartyData d = new sonar.packets.data.PartyData();
+            d.partyId = 4100 + i;
+            d.descripition = (String) l[0];
+            d.currentPlayers = (byte) (int) (Integer) l[1];
+            d.maxPlayers = (byte) (int) (Integer) l[2];
+            d.partyType = (byte) (int) (Integer) l[3];
+            d.privacy = (byte) (int) (Integer) l[4];
+            d.requiredMaxedStats = (byte) (int) (Integer) l[5];
+            d.server = (byte) (int) (Integer) l[6];
+            d.powerlevel = (short) (40 + i * 7);
+            data[i] = d;
+        }
+        PartyFinder.sawList(data);
+
+        // the party the user is in, so the page has an "own party" to mark
+        String[] names = {"You", "Username1", "Username2", "Username3", "Username4", "Username5"};
+        sonar.packets.data.PartyPlayerData[] members = new sonar.packets.data.PartyPlayerData[names.length];
+        for (int i = 0; i < names.length; i++) {
+            sonar.packets.data.PartyPlayerData pp = new sonar.packets.data.PartyPlayerData();
+            pp.id = (short) i;
+            pp.name = names[i];
+            members[i] = pp;
+        }
+        PartyFinder.sawMembers(4102, members);
+    }
+}

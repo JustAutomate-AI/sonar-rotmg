@@ -167,6 +167,16 @@ final class LiveModel {
         if (id > 0) owned.merge(id, count, Integer::sum);
     }
 
+    /** The same count, for the demo account, which builds its roster rather than receiving one. */
+    void ownForDemo(int id, int count) {
+        own(id, count);
+    }
+
+    /** The same again, towards one vault only. */
+    void ownSideForDemo(boolean seasonal, int id, int count) {
+        own(seasonal ? ownedSeasonal : ownedRegular, id, count);
+    }
+
     /** Counts an item towards one side only. */
     private void own(java.util.Map<Integer, Integer> into, int id, int count) {
         if (id > 0) into.merge(id, count, Integer::sum);

@@ -134,7 +134,9 @@ class SonarButton extends JComponent {
         }
         g2.setFont(getFont());
         FontMetrics fm = g2.getFontMetrics();
-        Color ink = primary ? new Color(0x2a1020) : SonarTheme.TEXT;
+        // the ground, not a fixed dark: a filled button reads as the accent with the
+        // page punched through it, which only works if the punch is this theme's ground
+        Color ink = primary ? SonarTheme.mix(SonarTheme.BG, Color.BLACK, 0.25) : SonarTheme.TEXT;
         g2.setColor(ink);
         int textW = fm.stringWidth(text);
         int whole = textW + (icon == null ? 0 : ICON + (text.isEmpty() ? 0 : ICON_GAP));

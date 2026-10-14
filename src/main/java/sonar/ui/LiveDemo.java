@@ -117,6 +117,7 @@ final class LiveDemo {
         System.arraycopy(boost, 0, m.statBoost, 0, 8);
         System.arraycopy(exalt, 0, m.exaltProgress, 0, 8);
         addExaltation(m);
+        LiveDemoAccount.fill(m);
         m.vaultKnown = true;
         LiveModel.ITEM_IDS.put("Royal Cloak", 0xa00);
         LiveModel.ITEM_IDS.put("Avarice Chasers", 0xa00);
@@ -269,7 +270,7 @@ final class LiveDemo {
      * given a dagger - and the point of a demo is to look like the real thing,
      * so the real rules choose instead of me.
      */
-    private static int[] kitFor(String cls) {
+    static int[] kitFor(String cls) {
         return KITS.computeIfAbsent(cls, name -> {
             int[] kit = {-1, -1, -1, -1};
             int classId = sonar.game.enums.CharacterClass.idByName(name);
@@ -298,7 +299,10 @@ final class LiveDemo {
         r.calculated = r.damage;
         r.me = p == 11;
         if (r.me) r.pet = damage / 7;
-        r.skin = 768 + p % 3;
+        r.skin = skinFor(r.cls, p);
+        int[] worn = dyesFor(p);
+        r.dyeMain = worn[0];
+        r.dyeAccessory = worn[1];
         // what the run cost them, scaled to how much of it has been fought so far
         double progress = Math.max(0.05, Math.min(1, damage / (double) Math.max(1, FINAL_DAMAGE[p])));
         r.damageTaken = Math.round(TAKEN[p] * progress);
@@ -339,7 +343,68 @@ final class LiveDemo {
         r.addHit(r.loadout[1], "ability", ability, abilityHits);
         r.biggestHit = Math.max(1, (damage - ability) / Math.max(1, hits - abilityHits) * 3);
         verifyGear(r);
+        verifyLook(r);
         return r;
+    }
+
+    /**
+     * A skin this class may really wear.
+     * <p>
+     * This used to be {@code 768 + p % 3}, which is 0x0300 to 0x0302. Only the first
+     * of those exists at all - it is the Rogue entry in players.xml, a class rather
+     * than a skin - and the other two are in none of the game's files. So a third of
+     * the demo wore a Rogue's face whatever class it was, and the rest fell through
+     * to the empty plate, which is where the grey box in every screenshot came from.
+     * <p>
+     * The skin is chosen out of skins.xml the same way {@link #kitFor} chooses gear:
+     * from what the game says this class may wear. A class with no skin in the data
+     * keeps its own class id, which is the default look - a character wearing nothing,
+     * which is a real thing to be and draws correctly.
+     */
+    static int skinFor(String cls, int p) {
+        int classId = sonar.game.enums.CharacterClass.idByName(cls);
+        if (classId < 0) return 0;
+        java.util.List<Wardrobe.Skin> skins = Wardrobe.skins(classId);
+        if (skins.isEmpty()) return classId;
+        // every third player is left on the default look, because most players are
+        return p % 3 == 0 ? classId : skins.get((p * 7 + classId) % skins.size()).id;
+    }
+
+    /**
+     * What this player has dyed, as a party really looks: most of them nothing, some
+     * one half, a few both. No demo character had ever worn a dye before, so the whole
+     * dye path - the lookup from item to colour, and the compositing onto the sprite -
+     * went unexercised every time the demo ran.
+     */
+    static int[] dyesFor(int p) {
+        int[] none = {0, 0};
+        if (p % 4 == 0) return none;
+        java.util.List<Wardrobe.Dye> cloth = Wardrobe.dyes(false), accessory = Wardrobe.dyes(true);
+        if (cloth.isEmpty() || accessory.isEmpty()) return none;
+        int main = cloth.get((p * 13) % cloth.size()).value;
+        if (p % 4 == 1) return new int[]{main, 0};
+        int accent = accessory.get((p * 11) % accessory.size()).value;
+        if (p % 4 == 2) return new int[]{0, accent};
+        return new int[]{main, accent};
+    }
+
+    /**
+     * The same guard {@link #verifyGear} gives the equipment, for the character itself.
+     * <p>
+     * Worth having for the same reason: the skin is the one thing on a row that is
+     * written by hand rather than read from the game, and when it was wrong it was
+     * wrong quietly - a box looks like a loading state, not like a bug, which is how
+     * it survived into every screenshot the app has ever shipped.
+     */
+    private static void verifyLook(LiveModel.Row r) {
+        int classId = sonar.game.enums.CharacterClass.idByName(r.cls);
+        if (classId < 0) return;
+        if (r.skin == classId) return; // the default look, which every class has
+        for (Wardrobe.Skin s : Wardrobe.skins(classId)) {
+            if (s.id == r.skin) return;
+        }
+        throw new IllegalStateException("Demo data error: " + r.cls + " " + r.name
+                + " wears skin 0x" + Integer.toHexString(r.skin) + ", which is not a skin that class can wear");
     }
 
     /**

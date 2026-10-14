@@ -2,6 +2,36 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.4.0
+
+**Neon: a new look, and the one Sonar starts on**
+- A seventh theme, built around a black-violet ground with cyan and magenta over it, and the one a fresh install now opens in. The figure each panel exists to show is drawn in the accent with a soft bloom behind it, rather than every panel opening with the same white number.
+- Panel edges and dividers are part of the theme now. They were a fixed white wash, which suits a grey ground and reads as grime on a vivid one; every border in the interface follows the theme without any panel being touched.
+- Two accents to go with it, cyan and magenta, and cyan is what a fresh install highlights with.
+- The old look is kept exactly as it was: choose Plum for the ground and Peach for the accent. Nothing was removed.
+- An install sitting on the previous default moves across once and is marked, so choosing Midnight again sticks. An install that had deliberately picked anything else is left alone.
+
+**Two things that ignored the theme, fixed**
+- The look and feel had the plum hue written into it, so the widgets it paints for itself - scrollbars, tooltips, popups, combo lists - stayed plum whichever theme was chosen. They follow the chosen ground and accent now.
+- A filled button's ink was a fixed plum-black rather than the theme's own ground showing through.
+
+**The damage calculator's colours are unchanged, deliberately**
+- Its build colours were already constants and never followed the theme. The enchant level colours are pinned now too, so a level means the same colour on every ground: a legend has to mean the same thing in every screenshot.
+
+**Where the MVP placed on each of the run's bosses**
+- Small icons along the top right of the MVP card, one per main boss of the run, each with where that player finished on it. First place carries a gold edge.
+- Which fights count is worked out from the size of the fight inside the instance actually being run. The game's own labels cannot answer it: they call two of the Shatters' three bosses MINIBOSS, and they call Marble Colossus, Malus and the Void Entity all BOSS out of one shared file. Size gets the Shatters' three and Lost Halls' one right.
+- A boss the player never damaged is still shown, dimmed with a dash, so a card with a gap in it says the run had a gap rather than looking like a different dungeon.
+
+**The MVP card's loadout, rewritten**
+- Two across and two down, with every enchant nested under the item it is actually on and drawn with the game's own icon for that enchant rather than a gem for its rarity.
+- Nothing is cut any more. Item and enchant names wrap, and the card measures its own height from what it will really draw, so a heavily enchanted kit grows the card instead of running off it.
+
+**Demo mode is a real account now**
+- Every character wore a skin id that was not a skin. It was the Rogue class entry for a third of them and nothing at all for the rest, which is where the grey box on every character in every screenshot came from. Skins come from the game's own data, matched to the class, with dyes - a path that had never once run.
+- Characters, Collection, Party finder and Fame used to show their empty state, and the Calculator had nothing equipped, so its curve was flat and its colour-coded build bars never drew. There is a consistent six-character account behind all of them now, built through the same code the live path uses.
+- The demo checks itself the way it already checked equipment: a character wearing a skin its class cannot wear stops it outright, rather than quietly drawing a box.
+
 ## 2.3.0
 
 **Share the MVP on their own, gear and all**

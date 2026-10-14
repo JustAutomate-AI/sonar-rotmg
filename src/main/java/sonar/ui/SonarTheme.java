@@ -47,8 +47,16 @@ public final class SonarTheme {
                 Math.min(255, (int) Math.round(c.getBlue() + (255 - c.getBlue()) * by)));
     }
 
-    public static final Color LINE = new Color(255, 255, 255, 20);
-    public static final Color LINE_STRONG = new Color(255, 255, 255, 46);
+    /**
+     * The hairline every panel edge and divider is drawn in.
+     * <p>
+     * These were a fixed white wash, which is right for a neutral ground and wrong
+     * for a vivid one: on Neon a white hairline reads as grime rather than as an
+     * edge. They are part of the palette now, so a theme can tint its own edges and
+     * every border in the interface follows without any panel being touched.
+     */
+    public static Color LINE = new Color(255, 255, 255, 20);
+    public static Color LINE_STRONG = new Color(255, 255, 255, 46);
     public static Color TEXT = new Color(0xf5eef8);
     public static Color MUTED = new Color(0xa99db6);
     public static Color FAINT = new Color(0x7a6f87);
@@ -57,8 +65,17 @@ public final class SonarTheme {
     private static final class Base {
         final String name;
         final int bg, rail, surface, raised, text, muted, faint;
+        /** The hue edges are drawn in, and how hard, as 0xRRGGBB plus two alphas. */
+        final int edge, edgeSoft, edgeHard;
+        /** True for a theme that wants bloom behind its figures and lit panel edges. */
+        final boolean vivid;
 
         Base(String name, int bg, int rail, int surface, int raised, int text, int muted, int faint) {
+            this(name, bg, rail, surface, raised, text, muted, faint, 0xFFFFFF, 20, 46, false);
+        }
+
+        Base(String name, int bg, int rail, int surface, int raised, int text, int muted, int faint,
+             int edge, int edgeSoft, int edgeHard, boolean vivid) {
             this.name = name;
             this.bg = bg;
             this.rail = rail;
@@ -67,6 +84,10 @@ public final class SonarTheme {
             this.text = text;
             this.muted = muted;
             this.faint = faint;
+            this.edge = edge;
+            this.edgeSoft = edgeSoft;
+            this.edgeHard = edgeHard;
+            this.vivid = vivid;
         }
     }
 
@@ -88,14 +109,21 @@ public final class SonarTheme {
             new Base("Forest", 0x0d1311, 0x121a17, 0x17201d, 0x1f2b27, 0xeaf5ef, 0x95ab9f, 0x667b72),
             // deep burgundy, the richest ground here
             new Base("Wine", 0x160d12, 0x1d1118, 0x25161e, 0x301d28, 0xf9ebf0, 0xb89aa6, 0x866a76),
+            // black-violet under cyan and magenta: the loudest of the set, and the one
+            // the interface is built around now. Its edges are lit violet rather than
+            // white, which is what stops it reading as one more dark grey theme.
+            new Base("Neon", 0x0c0820, 0x110a2b, 0x180f33, 0x221545, 0xf2ecff, 0x9a8fc4, 0x655c8a,
+                    0xb08cff, 38, 86, true),
     };
 
     /**
-     * What a fresh install starts on: the deep navy, which is the ground the cyan
-     * Sonar mark was drawn against. Held by name rather than index so reordering
+     * What a fresh install starts on. Held by name rather than index so reordering
      * the table above cannot quietly change which theme new installs get.
      */
-    private static final String DEFAULT_THEME = "Midnight";
+    private static final String DEFAULT_THEME = "Neon";
+
+    /** What it used to be, for the one-time move described in {@link #themeIndex()}. */
+    private static final String PREVIOUS_DEFAULT = "Midnight";
 
     /** The themes on offer, for the Settings page. */
     public static String[] themeNames() {
@@ -116,6 +144,16 @@ public final class SonarTheme {
         if (themeIndex < 0) {
             // a theme chosen in Settings wins; otherwise the default, by name
             String saved = sonar.util.PropertiesManager.getProperty("sonar.theme");
+            // an install carrying the old default was never really a choice - it is just
+            // where everyone landed - so it moves across once, and is marked so that a
+            // later move back to Midnight is left alone
+            if (sonar.util.PropertiesManager.getProperty("sonar.theme.neon") == null) {
+                sonar.util.PropertiesManager.setProperties("sonar.theme.neon", "done");
+                if (saved == null || saved.equalsIgnoreCase(PREVIOUS_DEFAULT)) {
+                    saved = DEFAULT_THEME;
+                    sonar.util.PropertiesManager.setProperties("sonar.theme", DEFAULT_THEME);
+                }
+            }
             themeIndex = indexOfTheme(saved != null ? saved : DEFAULT_THEME);
             apply(THEMES[themeIndex]);
         }
@@ -133,6 +171,15 @@ public final class SonarTheme {
         return 0;
     }
 
+    /** True when the chosen theme wants bloom behind its figures and lit edges. */
+    private static boolean vivid;
+
+    /** Whether the chosen theme asks for the lit treatment. */
+    public static boolean vivid() {
+        themeIndex();
+        return vivid;
+    }
+
     private static void apply(Base b) {
         BG = new Color(b.bg);
         BG_RAIL = new Color(b.rail);
@@ -141,6 +188,9 @@ public final class SonarTheme {
         TEXT = new Color(b.text);
         MUTED = new Color(b.muted);
         FAINT = new Color(b.faint);
+        LINE = new Color(b.edge >> 16 & 0xFF, b.edge >> 8 & 0xFF, b.edge & 0xFF, b.edgeSoft);
+        LINE_STRONG = new Color(b.edge >> 16 & 0xFF, b.edge >> 8 & 0xFF, b.edge & 0xFF, b.edgeHard);
+        vivid = b.vivid;
     }
 
     /** Picks a theme and remembers it. */
@@ -158,14 +208,19 @@ public final class SonarTheme {
     public static final Color DANGER = new Color(0xff5c7a);
     /** The blue that marks an exaltation bonus, wherever one is shown apart from a base stat. */
     public static final Color EXALT = new Color(0x6aa8ff);
+    /** The pair the Neon ground is built around: the figure, and the thing that names it. */
+    public static final Color NEON_CYAN = new Color(0x2de2e6);
+    public static final Color NEON_MAGENTA = new Color(0xff3cac);
     /** Glow colour by enchant rarity tier, index 0 = tier I through index 3 = tier IV and up. */
     private static final Color[] ENCHANT_GLOW = {new Color(0xcfc9da), MINT, new Color(0x6aa8ff), VIOLET};
 
     // ---- accent: the one colour the interface highlights with, chosen in Settings ----
 
     /** The accents on offer, each a pair of the colour itself and a slightly deeper partner for gradients. */
-    public static final String[] ACCENT_NAMES = {"Peach", "Coral", "Mint", "Violet", "Gold", "Ice"};
+    public static final String[] ACCENT_NAMES = {"Cyan", "Magenta", "Peach", "Coral", "Mint", "Violet", "Gold", "Ice"};
     private static final Color[] ACCENTS = {
+            NEON_CYAN,
+            NEON_MAGENTA,
             PEACH,
             new Color(0xff7a93),
             new Color(0x5ee6c5),
@@ -174,23 +229,29 @@ public final class SonarTheme {
             new Color(0x7ec8f5),
     };
 
+    /** What a fresh install highlights with, by name so the order above can change freely. */
+    private static final String DEFAULT_ACCENT = "Cyan";
+
     private static int accentIndex = -1;
 
     /** The chosen accent, read from the saved settings the first time it is needed. */
     public static Color accent() {
         if (accentIndex < 0) {
-            accentIndex = 0;
             String saved = sonar.util.PropertiesManager.getProperty("sonar.accent");
-            if (saved != null) {
-                for (int i = 0; i < ACCENT_NAMES.length; i++) {
-                    if (ACCENT_NAMES[i].equalsIgnoreCase(saved)) {
-                        accentIndex = i;
-                        break;
-                    }
-                }
-            }
+            accentIndex = indexOfAccent(saved != null ? saved : DEFAULT_ACCENT);
         }
         return ACCENTS[accentIndex];
+    }
+
+    /** The named accent, or the default's position if the name is not one we know. */
+    private static int indexOfAccent(String name) {
+        for (int i = 0; i < ACCENT_NAMES.length; i++) {
+            if (ACCENT_NAMES[i].equalsIgnoreCase(name)) return i;
+        }
+        for (int i = 0; i < ACCENT_NAMES.length; i++) {
+            if (ACCENT_NAMES[i].equals(DEFAULT_ACCENT)) return i;
+        }
+        return 0;
     }
 
     /** The accent at a given choice, for drawing the swatches themselves. */
@@ -257,6 +318,28 @@ public final class SonarTheme {
         g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
         g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         return g2;
+    }
+
+    /**
+     * A string, with a soft bloom behind it on the themes that asked for one.
+     * <p>
+     * Quiet themes get the plain draw and pay nothing: the bloom is four offset
+     * passes, which is cheap but not free, and on a grey ground it only looks
+     * smudged. Use it for the figures that are meant to carry a panel, not for body
+     * text, where it costs legibility for nothing.
+     */
+    public static void glow(Graphics2D g, String text, float x, float y, Color c) {
+        if (vivid()) {
+            g.setColor(alpha(c, 0.16));
+            for (int r = 3; r >= 1; r--) {
+                g.drawString(text, x - r, y);
+                g.drawString(text, x + r, y);
+                g.drawString(text, x, y - r);
+                g.drawString(text, x, y + r);
+            }
+        }
+        g.setColor(c);
+        g.drawString(text, x, y);
     }
 
     public static Color alpha(Color c, double a) {
@@ -340,7 +423,13 @@ public final class SonarTheme {
     }
 
     /**
-     * Darcula with every neutral gray shifted to plum and the blue accents to sonar.
+     * Darcula with every neutral grey shifted onto the chosen ground and the blue
+     * accents onto the chosen highlight.
+     * <p>
+     * Both hues used to be written in here as plum and coral, so the widgets Darklaf
+     * paints for itself - scrollbars, tooltips, popups, combo lists - stayed plum
+     * whichever theme was picked. On a vivid ground that is the difference between a
+     * theme and a half-painted one.
      */
     private static class SonarLaf extends DarculaTheme {
 
@@ -361,14 +450,19 @@ public final class SonarTheme {
 
         private static Color recolor(Color c) {
             float[] hsb = Color.RGBtoHSB(c.getRed(), c.getGreen(), c.getBlue(), null);
+            float ground = Color.RGBtoHSB(SURFACE.getRed(), SURFACE.getGreen(), SURFACE.getBlue(), null)[0];
+            Color highlight = accent();
+            float lit = Color.RGBtoHSB(highlight.getRed(), highlight.getGreen(), highlight.getBlue(), null)[0];
             Color out;
             if (hsb[1] < 0.16f) {
-                // neutral: tint toward plum; dark surfaces get a little darker
+                // neutral: tint onto the ground; dark surfaces get a little darker, and a
+                // vivid theme carries more of its hue so the greys never go flat
                 float b = hsb[2] < 0.5f ? hsb[2] * 0.62f : hsb[2];
-                out = Color.getHSBColor(0.765f, hsb[2] < 0.5f ? 0.24f : 0.05f, b);
+                float sat = hsb[2] < 0.5f ? (vivid ? 0.34f : 0.24f) : 0.05f;
+                out = Color.getHSBColor(ground, sat, b);
             } else if (hsb[0] > 0.5f && hsb[0] < 0.7f) {
-                // blue accents: move to the warm accent, slightly calmer
-                out = Color.getHSBColor(0.96f, Math.min(0.5f, hsb[1] * 0.75f), Math.min(1f, hsb[2] * 1.05f));
+                // blue accents: move onto the chosen highlight, slightly calmer
+                out = Color.getHSBColor(lit, Math.min(0.5f, hsb[1] * 0.75f), Math.min(1f, hsb[2] * 1.05f));
             } else {
                 return c;
             }

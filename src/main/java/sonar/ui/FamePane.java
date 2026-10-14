@@ -113,9 +113,8 @@ class FamePane extends Pane {
         boolean told = b.reported >= 0;
         String total = SonarTheme.number(b.total());
         g.setFont(SonarTheme.bold(22f));
-        g.setColor(SonarTheme.GOLD);
         int tw = g.getFontMetrics().stringWidth(total);
-        g.drawString(total, width - PAD - tw, top + 30);
+        SonarTheme.glow(g, total, width - PAD - tw, top + 30, SonarTheme.GOLD);
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(told ? SonarTheme.alpha(SonarTheme.MINT, 0.85) : SonarTheme.FAINT);
         String cap = told ? "fame on death, as the game reports it" : "fame if it died now, as Sonar works it out";

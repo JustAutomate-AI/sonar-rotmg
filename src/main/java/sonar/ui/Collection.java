@@ -70,6 +70,11 @@ final class Collection {
         return loaded;
     }
 
+    /** The drop table itself, for the demo account, which has to own a believable part of it. */
+    static Map<String, List<Integer>> dropsForDemo() {
+        return table();
+    }
+
     /**
      * Every dungeon's collection measured against what the account holds,
      * the ones closest to finished first so the next worthwhile run is at the
