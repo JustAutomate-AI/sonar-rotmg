@@ -12,7 +12,7 @@ import java.awt.event.KeyEvent;
  * wrong rather than as part of the app. This is the same question in the same
  * palette, with the same buttons used everywhere else.
  */
-final class SonarDialog {
+public final class SonarDialog {
 
     private SonarDialog() {
     }
@@ -22,7 +22,7 @@ final class SonarDialog {
      *
      * @return the index of the option chosen, or the last one if it was dismissed.
      */
-    static int ask(Component parent, String title, String message, String... options) {
+    public static int ask(Component parent, String title, String message, String... options) {
         if (options.length == 0) options = new String[]{"OK"};
         Window owner = parent instanceof Window ? (Window) parent
                 : parent == null ? null : SwingUtilities.getWindowAncestor(parent);

@@ -62,6 +62,11 @@ public class AppWindow {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setContentPane(shell);
         frame.setVisible(true);
+        // after the window is up, so the dialogs have something to sit on
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            FirstRun.offerShortcut(frame);
+            FirstRun.checkNpcap(frame);
+        });
     }
 
     /**

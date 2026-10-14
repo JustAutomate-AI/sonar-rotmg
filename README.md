@@ -19,19 +19,24 @@ A damage tracker for Realm of the Mad God. Sonar reads the game's network packet
 
 ## Install (Windows)
 
-**To just use it:** download `Sonar-<version>-windows.zip` from the [latest release](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest), unpack it, and double-click `Setup.bat`. It checks for Java and Npcap, offers to install what is missing, and creates `Sonar.exe` and a desktop shortcut. `INSTRUCTIONS.txt` in the zip walks through it.
+Download `Sonar-<version>-windows.zip` from the
+[latest release](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest),
+unpack it anywhere, and run **`Sonar.exe`**.
+
+That is the whole installation. Sonar brings its own Java, so there is nothing else
+to install. On first run it offers a desktop shortcut and tells you if **Npcap** is
+missing - that driver is the one thing it cannot bring with it, because its licence
+does not allow that. Everything except the sniffer works without it.
 
 **To build it yourself:**
 
 1. Clone this repository.
-2. Double-click `Setup.bat`. It checks the prerequisites (64-bit Java JDK, Npcap, Git), offers to install what is missing, builds Sonar and creates `Sonar.exe`.
-3. Start `Sonar.exe`, press **Start sniffer**, then enter a new area in game so it can sync.
+2. Double-click `Setup.bat` - it checks the prerequisites (a 64-bit JDK, Npcap),
+   offers to install what is missing, and builds Sonar into `run\Sonar.jar`.
+3. `tools\make-package.ps1` turns that into the release zip: a trimmed Java
+   runtime and `Sonar.exe`, ready to unpack and run.
 
-`tools\make-release.ps1` packs the built app into the release zip.
-
-`Diagnose.bat` checks an existing install without changing anything. [INSTALL.md](INSTALL.md) has the details and the fixes for known problems.
-
-Only one game client at a time is supported, and the sniffer sees nothing while the game runs through a VPN.
+[INSTALL.md](INSTALL.md) has the details and the fixes for known problems.
 
 ## A note on use
 

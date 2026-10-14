@@ -2,6 +2,25 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.1.0
+
+Groundwork for a one-click install. The next release is the one you unpack and run
+with no Java and no setup script; this one is what lets your copy update into it
+without being reinstalled by hand.
+
+**Sonar stops scattering files**
+- Every file it read or wrote resolved against whatever folder it happened to be started from. Launch it from somewhere unexpected and settings, saved characters and extracted assets were written there, or it quietly failed to find data it had already extracted. It now keeps one folder and uses it wherever it is run from.
+
+**It can update into the new shape**
+- The next release puts Sonar's files beside the program instead of in a `run` folder. This version understands both, and moves your settings, characters, history and assets up to meet them when that happens - so the change costs you nothing and needs nothing doing by hand.
+
+**It says when Npcap is missing**
+- Rather than letting Start sniffer fail with no explanation, Sonar now says so when it opens, and offers the download page. Everything else works without it.
+
+---
+
+209 self-test assertions pass.
+
 ## 2.0.0
 
 Sonar was built on someone else's app. It is not any more: the interface it inherited

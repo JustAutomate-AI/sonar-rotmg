@@ -1,0 +1,148 @@
+SONAR - damage tracker for Realm of the Mad God
+================================================
+
+Sonar reads the game's network traffic on your own PC and shows who is dealing
+how much damage in the instance you are in. It never changes, blocks or sends
+anything. Windows 10 or 11 (64-bit) only.
+
+
+INSTALL
+-------
+
+1. Unpack the whole zip to a normal folder, for example Documents\Sonar.
+   Do not run it from inside the zip, and avoid Program Files and OneDrive.
+
+2. Double-click  Sonar.exe
+
+   If Windows shows "Windows protected your PC", click "More info" and then
+   "Run anyway". This appears because the file was downloaded.
+
+   That is the install. Java is not needed - Sonar brings its own.
+
+3. The first time it opens it will offer to put a shortcut on your desktop
+   and in the Start menu, and will say so if Npcap is missing.
+
+
+NPCAP
+-----
+
+Npcap is the driver that lets Sonar see network packets. It is the one thing
+Sonar cannot bring with it, because its licence does not allow that.
+
+If Sonar says it is missing, use the link it offers, or get it from
+https://npcap.com/#download and when the installer asks:
+
+  - keep  "Install Npcap in WinPcap API-compatible Mode"  ticked
+  - leave "Restrict Npcap driver's access to Administrators only" unticked
+
+Everything except the sniffer works without it.
+
+
+RUN
+---
+
+1. Start the game.
+2. Open Sonar.
+3. Press "Start sniffer" in the top right corner.
+4. Enter a new area in the game, for example the Nexus. Sonar needs to see an
+   area load once before it can follow the game.
+
+The sniffer has to be started each time you open Sonar, and it stops when you
+close Sonar. "Auto-start" in the left rail can do it for you.
+
+Item and enemy names and pictures come from the game's own files, which Sonar
+reads on first run. That takes a moment the first time and is then kept.
+
+To keep Sonar on the taskbar, right-click its shortcut (on Windows 11 choose
+"Show more options" first), or right-click the Sonar button on the taskbar
+while it is running, and choose "Pin to taskbar".
+
+
+USING IT
+--------
+
+Live          The damage list, your own numbers and the current fight.
+              Overall / Enemy / Bosses   which damage is counted
+              DPS / Total                damage per second or total damage dealt
+              Everyone / Party           all players or only your party
+              Click a player's bar to see what their damage came from.
+              Click the rank number at the left end of a bar to add that
+              player to your party or remove them.
+              "Reset" (small, top right of the damage list) sets the damage
+              shown for this instance to zero. It needs a second click to
+              confirm, and the arrow that appears beside it undoes it.
+              The two arrows beside the instance name step back through
+              finished instances and forward again to the live one.
+Players       Everyone who dealt damage. Pick one to see their damage by item,
+              their hits, biggest hit and equipment. Your party is listed
+              here too; click a member to remove them.
+Instance      Details of the area, every enemy hit, finished instances and
+              your character's eight stats. Click an enemy or a finished
+              instance to see it on the Live page.
+Analysis      Where a fight's damage went, boss by boss and wave by wave.
+Vault         What is in your vault, gift chest and potion storage.
+Characters    Your characters, their gear, stats and pets.
+Exaltation    Exaltation progress per class.
+Wardrobe      Skins and dyes, and how Sonar draws each class.
+Collection    What you have found, and what is left.
+Party finder  Players you have seen, and who you keep running with.
+Fame          What a character is worth now and what it would be worth dead.
+Puzzle        The Shatters observatory puzzle, solved from what the game sends.
+Calculator    What an item or ability actually hits for.
+Daily Quests  The day's quests, what they ask for and what they pay.
+
+Windows can be dragged by their title, resized from the right and bottom edge
+and closed with the X. "Windows" brings closed ones back and "Reset layout"
+restores the defaults. Your layout and party are remembered.
+
+
+IF SOMETHING DOES NOT WORK
+--------------------------
+
+  Nothing shows after starting the sniffer
+      Turn off any VPN, run only one game client, and enter a new area.
+  "You are missing a program called Npcap"
+      Reinstall Npcap with "WinPcap API-compatible Mode" ticked.
+  The sniffer stops with "Stream Constructor reached 50 packets"
+      This is packet loss, usually Wi-Fi. Use a network cable if you can.
+  Wrong or missing names after a game update
+      Delete the "assets" folder beside Sonar.exe and open Sonar again; it
+      reads the game's files afresh.
+  Sonar does not open
+      Check that the whole zip was unpacked, not just Sonar.exe. The "app"
+      and "runtime" folders beside it are what it runs on.
+
+
+UPDATING
+--------
+
+Sonar looks for a newer version each time it starts, and "Check for updates"
+at the bottom of the left rail does the same on demand. When there is one,
+choose "Update and restart": Sonar downloads it, closes, installs it and
+starts again. Your layout, party and settings are kept.
+
+If the automatic update fails, download the new zip from the release page and
+unpack it over this folder.
+
+
+UNINSTALL
+---------
+
+Delete this folder, the desktop shortcut and the Sonar entry in the Start menu
+(right-click it > Open file location > delete). Unpin it from the taskbar if
+you pinned it. Npcap is a separate program and can be removed from Windows
+Settings > Apps if you no longer want it.
+
+
+ABOUT
+-----
+
+Sonar is published by JustAutomate-AI. MIT licence - see LICENSE.md, which
+covers the packet-capture and asset code it is built from.
+Source code: https://github.com/JustAutomate-AI/sonar-rotmg
+
+Sonar.exe is not code-signed, so Windows security prompts say "Unknown
+publisher"; that label only changes with a paid signing certificate.
+
+Third-party tools are a grey area under the game's terms of service.
+Use Sonar at your own risk.
