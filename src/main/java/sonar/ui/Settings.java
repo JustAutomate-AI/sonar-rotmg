@@ -31,8 +31,38 @@ public final class Settings {
      * the rest of the session.
      */
     public static void migrate() {
+        liftOutOfRunFolder();
         renameFile();
         renameKeys();
+    }
+
+    /**
+     * Moves an older install's data up out of its run folder.
+     * <p>
+     * Until 2.0 the app lived in run\ and kept its settings, characters, history and
+     * extracted assets beside the jar. The packaged build has no run folder - it keeps
+     * all of that next to the program - so an install that updates into the new shape
+     * would otherwise come up blank with its old data stranded one level down.
+     * <p>
+     * Only runs when there is nothing in the new place and something in the old one,
+     * so it cannot touch an install that is already where it should be.
+     */
+    private static void liftOutOfRunFolder() {
+        File base = sonar.DataDir.base();
+        File run = new File(base, "run");
+        if (!run.isDirectory()) return;
+        if (new File(base, FILE).isFile() || new File(base, OLD_FILE).isFile()) return;
+        if (!new File(run, FILE).isFile() && !new File(run, OLD_FILE).isFile()) return;
+        File[] items = run.listFiles();
+        if (items == null) return;
+        int moved = 0;
+        for (File item : items) {
+            File to = new File(base, item.getName());
+            // never overwrite something already sitting in the new place
+            if (to.exists()) continue;
+            if (item.renameTo(to)) moved++;
+        }
+        if (moved > 0) System.out.println("Settings: moved " + moved + " items up out of the run folder");
     }
 
     /**

@@ -271,7 +271,12 @@ final class Updater {
                     int n;
                     while ((n = in.read(buffer)) > 0) o.write(buffer, 0, n);
                 }
-                if (e.getName().replace('\\', '/').equals("Sonar/run/Sonar.jar")) hasApp = true;
+                // Either release layout counts. The older one shipped the jar under run\ and
+                // relied on Java being installed; the packaged one ships an exe with its own
+                // runtime beside it. An install can be handed either and has to cope.
+                String entry = e.getName().replace('\\', '/');
+                if (entry.equals("Sonar/run/Sonar.jar") || entry.equals("Sonar/app/Sonar.jar")
+                        || entry.equals("Sonar/Sonar.exe")) hasApp = true;
             }
         }
         return hasApp;
