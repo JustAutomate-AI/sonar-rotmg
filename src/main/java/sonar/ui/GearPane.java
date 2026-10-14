@@ -200,18 +200,22 @@ class GearPane extends Pane {
             FontMetrics fm = g.getFontMetrics();
             int tx = x + 10, ty = y + 30;
             if (full) {
-                // the exalt stat is a level; a level gives 5 life or mana, 1 of anything else
-                int exalted = row.exalt[s] * (s < 2 ? 5 : 1);
+                // The exalt stat is the bonus itself, not a level to convert. Five bonuses is
+                // the most any stat takes and each is worth 1, or 5 on life and mana, so a fully
+                // exalted health reads 25 here. Multiplying it again showed that player +125 and
+                // measured them against a ceiling a hundred points too high - a Huntress maxed on
+                // all eight stats was told she wanted twenty-five more life potions.
+                int exalted = row.exalt[s];
                 // what the stat is worth on its own, with the equipment taken back off, against
                 // the ceiling it can reach. The game shows the shortfall as "72|6"; so does this.
                 int own = total[s] - boost[s];
-                int cap = caps == null || s >= caps.length || caps[s] <= 0 ? 0 : caps[s] + Math.max(0, exalted);
+                int potions = potionsToMax(caps, s, total[s], boost[s]);
+                // Potions stop at the class maximum. Exaltation is not part of that ceiling and
+                // is not inside the figure the game reports either - a fully potioned, fully
+                // exalted Huntress still reads 750, her class maximum, with the 25 kept apart.
+                // So the two are compared as they stand and the exalt is only ever displayed.
+                int cap = caps == null || s >= caps.length || caps[s] <= 0 ? 0 : caps[s];
                 boolean maxed = cap > 0 && own >= cap;
-                int short_ = cap > 0 ? Math.max(0, cap - own) : 0;
-                // in potions, not in points: a life potion is worth five, every other potion one,
-                // and nobody counts their maxing in anything but potions
-                int perPotion = s < 2 ? 5 : 1;
-                int potions = short_ > 0 ? (short_ + perPotion - 1) / perPotion : 0;
                 tx = part(g, fm, String.valueOf(total[s]), tx, ty, maxed ? SonarTheme.GOLD : SonarTheme.TEXT);
                 if (potions > 0) tx = part(g, fm, "|" + potions, tx, ty, SonarTheme.MUTED);
                 if (boost[s] != 0) tx = part(g, fm, " (" + signed(boost[s]) + ")", tx, ty, maxed ? SonarTheme.GOLD : SonarTheme.MUTED);
@@ -238,6 +242,29 @@ class GearPane extends Pane {
         }
         if (!full && note.isEmpty()) note = "The game does not send this player's own stats";
         g.drawString(SonarTheme.fit(note, g.getFontMetrics(), width), 0, ny);
+    }
+
+    /**
+     * How many potions this stat is short of its class maximum.
+     * <p>
+     * In potions because that is the only unit anybody counts in: a life or mana potion is
+     * worth five, every other one is worth one. Exaltation is deliberately absent - it is
+     * not part of the ceiling potions reach, and it is not inside the figure the game
+     * reports either, so neither side of the subtraction wants it.
+     *
+     * @param caps  the class's own maxima, in Sonar's stat order; null for a class not known.
+     * @param stat  0 to 7, where 0 and 1 are life and mana.
+     * @param total the stat as the game reports it, equipment included.
+     * @param boost what the equipment is lending, which comes back off first.
+     * @return 0 for a stat already at its maximum.
+     */
+    static int potionsToMax(int[] caps, int stat, int total, int boost) {
+        if (caps == null || stat < 0 || stat >= caps.length || caps[stat] <= 0) return 0;
+        int own = total - boost;
+        int short_ = Math.max(0, caps[stat] - own);
+        if (short_ == 0) return 0;
+        int perPotion = stat < 2 ? 5 : 1;
+        return (short_ + perPotion - 1) / perPotion;
     }
 
     private static int part(Graphics2D g, FontMetrics fm, String text, int x, int y, Color color) {

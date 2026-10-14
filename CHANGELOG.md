@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.5.1
+
+**Potions to max was wrong for exalted characters**
+- The exalt figure the game sends is the bonus itself, not a level to convert, and it was being multiplied again - so a fully exalted health showed as +125 rather than +25 and was measured against a ceiling a hundred points too high.
+- Worse, exaltation was being added to the potion ceiling at all. It never belonged there: potions stop at the class maximum, exaltation sits above it, and the figure the game reports does not include it either. A Huntress maxed on all eight stats was being told she wanted twenty-five more life potions.
+- Found by reading a crowded server. The quiet one the client opens on had nobody maxed and exalted, so nothing there could have shown it.
+
+**The sum is now checked against players Sonar really saw**
+- Three characters read off the wire, with the numbers exactly as the game sent them, kept as a standing check: a Huntress finished on all eight stats, a Knight twenty life and four mana short, and a Druid seven speed short while wearing a blood ritual. Twenty-four assertions, run against the same code the stats panel uses rather than a copy of it.
+
 ## 2.5.0
 
 **A run you joined partway through is kept rather than thrown away**
