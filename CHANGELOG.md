@@ -2,6 +2,33 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.5.0
+
+**A run you joined partway through is kept rather than thrown away**
+- Starting the sniffer after a dungeon has begun used to leave Sonar with nothing: the one packet that names an instance arrives at the map load and never again, and without it the run was collected, shown, and then dropped when the instance ended. It is kept now, marked as started late, and the damage it did see is real damage.
+- Whether a fight was watched from its beginning is judged per fight, not per run. An enemy first seen at full health was fought from the start, so its record is complete and its numbers mean what they say - and since bosses are fought at the end, a run joined during trash usually holds a complete record of the fight people actually care about.
+- A boss already part-beaten when Sonar arrived says how much it missed instead of reporting a share of health that would flatter whoever turned up late.
+- The instances list keeps the two apart: a late run is marked "Started late" and coloured differently, and the count reads "5 finished · 2 late".
+
+**Sonar works out who you are when it was not told**
+- Which player is you arrives once, with the map load. Join late and nothing was ever marked as you: your own row was not yours and the You panel stayed empty. Every character on an account carries the account's name, so the name Sonar saw last time it did know is enough to find you again.
+
+**The Players page fills in without a dungeon**
+- The roster is built from who has been seen, reading their gear straight off them, but it was thrown away whenever the instance was unknown. Standing in the Nexus with the sniffer just switched on now lists everyone there, with their gear and stats, rather than showing nothing.
+
+**Potions to max, rather than points to max**
+- The stats panel showed how many points short of maxed a stat was. It shows potions now, which is the only unit anybody counts in: a life potion is worth five, every other potion one.
+- Exaltation sits above the potion ceiling and never moves it, so an exalted character is measured against the same maximum as anyone else.
+
+**Seasonal, Crucible and Blood Ritual, read off anyone in sight**
+- The two marks the game draws beside a name - green for seasonal, red for crucible - now appear in Sonar's roster in the same two colours, so there is no second convention to learn.
+- And the Blood Ritual besides, which the game knows about and shows nobody. Hovering says what it costs and pays: health, damage and loot.
+- The figures are read from the table the server itself sends rather than written down here. They change between seasons - this season's live loot values are already half what the patch notes said, and the notes leave out the Crucible's wisdom bonus entirely.
+
+**Fixes**
+- The damage ledger switched itself off whenever the instance was unknown, which is exactly the run that most needs checking. It follows a joined run now.
+- The self-test says what it needs instead of throwing. It drives the real interface, so it wants demo data to act on; run without it, it reported three ordinary-looking failures and then fell over an empty list, which reads as a broken app rather than a missing flag.
+
 ## 2.4.0
 
 **Neon: a new look, and the one Sonar starts on**

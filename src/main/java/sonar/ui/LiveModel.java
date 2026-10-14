@@ -46,6 +46,16 @@ final class LiveModel {
     int maxPlayers;
     int deaths;
     boolean tracked;
+    /**
+     * True when Sonar came in partway through this instance and never saw it named.
+     * <p>
+     * The run is still worth having - the damage has been collected all along - but it
+     * cannot claim to be the whole story, so nothing derived from it is allowed to read
+     * as though it were. See {@link Target#whole()} for the per-fight version, which is
+     * the one that matters: bosses are fought at the end, so a run joined during trash
+     * usually holds a complete record of the fight people actually care about.
+     */
+    boolean joined;
     /** Every enemy that took player damage, most recently hit first. */
     final ArrayList<Target> targets = new ArrayList<>();
     /** All enemies of the instance added together. */
@@ -323,6 +333,20 @@ final class LiveModel {
         int stageIndex, stageCount;
         /** When this enemy was first hit, dungeon-relative, so fights can be put in the order they happened. */
         long firstHit;
+        /**
+         * How much of this fight had already happened before Sonar saw the enemy, 0 to 1.
+         * <p>
+         * Zero for a fight watched from the start, which is the ordinary case and the only
+         * one where this enemy's share-of-health figures mean what they appear to mean.
+         */
+        double missed;
+
+        /** True when Sonar saw this fight from the beginning, so its numbers are the whole story. */
+        boolean whole() {
+            // a couple of percent is regeneration and rounding rather than a fight already under way
+            return missed < 0.02;
+        }
+
         int hp, maxHp;
         /** Health this enemy was actually seen to lose over the whole fight, and how much it regained; -1 when unknown. */
         long healthLost = -1, healthRegained = -1;
@@ -399,6 +423,9 @@ final class LiveModel {
         /** The game ids of those four items, and of the skin or class to picture the player with. */
         int[] gearIds = {-1, -1, -1, -1};
         int skin = -1;
+        /** Seasonal character, and the crucible and blood ritual the game says they carry. */
+        boolean seasonal;
+        String crucibleId, ritualId;
         /** The game's values for the main and accessory dye or cloth, 0 for none. */
         int dyeMain, dyeAccessory;
         /** Totals, the part that comes from equipment, and exalt levels for the eight stats; null when the game does not send them for this player. */
@@ -643,10 +670,12 @@ final class LiveModel {
         DpsData source;
         /** Set instead of source when the instance did not come from recorded packets. */
         LiveModel frozen;
+        /** True when Sonar came in partway: the run is real but it is not the whole run. */
+        boolean joined;
     }
 
     static LiveModel live(GameData data) {
-        LiveModel m = build(data.map, java.util.Arrays.asList(data.getEntityHitList()), data.dungeonTime(), data.getTimePcFirst());
+        LiveModel m = build(data.map, data.instanceKey(), java.util.Arrays.asList(data.getEntityHitList()), data.dungeonTime(), data.getTimePcFirst());
         // what each player took, which lives on their own entity rather than on any enemy
         takenByPlayer(data, m);
         // Account-wide data: the vault, the character list and exaltation progress all come from the
@@ -794,7 +823,13 @@ final class LiveModel {
             }
             m.exaltClasses.add(e);
         }
-        if (data.map == null) return m;
+        // The roster below is built from who has been seen, not from who has dealt damage -
+        // it reads their gear straight off the entity. Bailing here whenever the map is
+        // unknown threw that away too, so starting the sniffer anywhere without a map load,
+        // the Nexus included, left the Players page empty when the people were right there
+        // in the packets. The roster is worth having on its own; only the instance figures
+        // below it need a map.
+        if (data.map == null && data.playersSeen().isEmpty()) return m;
         m.players = data.playerListUpdated.size();
         // a player who changes character comes back under a new id; only their newest self is listed
         HashMap<String, Row> newest = new HashMap<>();
@@ -834,6 +869,13 @@ final class LiveModel {
             } catch (RuntimeException e) {
                 // equipment not sent yet
             }
+            // the crucible and blood ritual ids ride on every player entity, so anyone in
+            // sight can be read the same way the user is
+            sonar.backend.data.CrucibleBonusManager.notePlayer(r.name, p);
+            r.seasonal = statValue(p, StatType.SEASONAL) == 1;
+            String[] marks = sonar.backend.data.CrucibleBonusManager.marksOf(p);
+            r.crucibleId = marks[0];
+            r.ritualId = marks[1];
             if (r.name.isEmpty()) continue;
             if (p.pos != null) {
                 r.tileX = p.pos.x;
@@ -859,7 +901,7 @@ final class LiveModel {
         // do not - so every portrait outside that page was blank. Copy the look across once here,
         // and every page, export and share gets it for free.
         applySeenLooks(m);
-        m.maxPlayers = Math.max(0, data.map.maxPlayerCount);
+        m.maxPlayers = data.map == null ? 0 : Math.max(0, data.map.maxPlayerCount);
         m.deaths = data.getDeathNotifications().size();
         m.petMine = PetDamage.mine(data.map);
         m.petAll = PetDamage.all(data.map);
@@ -923,6 +965,7 @@ final class LiveModel {
         Row me = m.whole.me();
         p.mine = me == null ? 0 : me.damage;
         p.source = d;
+        p.joined = m.joined;
         // kept as it stands now: the server check only knows the instance that has just ended
         p.frozen = m;
         return p;
@@ -953,17 +996,50 @@ final class LiveModel {
         return names;
     }
 
+    /**
+     * What to call an instance whose naming packet was missed.
+     * <p>
+     * Deliberately not guessed. The game gives an enemy no dungeon tag of its own, so the
+     * only clue is which XML file it was defined in, and turning "theShattersObjects.xml"
+     * into "The Shatters" is a filename heuristic that would eventually put the wrong
+     * dungeon's name on somebody's screenshot. The fights themselves are named from the
+     * game's own data and say plainly enough where this was.
+     */
+    private static String inferInstance(Collection<Entity> hit) {
+        return "Unknown area";
+    }
+
     private static LiveModel build(MapInfoPacket map, Collection<Entity> hit, long elapsedMs, long startTimePc) {
+        return build(map, map, hit, elapsedMs, startTimePc);
+    }
+
+    /**
+     * @param auditKey what the damage ledger filed this instance under, which is the map on an
+     *                 ordinary run and a stand-in on one joined partway. Passing the map here
+     *                 would switch the ledger off for exactly the runs that need it most.
+     */
+    private static LiveModel build(MapInfoPacket map, Object auditKey, Collection<Entity> hit, long elapsedMs, long startTimePc) {
         LiveModel m = new LiveModel();
-        if (map == null) return m;
-        m.instanceKey = map;
-        m.instance = prettyMapName(map.displayName != null && !map.displayName.isEmpty() ? map.displayName : map.name);
+        // No map load means Sonar was started after this instance began - it missed the one
+        // packet that names the place. Everything else still arrives, and the damage has been
+        // accumulating all along, so the run is shown rather than thrown away; it is marked
+        // joined, and each fight carries whether it was watched from its own beginning.
+        if (map == null) {
+            if (hit == null || hit.isEmpty()) return m;
+            m.joined = true;
+            m.instance = inferInstance(hit);
+        } else {
+            m.instanceKey = map;
+            m.instance = prettyMapName(map.displayName != null && !map.displayName.isEmpty() ? map.displayName : map.name);
+        }
         // lets the Instances list draw this dungeon's own portal picture, the same way an item's icon is found
-        int portalId = sonar.game.ParseDungeon.getPortalId(m.instance);
+        int portalId = m.instance == null ? -1 : sonar.game.ParseDungeon.getPortalId(m.instance);
         if (portalId > 0) ITEM_IDS.putIfAbsent(m.instance, portalId);
         // the game prefixes the realm with its portal id, such as "NexusPortal.Horizon"
-        m.realm = safe(map.realmName);
-        if (m.realm.contains(".")) m.realm = m.realm.substring(m.realm.lastIndexOf('.') + 1);
+        if (map != null) {
+            m.realm = safe(map.realmName);
+            if (m.realm.contains(".")) m.realm = m.realm.substring(m.realm.lastIndexOf('.') + 1);
+        }
         m.elapsedMs = Math.max(0, elapsedMs);
         m.tracked = true;
 
@@ -987,8 +1063,9 @@ final class LiveModel {
             t.boss = isBoss(e);
             t.miniboss = isMiniboss(e);
             // what the fight really cost the enemy, as opposed to the one health figure it reports now
-            t.healthLost = DamageAudit.healthLost(map, e.id);
-            t.healthRegained = DamageAudit.healthRegained(map, e.id);
+            t.missed = e.sonarMissedFraction();
+            t.healthLost = DamageAudit.healthLost(auditKey, e.id);
+            t.healthRegained = DamageAudit.healthRegained(auditKey, e.id);
             for (Damage d : list) {
                 if (d.owner == null || d.damage <= 0) continue;
                 Row r = new Row();
@@ -1042,7 +1119,7 @@ final class LiveModel {
             // the user's own damage is the client's estimate; hold it against what the server's numbers support
             Row mine = t.me();
             if (mine != null) {
-                long confirmed = DamageAudit.confirmedOwn(map, e.id);
+                long confirmed = DamageAudit.confirmedOwn(auditKey, e.id);
                 // the check covers the user's own shots; the pet's damage comes on top
                 if (confirmed >= 0) confirmed += mine.pet;
                 if (confirmed >= 0 && confirmed != mine.damage) {
@@ -1051,7 +1128,7 @@ final class LiveModel {
                     t.rows.sort((x, y) -> Long.compare(y.damage, x.damage));
                 }
                 if (confirmed < 0) mine.unchecked = mine.damage;
-                else if (DamageAudit.alone(map, e.id)) mine.solo = mine.damage;
+                else if (DamageAudit.alone(auditKey, e.id)) mine.solo = mine.damage;
             }
             for (Row r : t.rows) {
                 Row s = sum.get(r.id);

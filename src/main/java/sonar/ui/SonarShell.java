@@ -532,7 +532,7 @@ public class SonarShell extends JPanel {
                 // the who-was-where index is built from these files, so it is stale the moment one lands
                 PlayerHistory.invalidate();
             }
-            DamageAudit.tick(data.map, data.map == null ? null : data.map.displayName, data.getEntityHitList());
+            DamageAudit.tick(data.instanceKey(), data.instanceKeyName(), data.getEntityHitList());
             // the character being played describes itself through the packets already flowing past;
             // remembering it here is what lets the Characters page work outside the Pet Yard
             CharacterCache.seen(data);

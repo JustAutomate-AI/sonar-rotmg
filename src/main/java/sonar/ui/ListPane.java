@@ -61,6 +61,20 @@ class ListPane extends Pane {
             return this;
         }
 
+        /**
+         * Small coloured marks after the title, as pairs of colour and hover text.
+         * <p>
+         * The game already teaches people that a green mark beside a name means seasonal and
+         * a red one means crucible, so these follow its convention rather than inventing one.
+         */
+        java.util.List<Object[]> badges;
+
+        Item badge(Color color, String tip) {
+            if (badges == null) badges = new java.util.ArrayList<>();
+            badges.add(new Object[]{color, tip});
+            return this;
+        }
+
         /** A player's own skin and dyes, drawn in place of an item picture. -1 skin for none. */
         int skin = -1, dyeMain, dyeAccessory;
 
@@ -158,7 +172,17 @@ class ListPane extends Pane {
             int textX = drew ? 46 : 14;
             g.setFont(titleFont);
             g.setColor(on ? SonarTheme.accent() : SonarTheme.TEXT);
-            g.drawString(SonarTheme.fit(it.title, titleFm, right - textX), textX, y + 19);
+            int badgeRoom = it.badges == null ? 0 : it.badges.size() * 11 + 4;
+            String shownTitle = SonarTheme.fit(it.title, titleFm, right - textX - badgeRoom);
+            g.drawString(shownTitle, textX, y + 19);
+            if (it.badges != null) {
+                int bx = textX + titleFm.stringWidth(shownTitle) + 6;
+                for (Object[] b : it.badges) {
+                    g.setColor((Color) b[0]);
+                    g.fillOval(bx, y + 10, 7, 7);
+                    bx += 11;
+                }
+            }
             g.setFont(detailFont);
             g.setColor(SonarTheme.MUTED);
             g.drawString(SonarTheme.fit(it.detail, detailFm, (it.action != NONE ? width - ACTION : width) - 12 - textX), textX, y + 35);

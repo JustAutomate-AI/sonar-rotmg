@@ -175,12 +175,18 @@ class GearPane extends Pane {
         double[][] parts = row.gearIds[0] > 0 || row.gearIds[1] > 0 || row.gearIds[2] > 0 || row.gearIds[3] > 0 ? CalcPane.gearBonuses(row.gearIds, row.enchants) : null;
         g.setFont(SonarTheme.font(11f));
         g.setColor(SonarTheme.FAINT);
-        g.drawString(SonarTheme.fit(full ? "STATS  \u00b7  total (equipment) (exalts)" : "STATS  \u00b7  what their equipment adds", g.getFontMetrics(), width), 0, top + 18);
+        g.drawString(SonarTheme.fit(full ? "STATS  \u00b7  total | potions to max (equipment) (exalts)" : "STATS  \u00b7  what their equipment adds", g.getFontMetrics(), width), 0, top + 18);
         String[] names = {"HP", "MP", "ATT", "DEF", "SPD", "DEX", "VIT", "WIS"};
         int half = (width - 8) / 2;
-        // the ceilings this character is actually measured against: the class maximum, raised by
-        // whatever it has exalted. Every total used to be painted gold whether it was maxed or
-        // not, which said a Rogue six short on speed and one short on vitality was finished.
+        // What a stat can be drunk up to is the class maximum, full stop. Exaltation sits on
+        // top of that: it applies from the moment the character is made, it raises the number
+        // shown, and it moves the potion ceiling not at all - five attack exalts on a class
+        // capped at 70 means 75 attack and still ten potions short. Since the reported total
+        // already carries the exalt bonus, adding it to the cap as well cancels out and leaves
+        // the honest shortfall; it is written that way rather than subtracted from the total
+        // because the game sends the exalt as a level, and converting once is less to get wrong.
+        // Every total used to be painted gold whether it was maxed or not, which said a Rogue
+        // six short on speed and one short on vitality was finished.
         int classId = row.cls == null ? -1 : sonar.game.enums.CharacterClass.idByName(row.cls);
         int[] caps = classId < 0 ? null : sonar.game.enums.CharacterClass.getStats(classId);
         for (int s = 0; s < 8; s++) {
@@ -202,8 +208,12 @@ class GearPane extends Pane {
                 int cap = caps == null || s >= caps.length || caps[s] <= 0 ? 0 : caps[s] + Math.max(0, exalted);
                 boolean maxed = cap > 0 && own >= cap;
                 int short_ = cap > 0 ? Math.max(0, cap - own) : 0;
+                // in potions, not in points: a life potion is worth five, every other potion one,
+                // and nobody counts their maxing in anything but potions
+                int perPotion = s < 2 ? 5 : 1;
+                int potions = short_ > 0 ? (short_ + perPotion - 1) / perPotion : 0;
                 tx = part(g, fm, String.valueOf(total[s]), tx, ty, maxed ? SonarTheme.GOLD : SonarTheme.TEXT);
-                if (short_ > 0) tx = part(g, fm, "|" + short_, tx, ty, SonarTheme.MUTED);
+                if (potions > 0) tx = part(g, fm, "|" + potions, tx, ty, SonarTheme.MUTED);
                 if (boost[s] != 0) tx = part(g, fm, " (" + signed(boost[s]) + ")", tx, ty, maxed ? SonarTheme.GOLD : SonarTheme.MUTED);
                 if (exalted != 0) part(g, fm, " (+" + exalted + ")", tx, ty, new Color(EXALT_BLUE));
             } else if (parts == null) {

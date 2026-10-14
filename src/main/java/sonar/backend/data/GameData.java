@@ -104,6 +104,73 @@ public class GameData {
     }
 
     /**
+     * Recognising the user when the packet that names them was never seen.
+     * <p>
+     * Which player is you arrives once, in CreateSuccess, alongside the map load. Start
+     * Sonar after a dungeon has begun and that packet is long gone, so worldPlayerId stays
+     * -1 and nothing is ever marked as the user: the board is correct but your own row is
+     * not yours, the You panel is empty and pet damage goes unattributed.
+     * <p>
+     * Every character on a Realm account carries the account's name, so the name Sonar saw
+     * last time it did identify the user is enough to find them again. It is remembered
+     * across sessions for exactly this, and only ever used when the proper identification
+     * is unavailable - a positive CreateSuccess always wins.
+     */
+    private static void rememberPlayerName(String name) {
+        if (name == null || name.isEmpty()) return;
+        if (name.equals(PropertiesManager.getProperty("sonar.player"))) return;
+        PropertiesManager.setProperties("sonar.player", name);
+    }
+
+    /**
+     * Stands in for the map on a run Sonar joined partway.
+     * <p>
+     * Several things key off the map object to know which instance they are looking at -
+     * the damage ledger most of all, which refuses to tally anything when it is null. That
+     * is the right answer for the Nexus and the vault, and the wrong one for a dungeon
+     * joined late, where there is a real fight to audit and simply no packet naming it.
+     * One object per joined run, cleared with everything else when the instance ends.
+     */
+    private Object joinedKey;
+
+    /**
+     * The instance to key by: the map when there is one, a stand-in when Sonar came in
+     * partway and there is real damage to account for, and null when there is neither.
+     */
+    public Object instanceKey() {
+        if (map != null) return map;
+        if (entityHitList.isEmpty()) return null;
+        if (joinedKey == null) joinedKey = new Object();
+        return joinedKey;
+    }
+
+    /** What to call that instance; empty for one Sonar never saw named. */
+    public String instanceKeyName() {
+        return map == null ? "" : map.displayName;
+    }
+
+    /** True when Sonar had to recognise the user by name rather than being told. */
+    private boolean selfByName;
+
+    public boolean isSelfByName() {
+        return selfByName;
+    }
+
+    private boolean claimByName(Entity entity) {
+        if (worldPlayerId >= 0 || player != null) return false;
+        String known = PropertiesManager.getProperty("sonar.player");
+        if (known == null || known.isEmpty()) return false;
+        String name = entity.name();
+        if (name == null || !known.equals(name)) return false;
+        player = entity;
+        // charId is unknown without CreateSuccess; the stats it would have keyed are read
+        // from the entity itself, so -1 costs nothing here
+        entity.setUser(charId);
+        selfByName = true;
+        return true;
+    }
+
+    /**
      * Sets the current realm users character id.
      *
      * @param objectId ID of the object in the world.
@@ -263,7 +330,8 @@ public class GameData {
             if (id == worldPlayerId) {
                 player = entity;
                 entity.setUser(charId);
-            } else {
+                rememberPlayerName(entity.name());
+            } else if (!claimByName(entity)) {
                 entity.isPlayer();
             }
         }
@@ -833,8 +901,14 @@ public class GameData {
     public void clear() {
         worldPlayerId = -1;
         charId = -1;
+        selfByName = false;
+        joinedKey = null;
         time = -1;
-        if (map != null && isLoggedDungeon(map.displayName)) {
+        // A run Sonar came in partway through has no map, so this gate used to drop it on
+        // the floor: the damage was collected, shown live, and then thrown away when the
+        // instance ended. It is archived like any other run, carrying the mark that says
+        // what it is, so the instances list can keep it apart rather than lose it.
+        if (map == null ? !entityHitList.isEmpty() : isLoggedDungeon(map.displayName)) {
             Map<Integer, String> playerNames = new HashMap<>();
             Map<Integer, Integer> playerClassTypes = new HashMap<>();
             for (Map.Entry<Integer, Entity> e : playerList.entrySet()) {

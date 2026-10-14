@@ -66,6 +66,13 @@ final class InstanceHistory {
         long startedAt, durationMs, total, mine, petMine = -1, petAll;
         int deaths, players, maxPlayers;
         boolean hasPlayer;
+        /**
+         * True when Sonar started partway through this run.
+         * <p>
+         * Absent from files written before this existed, where Gson leaves it false - which
+         * is the right answer for them, since nothing could be recorded partway before.
+         */
+        boolean joined;
         String myName = "", myClass = "";
         int[] statTotal = new int[8], statBoost = new int[8];
         List<LiveModel.Target> targets = new ArrayList<>();
@@ -90,6 +97,7 @@ final class InstanceHistory {
             e.players = m.players;
             e.maxPlayers = m.maxPlayers;
             e.hasPlayer = m.hasPlayer;
+            e.joined = past.joined || m.joined;
             e.myName = m.myName;
             e.myClass = m.myClass;
             e.statTotal = m.statTotal.clone();
@@ -181,6 +189,7 @@ final class InstanceHistory {
         m.petMine = e.petMine;
         m.petAll = e.petAll;
         m.hasPlayer = e.hasPlayer;
+        m.joined = e.joined;
         m.myName = e.myName;
         m.myClass = e.myClass;
         if (e.statTotal != null) System.arraycopy(e.statTotal, 0, m.statTotal, 0, Math.min(8, e.statTotal.length));
@@ -197,6 +206,7 @@ final class InstanceHistory {
         if (m.current == null && !m.targets.isEmpty()) m.current = m.targets.get(0);
 
         LiveModel.Past p = new LiveModel.Past();
+        p.joined = e.joined;
         p.name = e.name;
         p.durationMs = e.durationMs;
         p.startedAt = e.startedAt;

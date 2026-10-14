@@ -115,6 +115,7 @@ public class Entity implements Serializable {
         );
 
         stat.setStats(status.stats);
+        notePeakAndFirstSighting();
 
         pos = status.pos;
 
@@ -150,6 +151,42 @@ public class Entity implements Serializable {
                 }
             }
         }
+    }
+
+    /**
+     * Health the first time this enemy was ever seen, kept so a fight Sonar watched from
+     * the beginning can be told apart from one it walked in on.
+     * <p>
+     * Taken on sighting rather than on the first hit: the game sends an enemy's stats in
+     * the Update packet that brings it into view, whether or not anybody has touched it,
+     * so an enemy already at half health when it appears is one whose fight started
+     * before Sonar was listening.
+     */
+    private int firstSeenHp = -1, firstSeenMaxHp = -1;
+
+    private void notePeakAndFirstSighting() {
+        if (firstSeenMaxHp > 0) return;
+        int max = maxHp();
+        if (max <= 0) return;
+        firstSeenMaxHp = max;
+        firstSeenHp = hp();
+    }
+
+    /**
+     * How much of this enemy was already gone when Sonar first saw it, 0 to 1.
+     * <p>
+     * Measured as a share rather than a count of health, because the game rescales a
+     * boss's pool as players come and go - see {@link #sonarPeakMaxHp()} - so the two
+     * absolute figures are only comparable within the single status update they arrived
+     * in. Their ratio survives the rescaling; their difference does not.
+     *
+     * @return 0 for an enemy first seen at full health, which is a fight recorded in full.
+     */
+    public double sonarMissedFraction() {
+        if (firstSeenMaxHp <= 0 || firstSeenHp < 0) return 0;
+        double left = firstSeenHp / (double) firstSeenMaxHp;
+        if (left >= 1) return 0;
+        return Math.max(0, Math.min(1, 1 - left));
     }
 
     public int maxHp() {

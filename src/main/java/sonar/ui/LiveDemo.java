@@ -83,6 +83,11 @@ final class LiveDemo {
             past.total = frozen.whole.total;
             past.mine = frozen.whole.me() == null ? 0 : frozen.whole.me().damage;
             past.frozen = frozen;
+            // one of the three came in partway, so the instances list shows both kinds at once
+            if (i == 1) {
+                past.joined = true;
+                frozen.joined = true;
+            }
             pasts.add(past);
         }
         view.setSniffing(true);
@@ -300,6 +305,11 @@ final class LiveDemo {
         r.me = p == 11;
         if (r.me) r.pet = damage / 7;
         r.skin = skinFor(r.cls, p);
+        // a believable spread of marks: some seasonal, fewer in the crucible, fewer still
+        // trading health away, so the roster shows every combination at once
+        r.seasonal = p % 3 != 2;
+        if (r.seasonal && p % 2 == 0) r.crucibleId = "demo-crucible";
+        if (r.seasonal && p % 4 == 0) r.ritualId = "demo-ritual";
         int[] worn = dyesFor(p);
         r.dyeMain = worn[0];
         r.dyeAccessory = worn[1];

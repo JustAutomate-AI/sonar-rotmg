@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import sonar.packets.Packet;
 import sonar.packets.data.StatData;
@@ -25,6 +26,119 @@ public class CrucibleBonusManager {
     private static String currentPlayerCrucibleId155 = null;
 
     /**
+     * Every bonus the server described, kept whole rather than reduced to a damage number.
+     * <p>
+     * Only type 5 was ever read, because damage was all this was built for. The same array
+     * carries the rest of what a crucible or a blood ritual does - the health traded away,
+     * the vitality added, the loot multiplier - under type codes nobody here has written
+     * down yet. They are recorded verbatim so the codes can be read off a real capture
+     * instead of guessed at, and so the figures stay Deca's rather than ours: this table
+     * changes every season, and a season's notes are out of date the week after they ship.
+     */
+    private static final Map<String, Map<Integer, Double>> bonusesById = new LinkedHashMap<>();
+    /** What each player seen is wearing: name to {crucible id, blood ritual id}. */
+    private static final Map<String, String[]> seenPlayers = new LinkedHashMap<>();
+    /** The last crucible payload as it arrived, written out so it can be read at leisure. */
+    private static String lastJson;
+
+    /** What the server calls each crucible and ritual, by id. */
+    private static final Map<String, String> titlesById = new LinkedHashMap<>();
+    /** Stat multipliers a crucible imposes, by id then stat name: "VIT" to 1.3 and so on. */
+    private static final Map<String, Map<String, Double>> statMultipliersById = new LinkedHashMap<>();
+
+    /** What the server calls this crucible or ritual, or null for one never described. */
+    public static synchronized String titleOf(String id) {
+        return id == null ? null : titlesById.get(id);
+    }
+
+    /** The stat multipliers this crucible imposes, keyed by the game's own stat names. */
+    public static synchronized Map<String, Double> statMultipliersFor(String id) {
+        return id == null ? null : statMultipliersById.get(id);
+    }
+
+    /**
+     * The multiplier on a player's maximum health, which is what a blood ritual trades away.
+     * Returns 1 when there is none, so callers can multiply unconditionally.
+     */
+    public static synchronized double healthMultiplier(String id) {
+        Map<Integer, Double> b = bonusesById.get(id);
+        Double v = b == null ? null : b.get(4);
+        return v == null ? 1 : v;
+    }
+
+    private static void readRestrictions(JsonObject body, String id) {
+        if (body == null || !body.has("restrictions") || !body.get("restrictions").isJsonArray()) return;
+        for (JsonElement e : body.getAsJsonArray("restrictions")) {
+            if (!e.isJsonObject()) continue;
+            JsonObject r = e.getAsJsonObject();
+            if (!r.has("stat") || !r.has("value")) continue;
+            statMultipliersById
+                    .computeIfAbsent(id, k -> new LinkedHashMap<>())
+                    .put(r.get("stat").getAsString(), r.get("value").getAsDouble());
+        }
+    }
+
+    /** Every bonus type the server sent for one crucible or ritual id, or null for one not described. */
+    public static synchronized Map<Integer, Double> bonusesFor(String id) {
+        return id == null ? null : bonusesById.get(id);
+    }
+
+    /** Which crucible and blood ritual each player seen has on, for the pages that show stats. */
+    public static synchronized Map<String, String[]> seenPlayers() {
+        return new LinkedHashMap<>(seenPlayers);
+    }
+
+    /**
+     * Records what one player has active. These stats ride on every player entity, not only
+     * the user's, so anybody in sight can be read the same way.
+     */
+    public static synchronized void notePlayer(String name, Entity e) {
+        if (name == null || name.isEmpty() || e == null || e.stat == null) return;
+        dumpStatsOnce(name, e);
+        String crucible = stringStat(e, 128), ritual = stringStat(e, 155);
+        if (crucible == null && ritual == null) return;
+        String[] was = seenPlayers.get(name);
+        if (was != null && java.util.Objects.equals(was[0], crucible) && java.util.Objects.equals(was[1], ritual)) return;
+        seenPlayers.put(name, new String[]{crucible, ritual});
+        System.out.println("[Crucible] " + name + " crucible=" + crucible + " bloodRitual=" + ritual);
+    }
+
+    /**
+     * Diagnostic: the whole stat block of the first few players seen.
+     * <p>
+     * Tells an absent crucible apart from an unreadable one. Nobody having a blood ritual on
+     * and the stat never being sent for other players look identical from the outside, and
+     * only one of them is a wall.
+     */
+    private static int dumped;
+
+    private static void dumpStatsOnce(String name, Entity e) {
+        if (dumped >= 3) return;
+        dumped++;
+        StringBuilder b = new StringBuilder("[StatDump] " + name + " ->");
+        for (int id = 0; id < 200; id++) {
+            StatData d = e.stat.get(id);
+            if (d == null) continue;
+            String str = d.stringStatValue;
+            b.append(' ').append(id).append('=');
+            b.append(str != null && !str.isEmpty() ? ('"' + str + '"') : String.valueOf(d.statValue));
+        }
+        System.out.println(b);
+    }
+
+    /** The crucible and blood ritual ids this entity carries, either may be null. */
+    public static String[] marksOf(Entity e) {
+        if (e == null || e.stat == null) return new String[]{null, null};
+        return new String[]{stringStat(e, 128), stringStat(e, 155)};
+    }
+
+    private static String stringStat(Entity e, int statId) {
+        StatData d = e.stat.get(statId);
+        if (d == null || d.stringStatValue == null || d.stringStatValue.isEmpty()) return null;
+        return d.stringStatValue;
+    }
+
+    /**
      * Processes a CrucibleResponsePacket to extract and store damage multipliers.
      */
     public static void processCrucibleResponse(Packet packet) {
@@ -39,6 +153,8 @@ public class CrucibleBonusManager {
                 return;
             }
 
+            lastJson = jsonData;
+            dumpJson(jsonData);
             processJsonData(jsonData, "packet");
         } catch (Exception e) {
             System.err.println(
@@ -47,11 +163,32 @@ public class CrucibleBonusManager {
         }
     }
 
+    /**
+     * Writes the payload beside the rest of Sonar's data. One real capture settles what the
+     * type codes mean and whether the health a blood ritual trades away is already taken off
+     * the maximum the server reports - which decides whether the potions-to-max figure is
+     * right or badly wrong for a seasonal character, and is not a thing to guess at.
+     */
+    private static void dumpJson(String jsonData) {
+        try {
+            java.io.File out = sonar.DataDir.file("crucible-payload.json");
+            try (java.io.PrintWriter w = new java.io.PrintWriter(out, "UTF-8")) {
+                w.print(jsonData);
+            }
+            System.out.println("[Crucible] payload written to " + out.getAbsolutePath() + " (" + jsonData.length() + " chars)");
+        } catch (Exception e) {
+            System.out.println("[Crucible] could not write the payload: " + e.getMessage());
+        }
+    }
+
     private static void processJsonData(String jsonData, String source) {
         JsonArray crucibleJsonsArray = gson.fromJson(jsonData, JsonArray.class);
         if (crucibleJsonsArray == null) return;
 
         crucibleDamageMultipliers.clear();
+        bonusesById.clear();
+        titlesById.clear();
+        statMultipliersById.clear();
 
         for (JsonElement crucibleJsonElement : crucibleJsonsArray) {
             JsonObject crucibleJsonObj = crucibleJsonElement.getAsJsonObject();
@@ -68,6 +205,14 @@ public class CrucibleBonusManager {
                     JsonObject crucibleObj = element.getAsJsonObject();
                     if (crucibleObj.has("id")) {
                         String crucibleId = crucibleObj.get("id").getAsString();
+                        // the blood ritual steps are titled "1" to "10", hardest trade first;
+                        // the crucible's title is its season's name
+                        if (crucibleObj.has("title")) {
+                            titlesById.put(crucibleId, crucibleObj.get("title").getAsString());
+                        }
+                        // a stat multiplier lives under restrictions with the stat named on it,
+                        // not under bonuses - the two arrays carry different halves of the story
+                        if (crucibleObj.has("crucible")) readRestrictions(crucibleObj.getAsJsonObject("crucible"), crucibleId);
                         findAndStoreType5Bonuses(crucibleObj, crucibleId);
                     }
                 }
@@ -153,6 +298,9 @@ public class CrucibleBonusManager {
      */
     public static void clear() {
         crucibleDamageMultipliers.clear();
+        bonusesById.clear();
+        titlesById.clear();
+        statMultipliersById.clear();
         currentPlayerCrucibleId128 = null;
         currentPlayerCrucibleId155 = null;
     }
@@ -238,6 +386,13 @@ public class CrucibleBonusManager {
                 for (JsonElement bonusElement : bonuses) {
                     if (bonusElement.isJsonObject()) {
                         JsonObject bonus = bonusElement.getAsJsonObject();
+                        // keep them all: the one damage type was the only one ever wanted,
+                        // and the rest are what a blood ritual actually does
+                        if (bonus.has("type") && bonus.has("amount")) {
+                            bonusesById
+                                .computeIfAbsent(crucibleId, k -> new LinkedHashMap<>())
+                                .put(bonus.get("type").getAsInt(), bonus.get("amount").getAsDouble());
+                        }
                         if (
                             bonus.has("type") &&
                             bonus.get("type").getAsInt() == 5 &&

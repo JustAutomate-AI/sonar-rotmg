@@ -110,7 +110,7 @@ final class MvpCard {
         List<LiveModel.Target> bosses = pick.overall ? java.util.Collections.emptyList() : mainBosses(m);
         int reserved = bosses.size() < 2 ? 0
                 : bosses.size() * RANK_ICON + (bosses.size() - 1) * RANK_GAP + 18;
-        y = paintHeading(g, pick, y, reserved, bosses.size() >= 2);
+        y = paintHeading(g, pick, y, reserved, bosses.size() >= 2, m.joined);
         paintBossRanks(g, bosses, pick, PAD);
         y = paintPlayer(g, r, y);
         y = paintNumbers(g, m, pick, y);
@@ -122,12 +122,14 @@ final class MvpCard {
     }
 
     /** The star, and which fight this is the top of. */
-    private static int paintHeading(Graphics2D g, Pick pick, int y, int reserved, boolean hasRanks) {
+    private static int paintHeading(Graphics2D g, Pick pick, int y, int reserved, boolean hasRanks, boolean joined) {
         Glyph.action(g, "share-star", PAD, y + 2, 20, SonarTheme.GOLD);
 
         g.setFont(SonarTheme.bold(15f));
         g.setColor(SonarTheme.GOLD);
-        String title = pick.overall ? "TOP DAMAGE" : "MVP";
+        // a fight watched from its own beginning is a complete record even when the run around
+        // it is not, and bosses are fought at the end, so this is the usual case after a late start
+        String title = pick.overall ? "TOP DAMAGE" : pick.fight.whole() ? "MVP" : "PARTIAL";
         g.drawString(title, PAD + 28, y + 17);
         // measured, not assumed: "TOP DAMAGE" is far wider than "MVP" and ran into what follows
         int afterTitle = PAD + 28 + g.getFontMetrics().stringWidth(title) + 16;
@@ -137,8 +139,19 @@ final class MvpCard {
         String what = pick.overall ? "no boss this run" : pick.fight.name;
         g.drawString(SonarTheme.fit(what, g.getFontMetrics(), W - PAD - afterTitle - reserved), afterTitle, y + 17);
 
+        // A run joined partway shows only the fights it saw. Rather than quietly drawing
+        // fewer boss icons than the dungeon really had - which reads as a shorter dungeon
+        // instead of a shorter recording - it says so, and does not invent a count it has
+        // no way of knowing.
+        if (joined) {
+            g.setFont(SonarTheme.font(11.5f));
+            g.setColor(SonarTheme.GOLD);
+            String note = "Sniffer started mid-run - earlier fights not recorded";
+            g.drawString(note, PAD, y + (hasRanks ? RANK_ICON + 12 : 31));
+        }
+
         // the rule sits under whichever is taller: the title, or the row of boss icons
-        int rule = hasRanks ? y + RANK_ICON + 19 : y + 32;
+        int rule = hasRanks ? y + RANK_ICON + 19 : joined ? y + 40 : y + 32;
         g.setColor(SonarTheme.LINE);
         g.drawLine(PAD, rule, W - PAD, rule);
         return rule + 18;
@@ -271,11 +284,20 @@ final class MvpCard {
         g.setColor(SonarTheme.MUTED);
         g.drawString(pick.overall ? "damage this instance" : "damage to this boss", after, y + 28);
 
-        if (health > 0 && !pick.overall) {
+        // The share of a boss's health is only honest for a fight watched from the start.
+        // Come in partway and the health Sonar saw it lose is the tail of the fight, so the
+        // same arithmetic reports a share of a pool that was already part gone - a player who
+        // did a tenth of the work can read as though they did most of it. Rather than rebase
+        // it into a different number that still looks authoritative, say what was missed.
+        g.setFont(SonarTheme.bold(12.5f));
+        if (health > 0 && !pick.overall && fight.whole()) {
             String pct = String.format("%.1f%% of its health", r.damage * 100.0 / health);
-            g.setFont(SonarTheme.bold(12.5f));
             g.setColor(SonarTheme.TEXT);
             g.drawString(pct, W - PAD - g.getFontMetrics().stringWidth(pct), y + 28);
+        } else if (!pick.overall && !fight.whole()) {
+            String missed = String.format("joined %.0f%% in", fight.missed * 100);
+            g.setColor(SonarTheme.GOLD);
+            g.drawString(missed, W - PAD - g.getFontMetrics().stringWidth(missed), y + 28);
         }
 
         g.setFont(SonarTheme.font(13f));
@@ -299,7 +321,11 @@ final class MvpCard {
         if (bossRun > 0 && !pick.overall) {
             g.setFont(SonarTheme.font(12.5f));
             g.setColor(SonarTheme.FAINT);
-            g.drawString(SonarTheme.number(bossRun) + " across every boss this run", PAD, y + 74);
+            // "every boss this run" is a claim Sonar cannot make about a run it joined: the
+            // bosses beaten before it was listening are not in this figure and cannot be
+            g.drawString(SonarTheme.number(bossRun) + (m.joined
+                    ? " across the bosses seen after joining"
+                    : " across every boss this run"), PAD, y + 74);
         }
         return y + 92;
     }

@@ -2513,22 +2513,19 @@ class LiveView {
         ArrayList<ListPane.Item> hist = new ArrayList<>();
         if (browsingHistory()) {
             for (LiveModel.Past p : historyPasts) {
-                String detail = SonarTheme.clock(p.durationMs) + "  ·  party " + SonarTheme.compact(p.total) + (p.mine > 0 ? "  ·  you " + SonarTheme.compact(p.mine) : "");
-                hist.add(new ListPane.Item(p.name, detail, "", -1, SonarTheme.accent()));
+                hist.add(pastItem(p));
             }
             history.show(hist, reviewing == null ? -1 : historyPasts.indexOf(reviewing));
-            historyWindow.setNote(historyPasts.isEmpty() ? "" : historyPasts.size() + " that day");
+            historyWindow.setNote(countNote(historyPasts, "that day"));
         } else {
             if (!pasts.isEmpty() || live.tracked) {
                 hist.add(new ListPane.Item("Live", live.tracked ? live.instance : "Waiting for the next area", live.tracked ? SonarTheme.clock(live.elapsedMs) : "", -1, SonarTheme.MINT));
                 for (int i = pasts.size() - 1; i >= 0; i--) {
-                    LiveModel.Past p = pasts.get(i);
-                    String detail = SonarTheme.clock(p.durationMs) + "  ·  party " + SonarTheme.compact(p.total) + (p.mine > 0 ? "  ·  you " + SonarTheme.compact(p.mine) : "");
-                    hist.add(new ListPane.Item(p.name, detail, "", -1, SonarTheme.accent()));
+                    hist.add(pastItem(pasts.get(i)));
                 }
             }
             history.show(hist, reviewing == null ? 0 : pasts.size() - pasts.indexOf(reviewing));
-            historyWindow.setNote(pasts.isEmpty() ? "" : pasts.size() + " finished");
+            historyWindow.setNote(countNote(pasts, "finished"));
         }
 
         ArrayList<ListPane.Item> shatterItems = new ArrayList<>();
@@ -2588,7 +2585,9 @@ class LiveView {
         LiveModel.Row chosen = null;
         // those who dealt damage first, by damage; then seenRows else seen here
         ArrayList<LiveModel.Row> seenRows = new ArrayList<>(m.whole.rows);
-        if (m.tracked) {
+        // people seen are worth listing even with no instance being tracked: standing in the
+        // Nexus with the sniffer just switched on, they are the only thing there is to show
+        if (m.tracked || !m.seen.isEmpty()) {
             for (LiveModel.Row s : m.seen) {
                 boolean listed = false;
                 for (LiveModel.Row r : m.whole.rows) if (r.id == s.id || r.name.equalsIgnoreCase(s.name)) listed = true;
@@ -2607,10 +2606,17 @@ class LiveView {
             }
             for (LiveModel.Row r : seenRows) {
                 String detail = (r.cls.isEmpty() ? "" : r.cls + "  \u00b7  ") + (r.damage <= 0 ? "no damage yet" : m.whole.total <= 0 ? "" : String.format("%.1f%% of all damage", r.damage * 100.0 / m.whole.total));
-                rosterItems.add(new ListPane.Item(r.me ? r.name + " (you)" : r.name, detail, r.damage <= 0 ? "-" : SonarTheme.compact(r.damage), -1, SonarTheme.accent())
+                ListPane.Item item = new ListPane.Item(r.me ? r.name + " (you)" : r.name, detail, r.damage <= 0 ? "-" : SonarTheme.compact(r.damage), -1, SonarTheme.accent())
                         .action(r.me ? ListPane.NONE : Party.has(r.name) ? ListPane.MEMBER : ListPane.ADD)
                         // people are recognised on sight in game, so the list shows them the same way
-                        .look(r.skin, r.dyeMain, r.dyeAccessory));
+                        .look(r.skin, r.dyeMain, r.dyeAccessory);
+                // the same two marks the game puts beside a name, in the same two colours, so
+                // nobody has to learn a second convention - and the blood ritual besides, which
+                // the game knows and never shows anyone
+                if (r.seasonal) item.badge(SEASONAL_GREEN, "Seasonal");
+                if (r.crucibleId != null) item.badge(CRUCIBLE_RED, crucibleTip(r.crucibleId));
+                if (r.ritualId != null) item.badge(SonarTheme.VIOLET, ritualTip(r.ritualId));
+                rosterItems.add(item);
                 rosterNames.add(r.name);
                 rosterClasses.add(r.cls);
             }
@@ -2684,5 +2690,73 @@ class LiveView {
         vaultWindow.setNote(!live.vaultKnown || stacks.isEmpty() ? "" : SonarTheme.number(stacks.size()) + (stacks.size() == 1 ? " kind" : " kinds") + " in your " + vaultLabel);
 
         onChange.run();
+    }
+
+    /**
+     * One row in the instances list.
+     * <p>
+     * A run Sonar came in partway through is kept in the same list, in the same order -
+     * it happened when it happened, and hiding it away would be its own kind of confusion -
+     * but it says so on its face and carries a different colour, so it can never be read as
+     * a complete run or quietly averaged in with them.
+     */
+    private ListPane.Item pastItem(LiveModel.Past p) {
+        String detail = SonarTheme.clock(p.durationMs) + "  ·  party " + SonarTheme.compact(p.total)
+                + (p.mine > 0 ? "  ·  you " + SonarTheme.compact(p.mine) : "");
+        if (p.joined) detail = "Started late  ·  " + detail;
+        return new ListPane.Item(p.name, detail, "", -1, p.joined ? SonarTheme.GOLD : SonarTheme.accent());
+    }
+
+    /**
+     * "7 finished", or "5 finished · 2 late" when some were joined partway.
+     * <p>
+     * Kept short deliberately: this sits in the panel's header, which is narrow enough that
+     * a longer phrase is cut off mid-word and says less than the brief one.
+     */
+    private String countNote(java.util.List<LiveModel.Past> runs, String word) {
+        if (runs.isEmpty()) return "";
+        int late = 0;
+        for (LiveModel.Past p : runs) if (p.joined) late++;
+        if (late == 0) return runs.size() + " " + word;
+        return (runs.size() - late) + " " + word + "  ·  " + late + " late";
+    }
+
+    /** The game's own two colours for the marks it draws beside a player's name. */
+    private static final Color SEASONAL_GREEN = new Color(0x5ee68a), CRUCIBLE_RED = new Color(0xff5c5c);
+
+    private String crucibleTip(String id) {
+        String title = sonar.backend.data.CrucibleBonusManager.titleOf(id);
+        java.util.Map<String, Double> stats = sonar.backend.data.CrucibleBonusManager.statMultipliersFor(id);
+        StringBuilder b = new StringBuilder(title == null ? "Crucible" : title);
+        if (stats != null) {
+            for (java.util.Map.Entry<String, Double> e : stats.entrySet()) {
+                b.append("   ").append(e.getKey()).append(' ').append(percent(e.getValue()));
+            }
+        }
+        return b.toString();
+    }
+
+    /**
+     * What a blood ritual costs and pays, read from the server's own table rather than written
+     * down here: the figures move between seasons, and a number typed in now is wrong later.
+     * The game shows a player no mark at all for this, so Sonar is telling them something the
+     * client never does.
+     */
+    private String ritualTip(String id) {
+        String title = sonar.backend.data.CrucibleBonusManager.titleOf(id);
+        java.util.Map<Integer, Double> bonuses = sonar.backend.data.CrucibleBonusManager.bonusesFor(id);
+        StringBuilder b = new StringBuilder("Blood ritual");
+        if (title != null) b.append(' ').append(title);
+        if (bonuses != null) {
+            if (bonuses.get(4) != null) b.append("   health ").append(percent(bonuses.get(4)));
+            if (bonuses.get(5) != null) b.append("   damage ").append(percent(bonuses.get(5)));
+            if (bonuses.get(3) != null && bonuses.get(3) != 1) b.append("   loot ").append(percent(bonuses.get(3)));
+        }
+        return b.toString();
+    }
+
+    private static String percent(double multiplier) {
+        long pct = Math.round((multiplier - 1) * 100);
+        return (pct > 0 ? "+" : "") + pct + "%";
     }
 }
