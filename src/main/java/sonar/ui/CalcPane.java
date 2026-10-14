@@ -253,7 +253,7 @@ final class CalcPane extends JPanel {
                 StringBuilder all = new StringBuilder();
                 for (String path : EQUIPMENT_FILES) {
                     try {
-                        if (new java.io.File(path).isFile()) all.append(read(path));
+                        if (sonar.DataDir.file(path).isFile()) all.append(read(path));
                     } catch (Exception ignored) {
                         // one unreadable file must not cost us the items in all the others
                     }
@@ -367,7 +367,7 @@ final class CalcPane extends JPanel {
     }
 
     private static String read(String path) throws java.io.IOException {
-        return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path)), java.nio.charset.StandardCharsets.UTF_8);
+        return new String(java.nio.file.Files.readAllBytes(sonar.DataDir.file(path).toPath()), java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static String signed(double v) {

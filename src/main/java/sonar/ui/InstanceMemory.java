@@ -24,7 +24,7 @@ final class InstanceMemory {
     private static List<File> present() {
         List<File> found = new ArrayList<>();
         for (String place : PLACES) {
-            File f = new File(place);
+            File f = sonar.DataDir.file(place);
             if (f.exists()) found.add(f);
         }
         return found;
@@ -48,7 +48,7 @@ final class InstanceMemory {
 
     /** How many instances are currently remembered, for saying what is about to go. */
     static int days() {
-        File history = new File("history");
+        File history = sonar.DataDir.file("history");
         File[] files = history.listFiles((d, n) -> n.endsWith(".json") || n.endsWith(".json.gz"));
         return files == null ? 0 : files.length;
     }

@@ -188,7 +188,7 @@ final class Wardrobe {
 
     private static String read(String path) {
         try {
-            return new String(Files.readAllBytes(Paths.get(path)), StandardCharsets.UTF_8);
+            return new String(Files.readAllBytes(sonar.DataDir.file(path).toPath()), StandardCharsets.UTF_8);
         } catch (Exception e) {
             // without the game's files there is simply nothing to choose from
             return "";

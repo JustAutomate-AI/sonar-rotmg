@@ -39,9 +39,9 @@ public class ChatPings {
 
     private static void loadBlockedChatMessageSpamFromFile() {
         try {
-            File f = new File(BLOCK_FILE);
+            File f = sonar.DataDir.file(BLOCK_FILE);
             if (f.exists()) {
-                try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(BLOCK_FILE)))) {
+                try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(sonar.DataDir.file(BLOCK_FILE))))) {
                     String inputLine;
                     while ((inputLine = in.readLine()) != null) {
                         blockedSpam.add(inputLine);

@@ -155,7 +155,7 @@ final class Updater {
         status.accept("Downloading…");
         Thread t = new Thread(() -> {
             String error = null;
-            File work = new File("update").getAbsoluteFile();
+            File work = sonar.DataDir.file("update").getAbsoluteFile();
             try {
                 deleteAll(new File(work, "staged"));
                 work.mkdirs();
@@ -299,7 +299,7 @@ final class Updater {
 
     private static void log(String line) {
         try {
-            File dir = new File("update");
+            File dir = sonar.DataDir.file("update");
             dir.mkdirs();
             try (PrintWriter w = new PrintWriter(new FileWriter(new File(dir, "update.log"), true))) {
                 w.println(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "  " + line);

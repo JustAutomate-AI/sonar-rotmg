@@ -37,7 +37,7 @@ public class ParseEquipment {
     static {
         for (String path : XML_PATHS) {
             try {
-                if (new java.io.File(path).isFile()) loadEnchants(path);
+                if (sonar.DataDir.file(path).isFile()) loadEnchants(path);
             } catch (RuntimeException e) {
                 // one unreadable file must not cost us every item in the others
             }
@@ -46,7 +46,7 @@ public class ParseEquipment {
 
     private static void loadEnchants(String path) {
         try {
-            FileInputStream file = new FileInputStream(path);
+            FileInputStream file = new FileInputStream(sonar.DataDir.file(path));
             String result = new BufferedReader(new InputStreamReader(file)).lines().collect(Collectors.joining("\n"));
             StringXML base = StringXML.getParsedXML(result);
             for (StringXML xml : base) {

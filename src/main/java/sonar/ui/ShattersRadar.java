@@ -132,7 +132,7 @@ final class ShattersRadar {
     private static int findByInternalName(String name) {
         try {
             String xml = new String(java.nio.file.Files.readAllBytes(
-                    java.nio.file.Paths.get("assets/xml/theShattersObjects.xml")), java.nio.charset.StandardCharsets.UTF_8);
+                    sonar.DataDir.file("assets/xml/theShattersObjects.xml").toPath()), java.nio.charset.StandardCharsets.UTF_8);
             java.util.regex.Matcher m = java.util.regex.Pattern
                     .compile("<Object ([^>]*\\bid=\"" + java.util.regex.Pattern.quote(name) + "\"[^>]*)>")
                     .matcher(xml);

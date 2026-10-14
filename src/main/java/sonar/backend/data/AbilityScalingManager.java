@@ -70,7 +70,7 @@ public class AbilityScalingManager {
      */
     public void initialize() {
         try {
-            File equipFile = new File("assets/xml/equip.xml");
+            File equipFile = sonar.DataDir.file("assets/xml/equip.xml");
             if (!equipFile.exists()) {
                 return;
             }

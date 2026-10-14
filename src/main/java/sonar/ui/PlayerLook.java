@@ -57,7 +57,7 @@ final class PlayerLook {
     }
 
     private static File file() {
-        return new File("players.json");
+        return sonar.DataDir.file("players.json");
     }
 
     static synchronized void load() {

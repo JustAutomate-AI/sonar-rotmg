@@ -59,7 +59,7 @@ public class CharacterClass {
     static {
         List<CharacterClass> charClassList = new ArrayList<>();
         try {
-            FileInputStream file = new FileInputStream(PLAYERS_XML_PATH);
+            FileInputStream file = new FileInputStream(sonar.DataDir.file(PLAYERS_XML_PATH));
             populateFromXML(new BufferedReader(new InputStreamReader(file)).lines().collect(Collectors.joining("\n")), charClassList);
         } catch (Exception e) {
             e.printStackTrace();

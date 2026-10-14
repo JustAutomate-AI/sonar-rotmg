@@ -42,7 +42,7 @@ public final class Settings {
      * through leaves the original where it was rather than losing it.
      */
     private static void renameFile() {
-        File now = new File(FILE), before = new File(OLD_FILE);
+        File now = sonar.DataDir.file(FILE), before = sonar.DataDir.file(OLD_FILE);
         if (now.isFile() || !before.isFile()) return;
         try {
             Properties p = new Properties();
@@ -61,7 +61,7 @@ public final class Settings {
 
     /** Renames any key still carrying the old prefix. */
     private static void renameKeys() {
-        File file = new File(FILE);
+        File file = sonar.DataDir.file(FILE);
         if (!file.isFile()) return;
         try {
             Properties p = new Properties();

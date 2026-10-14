@@ -130,7 +130,7 @@ public class PingSounds {
      */
     public static List<String> availableSounds() {
         List<String> out = new ArrayList<>();
-        addWavsFrom(new File(BUNDLED_SOUND_DIR), out);
+        addWavsFrom(sonar.DataDir.file(BUNDLED_SOUND_DIR), out);
         addWavsFrom(new File(WINDOWS_MEDIA_DIR), out);
         return out;
     }

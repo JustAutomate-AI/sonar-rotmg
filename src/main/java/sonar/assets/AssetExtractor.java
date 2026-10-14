@@ -43,9 +43,9 @@ public class AssetExtractor {
     public static final String ASSETS_TILE_FILE_DIR_PATH = "assets/TileID.list";
     private static final String XML_DIR_PATH = "assets/xml";
     private static final File[] ASSET_FOLDERS = {
-        new File("assets/flatbuffer/"),
-        new File("assets/sprites/"),
-        new File("assets/xml/"),
+        sonar.DataDir.file("assets/flatbuffer/"),
+        sonar.DataDir.file("assets/sprites/"),
+        sonar.DataDir.file("assets/xml/"),
     };
     private static String REALM_RES_PATH;
     private static JOptionPane pane;
@@ -369,8 +369,8 @@ public class AssetExtractor {
      * @return True if assets are missing.
      */
     private static int checkUpdateAssets(String lastModifiedTime) {
-        if (!new File(ASSETS_OBJECT_FILE_DIR_PATH).exists()) return 1;
-        if (!new File(ASSETS_TILE_FILE_DIR_PATH).exists()) return 2;
+        if (!sonar.DataDir.file(ASSETS_OBJECT_FILE_DIR_PATH).exists()) return 1;
+        if (!sonar.DataDir.file(ASSETS_TILE_FILE_DIR_PATH).exists()) return 2;
         if (
             !Objects.equals(
                 PropertiesManager.getProperty("lastModifiedTime"),
@@ -389,7 +389,7 @@ public class AssetExtractor {
         ArrayList<AssetTile> tileAssets = new ArrayList<>();
         ArrayList<Path> files = new ArrayList<>();
 
-        Files.walk(Paths.get(XML_DIR_PATH))
+        Files.walk(sonar.DataDir.file(XML_DIR_PATH).toPath())
             .filter(Files::isRegularFile)
             .filter(p -> p.toString().endsWith("xml"))
             .forEach(files::add);

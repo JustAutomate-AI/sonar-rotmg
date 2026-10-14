@@ -69,11 +69,11 @@ public class ParseDungeon {
             // The client does not ship every mods file in every build -
             // mods2.xml is absent as of the current release. A missing
             // supplementary file must not be fatal.
-            if (!new File(path).isFile()) {
+            if (!sonar.DataDir.file(path).isFile()) {
                 continue;
             }
             try {
-                FileInputStream file = new FileInputStream(path);
+                FileInputStream file = new FileInputStream(sonar.DataDir.file(path));
                 String result = new BufferedReader(new InputStreamReader(file))
                     .lines()
                     .collect(Collectors.joining("\n"));
@@ -117,11 +117,11 @@ public class ParseDungeon {
     private static void parseDungeonPortalId() {
         // Absent on a fresh install until assets are extracted. Same treatment
         // as the mods files: skip rather than throw.
-        if (!new File(PORTAL_XML_PATH).isFile()) {
+        if (!sonar.DataDir.file(PORTAL_XML_PATH).isFile()) {
             return;
         }
         try {
-            FileInputStream file = new FileInputStream(PORTAL_XML_PATH);
+            FileInputStream file = new FileInputStream(sonar.DataDir.file(PORTAL_XML_PATH));
             String result = new BufferedReader(new InputStreamReader(file))
                 .lines()
                 .collect(Collectors.joining("\n"));
@@ -169,7 +169,7 @@ public class ParseDungeon {
      * broken XML only costs that file's entries.
      */
     private static void parseAllPortalObjects() {
-        File dir = new File(XML_DIR_PATH);
+        File dir = sonar.DataDir.file(XML_DIR_PATH);
         File[] files = dir.listFiles((d, n) -> n.toLowerCase().endsWith(".xml"));
         if (files == null) return;
 

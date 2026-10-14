@@ -76,7 +76,7 @@ public class ImageBuffer {
      */
     private static BufferedImage getSprite(int[] data) throws IOException { // data:{x, y, w, h, aId}
         if (data == null) return null;
-        if (bigImages[data[4] - 1] == null) bigImages[data[4] - 1] = ImageIO.read(new File(spriteSheets[data[4] - 1]));
+        if (bigImages[data[4] - 1] == null) bigImages[data[4] - 1] = ImageIO.read(sonar.DataDir.file(spriteSheets[data[4] - 1]));
 
         return bigImages[data[4] - 1].getSubimage(data[0], data[1], data[2], data[3]);
     }

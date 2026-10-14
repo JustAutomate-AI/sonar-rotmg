@@ -93,7 +93,7 @@ public class IdToAsset {
      * Method to grab the full list of object resource's from file and construct the hashmap.
      */
     private static void readObjectList() {
-        File objectsFile = new File(AssetExtractor.ASSETS_OBJECT_FILE_DIR_PATH);
+        File objectsFile = sonar.DataDir.file(AssetExtractor.ASSETS_OBJECT_FILE_DIR_PATH);
         if (!objectsFile.exists()) return;
         String lineCheck = "";
         try {
@@ -127,7 +127,7 @@ public class IdToAsset {
      * Method to grab the full list of tile resource's from file and construct the hashmap.
      */
     private static void readTileList() {
-        File tilesFile = new File(AssetExtractor.ASSETS_TILE_FILE_DIR_PATH);
+        File tilesFile = sonar.DataDir.file(AssetExtractor.ASSETS_TILE_FILE_DIR_PATH);
         if (!tilesFile.exists()) return;
         try {
             BufferedReader br = new BufferedReader(new InputStreamReader(Files.newInputStream(tilesFile.toPath())));

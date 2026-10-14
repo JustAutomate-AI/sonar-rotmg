@@ -32,7 +32,7 @@ final class InstanceHistory {
     }
 
     private static File folder() {
-        File f = new File("history");
+        File f = sonar.DataDir.file("history");
         f.mkdirs();
         return f;
     }

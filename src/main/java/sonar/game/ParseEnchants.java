@@ -66,7 +66,7 @@ public class ParseEnchants {
 
     private static void loadEnchants(String path) {
         try {
-            FileInputStream file = new FileInputStream(path);
+            FileInputStream file = new FileInputStream(sonar.DataDir.file(path));
             String result = new BufferedReader(new InputStreamReader(file))
                 .lines()
                 .collect(Collectors.joining("\n"));

@@ -29,7 +29,7 @@ class GearPane extends Pane {
         if (notes == null) {
             notes = new java.util.HashMap<>();
             try {
-                String xml = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("assets/xml/enchantments.xml")), java.nio.charset.StandardCharsets.UTF_8);
+                String xml = new String(java.nio.file.Files.readAllBytes(sonar.DataDir.file("assets/xml/enchantments.xml").toPath()), java.nio.charset.StandardCharsets.UTF_8);
                 java.util.regex.Matcher m = java.util.regex.Pattern.compile("<DisplayId>([^<]*)</DisplayId>(?:(?!</Enchantment>).)*?<Description>([^<]*)</Description>", java.util.regex.Pattern.DOTALL).matcher(xml);
                 while (m.find()) {
                     String text = m.group(2).replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("\\n", " ").replaceAll("\\s+", " ").trim();

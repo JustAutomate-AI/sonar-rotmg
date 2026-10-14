@@ -29,7 +29,7 @@ public class SpriteFlatBuffer {
      * Loads the flatBuffer file into HashMap data structure.
      */
     private static void readFlatBuffer() {
-        File file = new File(spriteJson);
+        File file = sonar.DataDir.file(spriteJson);
         if (!file.exists()) {
             notLoaded = true;
             return;

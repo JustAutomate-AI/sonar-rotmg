@@ -124,8 +124,8 @@ final class Abilities {
         StringBuilder all = new StringBuilder();
         for (String file : FILES) {
             try {
-                if (new java.io.File(file).isFile()) {
-                    all.append(new String(Files.readAllBytes(Paths.get(file)), StandardCharsets.UTF_8));
+                if (sonar.DataDir.file(file).isFile()) {
+                    all.append(new String(Files.readAllBytes(sonar.DataDir.file(file).toPath()), StandardCharsets.UTF_8));
                 }
             } catch (Exception ignored) {
                 // that file's items simply are not known

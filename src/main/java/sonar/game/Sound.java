@@ -87,7 +87,7 @@ public class Sound {
 
     private static Clip loadSound(String file) {
         try {
-            File f = new File(file);
+            File f = sonar.DataDir.file(file);
             InputStream audioInputStream;
             if (f.exists()) {
                 audioInputStream = Files.newInputStream(Paths.get(file));

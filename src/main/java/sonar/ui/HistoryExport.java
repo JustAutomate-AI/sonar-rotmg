@@ -38,11 +38,11 @@ final class HistoryExport {
 
     /** Zips every saved history day into run/exports. Null when there is nothing saved yet. */
     static File exportAll() throws IOException {
-        File historyDir = new File("history");
+        File historyDir = sonar.DataDir.file("history");
         File[] files = historyDir.listFiles((d, n) -> isHistoryFile(n));
         if (files == null || files.length == 0) return null;
 
-        File dir = new File("exports");
+        File dir = sonar.DataDir.file("exports");
         dir.mkdirs();
         String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
         File zip = new File(dir, "Sonar-history-" + stamp + ".zip");

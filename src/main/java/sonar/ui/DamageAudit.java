@@ -34,7 +34,7 @@ public final class DamageAudit {
     /** A rise in health this soon after a hit happened mid-fight, so damage may be hidden behind it. */
     private static final long IN_COMBAT_MS = 1500;
     /** Off unless a folder named "audit" exists next to the app, so ordinary installs write nothing. */
-    private static final boolean WRITE_FILES = new File("audit").isDirectory();
+    private static final boolean WRITE_FILES = sonar.DataDir.file("audit").isDirectory();
 
     private static final class Tally {
         String name = "";
@@ -101,7 +101,7 @@ public final class DamageAudit {
     }
 
     private static File folder() {
-        return new File("audit");
+        return sonar.DataDir.file("audit");
     }
 
     private static Tally tally(Entity target) {

@@ -701,7 +701,7 @@ final class ResultsImage {
 
     /** Also kept on disk under run/exports, in case the clipboard isn't what someone wants it for. */
     static File saveToDisk(BufferedImage img, String instanceName) throws IOException {
-        File dir = new File("exports");
+        File dir = sonar.DataDir.file("exports");
         dir.mkdirs();
         String safeName = (instanceName == null || instanceName.isEmpty() ? "instance" : instanceName)
                 .replaceAll("[^a-zA-Z0-9 _-]", "").trim();

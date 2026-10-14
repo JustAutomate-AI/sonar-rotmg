@@ -431,7 +431,7 @@ final class Glyph {
     private static int[] standingFrame(String sheet, int index) throws Exception {
         if (standing == null) {
             java.util.HashMap<String, int[]> frames = new java.util.HashMap<>();
-            byte[] data = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("assets/flatbuffer/spritesheetf"));
+            byte[] data = java.nio.file.Files.readAllBytes(sonar.DataDir.file("assets/flatbuffer/spritesheetf").toPath());
             sonar.assets.flattbuffer.SpriteSheetRoot root = sonar.assets.flattbuffer.SpriteSheetRoot.getRootAsSpriteSheetRoot(java.nio.ByteBuffer.wrap(data));
             for (int i = 0; i < root.animatedSpritesLength(); i++) {
                 sonar.assets.flattbuffer.AnimatedSprite s = root.animatedSprites(i);
@@ -450,7 +450,7 @@ final class Glyph {
     private static String[] textureFromShattersXml(int objectType) {
         try {
             String xml = new String(java.nio.file.Files.readAllBytes(
-                    java.nio.file.Paths.get("assets/xml/theShattersObjects.xml")), java.nio.charset.StandardCharsets.UTF_8);
+                    sonar.DataDir.file("assets/xml/theShattersObjects.xml").toPath()), java.nio.charset.StandardCharsets.UTF_8);
             java.util.regex.Matcher m = java.util.regex.Pattern
                     .compile("<Object ([^>]*\\btype=\"0x0*" + Integer.toHexString(objectType)
                             + "\"[^>]*)>(.*?)</Object>", java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.DOTALL)
@@ -508,7 +508,7 @@ final class Glyph {
             java.util.HashMap<Integer, Integer> found = new java.util.HashMap<>();
             for (String file : new String[]{"dyes.xml", "textiles.xml", "equip.xml"}) {
                 try {
-                    String xml = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("assets/xml/" + file)), java.nio.charset.StandardCharsets.UTF_8);
+                    String xml = new String(java.nio.file.Files.readAllBytes(sonar.DataDir.file("assets/xml/" + file).toPath()), java.nio.charset.StandardCharsets.UTF_8);
                     java.util.regex.Matcher m = java.util.regex.Pattern.compile("<Object ([^>]*)>((?:(?!</Object>).)*?)<Tex[12]>0x([0-9a-fA-F]+)</Tex[12]>", java.util.regex.Pattern.DOTALL).matcher(xml);
                     java.util.regex.Pattern type = java.util.regex.Pattern.compile("\\btype=\"0x([0-9a-fA-F]+)\"");
                     while (m.find()) {
@@ -540,7 +540,7 @@ final class Glyph {
     private static java.awt.image.BufferedImage playerImage(int skin, int main, int accessory) throws Exception {
         if (walking == null) {
             java.util.HashMap<String, int[]> frames = new java.util.HashMap<>();
-            byte[] data = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("assets/flatbuffer/spritesheetf"));
+            byte[] data = java.nio.file.Files.readAllBytes(sonar.DataDir.file("assets/flatbuffer/spritesheetf").toPath());
             sonar.assets.flattbuffer.SpriteSheetRoot root = sonar.assets.flattbuffer.SpriteSheetRoot.getRootAsSpriteSheetRoot(java.nio.ByteBuffer.wrap(data));
             for (int i = 0; i < root.animatedSpritesLength(); i++) {
                 sonar.assets.flattbuffer.AnimatedSprite s = root.animatedSprites(i);

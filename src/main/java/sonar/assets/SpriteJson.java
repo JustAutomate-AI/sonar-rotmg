@@ -32,7 +32,7 @@ public class SpriteJson implements JsonDeserializer<SpriteJson> {
      * Loads the json file into HashMap data structure.
      */
     public static void jsonFileReader() {
-        File jsonFile = new File(spriteJson);
+        File jsonFile = sonar.DataDir.file(spriteJson);
         if (!jsonFile.exists()) {
             notLoaded = true;
             return;

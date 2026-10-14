@@ -21,7 +21,7 @@ public class PropertiesManager {
     static {
         properties = new Properties();
         try {
-            FileReader reader = new FileReader(FILE);
+            FileReader reader = new FileReader(sonar.DataDir.file(FILE));
             properties.load(reader);
         } catch (IOException ignored) {
         }
@@ -36,7 +36,7 @@ public class PropertiesManager {
     public static void setProperties(String name, String value) {
         properties.setProperty(name, value);
         try {
-            properties.store(new FileWriter(FILE), "Sonar settings");
+            properties.store(new FileWriter(sonar.DataDir.file(FILE)), "Sonar settings");
         } catch (IOException ignored) {
         }
     }

@@ -75,7 +75,7 @@ public final class CharacterCache {
     }
 
     private static File file() {
-        return new File("characters.json");
+        return sonar.DataDir.file("characters.json");
     }
 
     // ---- the account's exaltation, which the game only ever sends in one room ----
@@ -100,7 +100,7 @@ public final class CharacterCache {
     private static long rememberedAt;
 
     private static File exaltFile() {
-        return new File("exaltation.json");
+        return sonar.DataDir.file("exaltation.json");
     }
 
     /**

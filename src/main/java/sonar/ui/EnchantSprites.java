@@ -41,7 +41,7 @@ final class EnchantSprites {
         if (byName != null) return;
         byName = new HashMap<>();
         try {
-            String xml = new String(Files.readAllBytes(Paths.get("assets/xml/enchantments.xml")), StandardCharsets.UTF_8);
+            String xml = new String(Files.readAllBytes(sonar.DataDir.file("assets/xml/enchantments.xml").toPath()), StandardCharsets.UTF_8);
             Matcher block = BLOCK.matcher(xml);
             while (block.find()) {
                 String body = block.group(2);

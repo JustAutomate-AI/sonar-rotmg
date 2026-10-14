@@ -567,7 +567,7 @@ final class LiveModel {
         if (shinyIds == null) {
             java.util.HashSet<Integer> found = new java.util.HashSet<>();
             try {
-                String xml = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("assets/xml/equip.xml")), java.nio.charset.StandardCharsets.UTF_8);
+                String xml = new String(java.nio.file.Files.readAllBytes(sonar.DataDir.file("assets/xml/equip.xml").toPath()), java.nio.charset.StandardCharsets.UTF_8);
                 java.util.regex.Matcher m = java.util.regex.Pattern.compile("<Object type=\"0x([0-9a-fA-F]+)\"[^>]*>(?:(?!</Object>).)*?<Labels>([^<]*)</Labels>", java.util.regex.Pattern.DOTALL).matcher(xml);
                 while (m.find()) {
                     for (String label : m.group(2).split(",")) {
