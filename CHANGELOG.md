@@ -2,6 +2,24 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.2.0
+
+**Unpack it and run it. That is the install.**
+- Sonar brings its own Java now. There is no JDK to find, no version to get right, and no setup script to run before it will open - unpack the zip and double-click `Sonar.exe`.
+- The download is bigger because of it, about 36 MB instead of 8. That seemed a fair trade for removing the step most people got stuck on.
+- The first time it opens it offers to put a shortcut on your desktop and in the Start menu, so you do not have to come back to the folder.
+- Item and enemy names and pictures still come from the game's own files, read on first open. That takes a moment once and is then kept.
+
+**Npcap is the only thing left to install**
+- It is the driver that lets Sonar see network packets, and its licence does not allow Sonar to carry it. If it is missing Sonar says so when it opens, with the link, rather than letting Start sniffer fail with no explanation. Everything else works without it.
+
+**Updating from 2.1.0 moves your files for you**
+- Sonar's settings, characters, history and assets used to live in a `run` folder beside the jar. They now sit next to the program. Updating moves them up to meet it, so there is nothing to do and nothing to lose.
+
+---
+
+209 self-test assertions pass.
+
 ## 2.1.0
 
 Groundwork for a one-click install. The next release is the one you unpack and run

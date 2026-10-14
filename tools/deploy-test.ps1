@@ -4,7 +4,7 @@
 # The test install lives apart on purpose: its own settings, saved characters and
 # window layout, so trying an unfinished build can never disturb a real session.
 param(
-    [string]$Test = "E:\user\Documents\Peach Test",
+    [string]$Test = "E:\user\Documents\Sonar Test",
     [switch]$SkipBuild
 )
 
@@ -35,4 +35,4 @@ $version = Select-String -Path "$workshop\src\main\java\sonar\ui\Updater.java" -
     ForEach-Object { $_.Matches[0].Groups[1].Value } | Select-Object -First 1
 
 Write-Host "Deployed Sonar $version to the test install." -ForegroundColor Green
-Write-Host "  $Test\Start Peach Test.bat"
+Write-Host "  $Test\Start Sonar Test.bat"
