@@ -1,5 +1,6 @@
 package sonar.ui;
 
+import sonar.ChatPings;
 import sonar.game.Sound;
 import sonar.util.PropertiesManager;
 
@@ -161,6 +162,8 @@ class SettingsPane extends Pane {
         y = paintToggles(g, width, y, bags);
         y = heading(g, width, y, "CHAT PINGS");
         y = paintToggles(g, width, y, chat);
+        y = heading(g, width, y, "WORDS TO WATCH FOR");
+        y = paintKeywords(g, width, y);
         y = heading(g, width, y, "THEME");
         y = paintThemes(g, y);
         y = heading(g, width, y, "ACCENT COLOUR");
@@ -449,6 +452,129 @@ class SettingsPane extends Pane {
         g.setFont(SonarTheme.font(11.5f));
         g.setColor(SonarTheme.FAINT);
         g.drawString(SonarTheme.ACCENT_NAMES[chosen], 2, y + SWATCH + 18);
+    }
+
+    /** Width of the x that removes a word. */
+    private static final int REMOVE = 26;
+
+    /**
+     * The words that ring the private-message ping when somebody says them.
+     * <p>
+     * The list has always been read and acted on; until now the only way to change
+     * it was a window that is no longer there, so it could be used and not edited.
+     */
+    private int paintKeywords(Graphics2D g, int width, int y) {
+        java.util.List<String> words = ChatPings.keywords();
+
+        g.setFont(SonarTheme.font(10.5f));
+        g.setColor(SonarTheme.FAINT);
+        g.drawString("Rings the private-message ping when one of these turns up in any chat.", PAD, y + 12);
+        g.drawString("In quotes - \"loot\" - only as a whole word; otherwise anywhere in the message.", PAD, y + 28);
+        int top = y + 40;
+
+        if (words.isEmpty()) {
+            g.setFont(SonarTheme.font(11.5f));
+            g.setColor(SonarTheme.MUTED);
+            g.drawString("Nothing yet.", PAD, top + 18);
+            top += 26;
+        }
+        for (int i = 0; i < words.size(); i++) {
+            String word = words.get(i);
+            int ry = top + i * 30;
+            boolean quoted = word.length() > 1 && word.startsWith("\"") && word.endsWith("\"");
+            int rw = Math.min(360, width - PAD * 2);
+
+            g.setColor(SonarTheme.alpha(SonarTheme.MUTED, 0.08));
+            g.fill(SonarTheme.round(PAD, ry, rw, 26, 8));
+            g.setFont(SonarTheme.font(12f));
+            g.setColor(SonarTheme.TEXT);
+            String shown = quoted ? word.substring(1, word.length() - 1) : word;
+            g.drawString(SonarTheme.fit(shown, g.getFontMetrics(), rw - REMOVE - 70), PAD + 10, ry + 18);
+            if (quoted) {
+                g.setFont(SonarTheme.font(10f));
+                g.setColor(SonarTheme.FAINT);
+                g.drawString("whole word", PAD + rw - REMOVE - 68, ry + 18);
+            }
+
+            Rectangle x = new Rectangle(PAD + rw - REMOVE, ry, REMOVE, 26);
+            boolean hot = x.contains(hoverX, hoverY);
+            g.setFont(SonarTheme.bold(13f));
+            g.setColor(hot ? SonarTheme.DANGER : SonarTheme.FAINT);
+            g.drawString("×", x.x + 9, ry + 19);
+            final int remove = i;
+            zone(x, () -> {
+                java.util.List<String> left = ChatPings.keywords();
+                if (remove < left.size()) {
+                    left.remove(remove);
+                    ChatPings.setKeywords(left);
+                }
+            });
+        }
+
+        final int by = top + words.size() * 30 + 6;
+        final int bw = 150, bh = 28;
+        Rectangle add = new Rectangle(PAD, by, bw, bh);
+        boolean hot = add.contains(hoverX, hoverY);
+        g.setColor(SonarTheme.alpha(SonarTheme.accent(), hot ? 0.26 : 0.14));
+        g.fill(SonarTheme.round(PAD, by, bw, bh, 9));
+        g.setColor(SonarTheme.alpha(SonarTheme.accent(), 0.55));
+        g.draw(SonarTheme.round(PAD + 0.5, by + 0.5, bw - 1, bh - 1, 9));
+        g.setFont(SonarTheme.bold(12f));
+        g.setColor(SonarTheme.TEXT);
+        String label = "Add a word";
+        g.drawString(label, PAD + (bw - g.getFontMetrics().stringWidth(label)) / 2f, by + 19);
+        zone(add, () -> askForWord(PAD, by + bh));
+
+        return by + bh + 16;
+    }
+
+    /**
+     * A small field to type a word into, in front of the button that opened it.
+     * <p>
+     * The pane paints itself and has no components of its own, so this is a popup
+     * for as long as it is being typed into and then gone again.
+     */
+    private void askForWord(int x, int y) {
+        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+        menu.setBorder(javax.swing.BorderFactory.createLineBorder(SonarTheme.LINE));
+        javax.swing.JPanel body = new javax.swing.JPanel(new BorderLayout(0, 4));
+        body.setBackground(SonarTheme.RAISED);
+        body.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+        javax.swing.JTextField field = new javax.swing.JTextField(16);
+        field.setFont(SonarTheme.font(12.5f));
+        field.setBackground(SonarTheme.SURFACE);
+        field.setForeground(SonarTheme.TEXT);
+        field.setCaretColor(SonarTheme.accent());
+
+        javax.swing.JCheckBox whole = new javax.swing.JCheckBox("Whole word only");
+        whole.setFont(SonarTheme.font(11f));
+        whole.setBackground(SonarTheme.RAISED);
+        whole.setForeground(SonarTheme.MUTED);
+        whole.setFocusPainted(false);
+
+        body.add(field, BorderLayout.CENTER);
+        body.add(whole, BorderLayout.SOUTH);
+        menu.add(body);
+
+        field.addActionListener(e -> {
+            String word = field.getText().trim();
+            menu.setVisible(false);
+            if (word.isEmpty()) return;
+            // quoting is how the matcher is told to want the whole word
+            if (whole.isSelected()) word = "\"" + word.replace("\"", "") + "\"";
+            java.util.List<String> words = ChatPings.keywords();
+            for (String had : words) {
+                if (had.equalsIgnoreCase(word)) return;
+            }
+            words.add(word);
+            ChatPings.setKeywords(words);
+            java.awt.Window w = javax.swing.SwingUtilities.getWindowAncestor(this);
+            if (w != null) w.repaint();
+        });
+
+        menu.show(this, x, y);
+        field.requestFocusInWindow();
     }
 
     private void zone(Rectangle r, Runnable action) {

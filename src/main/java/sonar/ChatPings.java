@@ -54,6 +54,22 @@ public class ChatPings {
     }
 
     /**
+     * The words the user wants to be told about, in the order they were added.
+     * <p>
+     * A word wrapped in quotes only counts as a whole word; anything else counts
+     * wherever it appears in a message. See {@link #updateChat}.
+     */
+    public static java.util.List<String> keywords() {
+        return data == null ? new ArrayList<>() : new ArrayList<>(data.getChatMessagePings());
+    }
+
+    /** Replaces the list and saves it, so it is there again next time. */
+    public static void setKeywords(java.util.List<String> words) {
+        if (data == null) return;
+        data.savePropList(new ArrayList<>(words), "chatPingMessages");
+    }
+
+    /**
      * The places a popped dungeon is worth being told about: the ones you
      * wait in. Anywhere else is a dungeon, and the call is for somebody else.
      */
