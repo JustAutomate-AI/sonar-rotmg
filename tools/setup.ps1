@@ -492,24 +492,6 @@ if (-not $CheckOnly -and -not $SkipLauncher) {
     $desktop = [Environment]::GetFolderPath('Desktop')
     $shell = New-Object -ComObject WScript.Shell
 
-    # Leftovers from the names the app had before: Tomato, then Peach.
-    foreach ($old in 'Tomato.exe', 'Start Tomato.bat', 'Start Tomato (debug console).bat', 'run\Tomato.jar',
-                     'Peach.exe', 'Start Peach.bat', 'Start Peach (debug console).bat', 'run\Peach.jar',
-                     'tools\launcher\peach.ico') {
-        $oldPath = Join-Path $root $old
-        if (Test-Path $oldPath) { Remove-Item $oldPath -Force -Confirm:$false }
-    }
-    # Only ours: a shortcut of the same name pointing somewhere else is someone else's.
-    $startMenu = Join-Path ([Environment]::GetFolderPath('Programs')) ''
-    foreach ($place in @($desktop, $startMenu)) {
-        foreach ($oldName in 'Tomato.lnk', 'Peach.lnk') {
-            $oldShortcut = Join-Path $place $oldName
-            if ((Test-Path $oldShortcut) -and ($shell.CreateShortcut($oldShortcut).TargetPath -like (Join-Path $root '*'))) {
-                Remove-Item $oldShortcut -Force -Confirm:$false
-            }
-        }
-    }
-
     $javaw = Join-Path $java.Home 'bin\javaw.exe'
     # The launcher starts java by full path, which avoids broken .jar file associations (the 'jarfix' problem).
     Set-Content -Path (Join-Path $runDir 'java-path.txt') -Value $javaw -Encoding ascii

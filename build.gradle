@@ -8,7 +8,9 @@ sourceCompatibility = 1.8
 compileJava.options.encoding = 'UTF-8'
 targetCompatibility = 1.8
 
-// the upstream Tomato release this fork is built on; Version.VERSION reports it
+// Stamped into Version.VERSION, which is used as part of the asset-extraction cache
+// key. Changing it makes every install re-extract the game's assets once, so it is
+// left alone unless the extracted format actually changes.
 project.version = 'v1.9.2'
 applicationName = 'Sonar'
 
