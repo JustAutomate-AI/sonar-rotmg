@@ -58,8 +58,17 @@ class SettingsPane extends Pane {
         }
     }
 
-    /** The one ping that is on until it is turned off; the rest stay quiet until asked for. */
-    private static final String ON_BY_DEFAULT = "whiteBagSound";
+    /**
+     * The pings that are on until they are turned off; the rest stay quiet until asked for.
+     * <p>
+     * Two of them, for two separate jobs. The dungeon call is how you get into a run at all:
+     * somebody opens a portal, says "j" in party chat, and it is gone in seconds. The white
+     * bag is about loot, and is the one drop worth stopping for. Neither stands in for the
+     * other, and a new install that was silent for either would be missing something people
+     * start the sniffer to catch.
+     */
+    private static final java.util.Set<String> ON_BY_DEFAULT =
+            new java.util.HashSet<>(java.util.Arrays.asList("joinPing", "whiteBagSound"));
 
     /**
      * Puts every ping's saved loudness and saved on/off state back at startup.
@@ -74,11 +83,11 @@ class SettingsPane extends Pane {
             Sound s = t.sound.get();
             if (s != null) s.setOwnVolume(t.volume());
             String saved = PropertiesManager.getProperty(t.key);
-            if (saved == null && ON_BY_DEFAULT.equals(t.key)) {
+            if (saved == null && ON_BY_DEFAULT.contains(t.key)) {
                 // written back so the setting shows as on rather than merely behaving that way
                 PropertiesManager.setProperties(t.key, "true");
             }
-            t.set.accept(saved != null ? "true".equals(saved) : ON_BY_DEFAULT.equals(t.key));
+            t.set.accept(saved != null ? "true".equals(saved) : ON_BY_DEFAULT.contains(t.key));
         }
     }
 
@@ -103,11 +112,11 @@ class SettingsPane extends Pane {
         bags.add(new Toggle("Gold bag", "goldBagSound", () -> Sound.playGoldBagSound, v -> Sound.playGoldBagSound = v, () -> Sound.goldbag));
         bags.add(new Toggle("Egg bag", "eggBagSound", () -> Sound.playEggBagSound, v -> Sound.playEggBagSound = v, () -> Sound.eggbag));
         bags.add(new Toggle("Blue bag", "blueBagSound", () -> Sound.playBlueBagSound, v -> Sound.playBlueBagSound = v, () -> Sound.bluebag));
+        chat.add(new Toggle("Dungeon call - \"j\", \"jv\", \"join\"", "joinPing", () -> Sound.playJoinSound, v -> Sound.playJoinSound = v, () -> Sound.join));
         chat.add(new Toggle("Private message", "chatPing", () -> Sound.playPmSound, v -> Sound.playPmSound = v, () -> Sound.pm));
         chat.add(new Toggle("Guild chat", "chatPingGuild", () -> Sound.playGuildSound, v -> Sound.playGuildSound = v, () -> Sound.guild));
         chat.add(new Toggle("Party chat", "chatPingParty", () -> Sound.playPartySound, v -> Sound.playPartySound = v, () -> Sound.party));
         chat.add(new Toggle("Trade request", "tradePing", () -> Sound.playTradeSound, v -> Sound.playTradeSound = v, () -> Sound.trade));
-        chat.add(new Toggle("Party \"j\" (dungeon popped)", "joinPing", () -> Sound.playJoinSound, v -> Sound.playJoinSound = v, () -> Sound.join));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
@@ -468,9 +477,10 @@ class SettingsPane extends Pane {
 
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
-        g.drawString("Rings the private-message ping when one of these turns up in any chat.", PAD, y + 12);
-        g.drawString("In quotes - \"loot\" - only as a whole word; otherwise anywhere in the message.", PAD, y + 28);
-        int top = y + 40;
+        g.drawString("The dungeon call above is handled already. These are for anything else worth", PAD, y + 12);
+        g.drawString("catching - a particular callout, your name - in any chat, not just party.", PAD, y + 28);
+        g.drawString("In quotes - \"loot\" - only as a whole word; otherwise anywhere in the message.", PAD, y + 44);
+        int top = y + 56;
 
         if (words.isEmpty()) {
             g.setFont(SonarTheme.font(11.5f));
