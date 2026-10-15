@@ -1,79 +1,141 @@
 # Sonar
 
-A damage tracker for Realm of the Mad God. Sonar reads the game's network packets (it never modifies, blocks or sends any) and shows who is dealing how much damage in the instance you are in.
+**A damage tracker for Realm of the Mad God that tells you what actually happened in the run.**
 
-**[⬇ Download the latest release](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest)** - get `Sonar-<version>-setup.msi` from there, not the "Code" button above. The "Code" button downloads the source, which needs to be built.
+Who did the damage. To which boss. With what gear. How much of it was you.
 
-## What it does and does not do
+[**⬇ Download the latest release**](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest) — get `Sonar-<version>-setup.msi`, not the green "Code" button. It installs for your user only, so Windows never asks for administrator rights.
 
-Sonar **reads**. It never writes, and that is a design limit rather than a promise:
+![The Live page during a run of Oryx's Sanctuary](docs/screenshots/live.png)
 
-- It **never sends anything to the game**. No packet injection, no automation, no input simulation, no clicking or moving for you. The game's upstream channel is RC4 encrypted and stateful, so anything injected would desync the cipher and disconnect you - listening only is the only thing that works, and it is what Sonar does.
-- It **never reads your password**. Sonar watches game traffic on your own machine; it has no login, no account access and no interest in one.
-- **Nothing leaves your computer** except one request to GitHub's release page, to see whether a newer version exists. No telemetry, no analytics, no uploads, no accounts. That check is in [`Updater.java`](src/main/java/sonar/ui/Updater.java) and it is the only outbound call in the program.
+Sonar reads the game's network traffic on your own machine and never writes to it. No injection, no automation, nothing sent to the game.
 
-Third-party tools are a grey area under the game's terms of service, and a passive reader is at the mildest end of that. It is still your call and your risk.
+---
+
+## Damage, counted properly
+
+Most meters give you one number for the whole run. Sonar splits the run the way it actually happened: **the bosses, the lesser bosses, and the trash in between, each on its own.** A player who padded their total on minions drops down the list the moment you look at the boss; a player who showed up for the fight that mattered climbs it.
+
+- **Three scopes** — the whole instance over elapsed time, one enemy at a time, or bosses only
+- **Two measures** — damage per second, or total damage dealt
+- **Two audiences** — everyone in the instance, or just your party
+- **Your own damage is server-checked.** The game never reports your own hits, so Sonar holds its calculation against the health each enemy was actually seen to lose
+- **Pet damage is counted separately**, so it never inflates your number
+- **A two-click reset** zeroes the current instance, with undo
+
+## Every player, down to the item
+
+![The Players page, showing one player's gear, stats and damage by item](docs/screenshots/players.png)
+
+Click anyone's bar and the page fills in: their class and skin, every piece of gear with its enchants, their stats with equipment and exalt bonuses broken out, their hit count and biggest hit — and **where their damage came from**, split by weapon and ability.
+
+The damage window here has its own Overall and Bosses switch, so you can ask "how did they do overall" and "how did they do on the boss" without leaving the roster.
+
+## Review a run after it ends
+
+![The Instance page reviewing a finished run](docs/screenshots/instance.png)
+
+Finished instances are kept. Step back through them, see every enemy that was hit, how long each fight took, how many attackers it had, and how much of its health your party accounted for. Runs are saved to disk day by day, so they survive restarts and updates — and the list knows when Sonar **joined a run late** and says so rather than pretending the numbers are complete.
+
+## Work out who carried it
+
+![The Analysis page with boss segments and leaderboards](docs/screenshots/analysis.png)
+
+Boss segments laid out in proportion to how long each fight took, top contributors overall and on bosses, and a classification pass that estimates each player's ceiling from their gear and stats — so "pumper" and "leecher" mean *against what they could have done*, not just against each other.
+
+## Post the result without anyone installing anything
+
+<img src="docs/screenshots/mvpcard.png" alt="A shareable MVP card for a finished boss fight" width="560">
+
+One click copies a finished run straight to your clipboard as an image, ready to paste into Discord — the full roster, or a card for whoever led the final boss, with their loadout. Built for the way these runs actually get organised, where somebody always asks where they stood.
+
+## The Shatters, solved
+
+![The Observatory puzzle solved automatically](docs/screenshots/puzzle.png)
+
+The Observatory puzzle is Lights Out: shoot a tower and it flips, along with the four around it. Sonar already receives every tower's state and position, so unlike the solvers on the web **there is nothing to type in** — walk in and the answer is drawn for you, using the game's own tower sprites so the grid reads the same as the room.
+
+There is also an optional minimap overlay that marks the Stone Idol, the Derelict Monument and the Source as they are spotted.
+
+## Your account, read from the game
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/wardrobe.png" alt="The Wardrobe page"></td>
+<td width="50%"><img src="docs/screenshots/vault.png" alt="The Vault page"></td>
+</tr>
+<tr>
+<td><b>Wardrobe</b> — decide how Sonar draws each class. Every skin that class can wear, all 143 dyes and all 256 cloths for each part, drawn the way the game lays them on. Outfits are saved and reapplied in one click.</td>
+<td><b>Vault</b> — your vault, gift chest and potions, with enchants and shinies, read as the game sends them.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/characters.png" alt="The Characters page"></td>
+<td><img src="docs/screenshots/calculator.png" alt="The Calculator page"></td>
+</tr>
+<tr>
+<td><b>Characters and Exaltation</b> — every character with its stats, fame and maxing, and exalt progress per class. Characters build up as you play them and are remembered on disk.</td>
+<td><b>Calculator</b> — compare builds and gear sets against your own character's numbers.</td>
+</tr>
+</table>
+
+Plus a **Collection**, a **Party finder** listing, and **Daily Quests** as cards rather than a grey panel.
+
+## The rest of it
+
+- **Pings you choose** for white bags and every other bag colour, enchanted drops, dungeon calls in party chat, trades and the realm closing — each with its own sound and its own volume
+- **Windows you arrange.** Every page is made of windows you can move, resize and close; the layout is remembered
+- **Eight accents and several grounds**, applied to the whole interface at once
+- **Self-updating** — Sonar checks GitHub at startup and installs a new version on request
+- **Brings its own Java.** Nothing else to install
+
+---
 
 ## Install
 
-Download **`Sonar-<version>-setup.msi`** and run it.
+Download **`Sonar-<version>-setup.msi`** from the [latest release](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest) and run it. It installs for your user only — **Windows does not ask for administrator rights at any point** — and appears in Add or Remove Programs like any other application.
 
-It installs for **your user only**, so Windows does not ask for administrator rights at any point. Sonar brings its own Java, so there is nothing else to install, and it appears in Add or Remove Programs like any other application.
+The one thing Sonar cannot bring with it is **Npcap**, the driver that lets any program read network traffic; its licence forbids redistribution. Sonar tells you if it is missing and points you at [npcap.com](https://npcap.com/). Npcap's own installer does ask for administrator rights, because it installs a driver — it is signed by the Nmap project. Everything except the sniffer works without it.
 
-The one thing it cannot bring with it is **Npcap**, the driver that lets any program read network traffic - its licence does not allow redistribution. Sonar tells you if it is missing and points you at [npcap.com](https://npcap.com/). Npcap's own installer *does* ask for administrator rights, because it installs a driver; it is signed by the Nmap project, who have published security tools since 1997. Everything except the sniffer works without it.
+A portable `Sonar-<version>-windows.zip` is also published if you would rather not install anything: unpack it anywhere and run `Sonar.exe`.
 
-A portable `Sonar-<version>-windows.zip` is also on the release page if you would rather not install anything: unpack it anywhere and run `Sonar.exe`.
+## What it does with your data
 
-## About the Windows warning
+Sonar **reads**. That is a design limit, not a promise:
 
-**Windows will warn you about this download, and here is exactly why.**
+- **Nothing is ever sent to the game.** No packet injection, no automation, no input simulation. The game's upstream channel is RC4 encrypted and stateful, so anything injected would desync the cipher and disconnect you — listening is the only thing that works, and it is all Sonar does.
+- **Nothing leaves your computer** except one request to GitHub's releases page to check for a newer version. No telemetry, no analytics, no uploads, no account. That check is in [`Updater.java`](src/main/java/sonar/ui/Updater.java) and it is the only outbound call in the program.
+- **No login, no account access, no password** is involved at any point.
 
-Sonar is not code-signed. A signing certificate requires a registered company with three or more years of filings, or several hundred dollars a year; this is a one-person project a few weeks old, so it has neither. Windows cannot tell an unsigned program written carefully apart from an unsigned program written badly, so it warns about both.
+Third-party tools are a grey area under the game's terms of service, and a passive reader is at the mildest end of that. It remains your call and your risk.
 
-What that looks like: SmartScreen may say *"Windows protected your PC"*. Click **More info**, then **Run anyway**. You should not take that advice from a README alone, so here is how to check the file instead of trusting it.
+## Verifying what you downloaded
 
-**Every release is built in public, and you can prove the download came from this source code.** Releases are built by [a GitHub Actions workflow](.github/workflows/release.yml) you can read, and each file carries a signed provenance attestation tying it to the exact commit it was built from:
+Sonar is **not code-signed** — a certificate needs a registered company with three or more years of filings, or several hundred dollars a year, and this is a small project. So Windows may warn you with *"Windows protected your PC"*: **More info**, then **Run anyway**.
+
+You should not take that on faith from a README, so here is how to check instead of trusting. Every release is built by [a public workflow](.github/workflows/release.yml) you can read, and each file carries a signed provenance attestation tying it to the exact commit it was built from:
 
 ```
 gh attestation verify Sonar-<version>-setup.msi --repo JustAutomate-AI/sonar-rotmg
 ```
 
-That passes only if the file you have is the file that workflow produced from this repository. Nothing I say can be substituted for it. Each release also carries `SHA256SUMS-<version>.txt`, and the build log is public under the Actions tab.
-
-
-![The Live screen](docs/design/sonar-live.png)
-
-## What it shows
-
-- **Live**: the damage list, your own numbers and the current fight. Damage is counted three ways (overall for the instance over elapsed time, per enemy, bosses only), as damage per second or total damage dealt, for everyone or for your party.
-- **Self-updating**: Sonar checks GitHub for a newer release at startup and installs it on request.
-- **Server-checked own damage**: the game never reports your own hits, so Sonar holds its calculation against the health each enemy actually lost.
-- **Reset and review**: a two-click reset zeroes the damage shown for the current instance (with undo), and two arrows step through finished instances.
-- **Players**: click a player's bar to see their damage by item, hit count, biggest hit and equipment. Pet damage is counted separately.
-- **Instance**: details of the area, every enemy hit, finished instances and your character's stats. Everything resets when a new area loads, and finished instances stay available for review.
-- **Party**: click the rank number on a player's bar to add them. The party is remembered by username across instances and sessions.
-- Windows can be moved, resized and closed; the layout is remembered.
+That passes only if the file you have is the file that workflow produced from this source. Each release also ships `SHA256SUMS-<version>.txt`, and the build log is public under the Actions tab.
 
 ## Building it yourself
 
 1. Clone this repository.
-2. Double-click `Setup.bat` - it checks the prerequisites (a 64-bit JDK, Npcap),
-   offers to install what is missing, and builds Sonar into `run\Sonar.jar`.
-3. `tools\make-package.ps1` turns that into the release zip: a trimmed Java
-   runtime and `Sonar.exe`, ready to unpack and run.
+2. Run `Setup.bat` — it checks the prerequisites (a 64-bit JDK 17, Npcap), offers to install what is missing, and builds Sonar into `run\Sonar.jar`.
+3. `tools\make-package.ps1` turns that into the release zip and the installer.
 
 [INSTALL.md](INSTALL.md) has the details and the fixes for known problems.
 
+> The screenshots on this page are Sonar's demo mode. The damage figures are the shape of a real Oryx's Sanctuary run; the names are placeholders, because no real player should end up in a screenshot without being asked.
+
 ## Licence
 
-MIT - see [LICENSE.md](LICENSE.md), which ships with every copy.
+MIT — see [LICENSE.md](LICENSE.md), which ships with every copy.
 
-Sonar includes third-party code under their own terms: the packet-capture layer
-([ardikars pcap](https://github.com/ardikars/pcap) on [Npcap](https://npcap.com/))
-and asset extraction derived from [UnityPy](https://github.com/K0lb3/UnityPy).
-Their notices are kept in the source and in the built jar.
+Sonar includes third-party code under their own terms: the packet-capture layer ([ardikars pcap](https://github.com/ardikars/pcap) on [Npcap](https://npcap.com/)) and asset extraction derived from [UnityPy](https://github.com/K0lb3/UnityPy). Their notices are kept in the source and in the built jar.
 
 ## Changes
 
 See [CHANGELOG.md](CHANGELOG.md) for what each version added.
-

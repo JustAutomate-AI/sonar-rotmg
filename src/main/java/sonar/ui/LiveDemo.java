@@ -19,12 +19,39 @@ final class LiveDemo {
      * - columns that are always empty, totals an order of magnitude out, hit
      * counts that no real fight would produce.
      */
+    /**
+     * The demo roster. The names are deliberately nobody's: this data ends up in screenshots,
+     * and no real player should appear in them without having been asked. The figures below are
+     * the shape of a real Oryx's Sanctuary run and are unchanged - only the names are not.
+     */
     private static final String[][] PLAYERS = {
             {"Username1", "Samurai"}, {"Username2", "Knight"}, {"Username3", "Necromancer"}, {"Username4", "Archer"},
             {"Username5", "Wizard"}, {"Username6", "Warrior"}, {"Username7", "Huntress"}, {"Username8", "Necromancer"},
             {"Username9", "Paladin"}, {"Username10", "Rogue"}, {"Username11", "Mystic"}, {"You", "Wizard"},
             {"Username13", "Priest"}, {"Username14", "Trickster"}, {"Username15", "Warrior"}, {"Username16", "Sorcerer"},
             {"Username17", "Ninja"}, {"Username18", "Wizard"}, {"Username19", "Bard"}, {"Username20", "Archer"}};
+
+    /**
+     * Real enchant names, so every gear icon carries a genuine gem and a genuine note. How many
+     * an item holds is what colours its mark - one green, two blue, three violet, four gold - so
+     * the roster is dealt one of each and all four rarities are on screen at once, rather than
+     * the single tier the demo used to repeat down the whole list.
+     */
+    private static final String[] ENCHANTS = {
+            "Attack Bonus IV", "Dexterity Bonus III", "Damage Bonus II", "FireRate Bonus I",
+            "Defense Bonus III", "Vitality Bonus II", "Wisdom Bonus I", "Speed Bonus IV",
+            "Life Bonus II", "Mana Bonus III", "Loot Bonus I", "XP Bonus II"};
+
+    /** The enchants on one player's item: between one and four of them. */
+    private static String enchantsFor(int p, int slot) {
+        int count = 1 + (p + slot * 3) % 4;
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            if (i > 0) b.append('\n');
+            b.append(ENCHANTS[(p * 5 + slot * 7 + i * 3) % ENCHANTS.length]);
+        }
+        return b.toString();
+    }
 
     /** Final damage each player finished that run on, highest first - the shape a real board has. */
     private static final long[] FINAL_DAMAGE = {
@@ -353,11 +380,14 @@ final class LiveDemo {
             r.loadout[i] = LiveModel.itemName(kit[i]);
             LiveModel.ITEM_IDS.put(r.loadout[i], kit[i]);
         }
-        // the game's own enchant names, so the marks and the hover notes show the real pictures
-        if (r.me) r.enchants[0] = "Damage Bonus IV\nFireRate Bonus II";
-        else if (p % 3 == 0) r.enchants[0] = "Attack Bonus I";
-        else if (p % 3 == 1) r.enchants[0] = "Dexterity Bonus III";
-        r.enchantTier[0] = EnchantSprites.tierOf(EnchantSprites.best(r.enchants[0]));
+        // every slot carries real enchants, so the marks, the glows and the hover notes are all
+        // the game's own rather than one tier repeated down the list
+        for (int i = 0; i < 4; i++) {
+            r.enchants[i] = r.me && i == 0
+                    ? "Damage Bonus IV\nFireRate Bonus II\nAttack Bonus III\nDexterity Bonus II"
+                    : enchantsFor(p, i);
+            r.enchantTier[i] = EnchantSprites.tierOf(EnchantSprites.best(r.enchants[i]));
+        }
 
         // a bow lands thousands of small shots; a caster lands far fewer, far bigger ones
         int hits = Math.max(1, (int) Math.round(HITS[p] * Math.max(0.05, Math.min(1, damage / (double) Math.max(1, FINAL_DAMAGE[p])))));
@@ -391,7 +421,9 @@ final class LiveDemo {
         java.util.List<Wardrobe.Skin> skins = Wardrobe.skins(classId);
         if (skins.isEmpty()) return classId;
         // every third player is left on the default look, because most players are
-        return p % 3 == 0 ? classId : skins.get((p * 7 + classId) % skins.size()).id;
+        // everyone wears a skin: this roster is what the screenshots show, and a third of it in
+        // the plain default made the game look duller than it is
+        return skins.get((p * 7 + classId) % skins.size()).id;
     }
 
     /**
