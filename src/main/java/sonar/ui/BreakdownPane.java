@@ -23,13 +23,13 @@ class BreakdownPane extends Pane {
 
     /** Each column, with the width the table needs before it is worth showing. */
     private static final int NEED_PERCENT = 430, NEED_DPS = 520, NEED_HITS = 600, NEED_BIG = 690,
-            NEED_TAKEN = 780, NEED_GUARDED = 870, NEED_BLOCKED = 960, NEED_GEAR = 1060, NEED_TRACKING = 1180;
+            NEED_TAKEN = 632, NEED_GEAR = 912, NEED_TRACKING = 1032;
     /**
      * The guard column appears only on a fight that has a guard phase, which is a handful of
      * them, so it is allowed in at a narrower width than the columns that are always there.
      * Where it does appear it is usually the column somebody opened the list to read.
      */
-    private static final int NEED_GUARD = 640, NEED_GUARD_HITS = 730;
+    private static final int NEED_GUARD = 492, NEED_GUARD_HITS = 582;
 
     private List<LiveModel.Row> rows = new ArrayList<>();
     /** True when this fight had a guard phase somebody shot into: see {@link #NEED_GUARD}. */
@@ -93,7 +93,7 @@ class BreakdownPane extends Pane {
 
     /** Right edge of each column, worked out once so the header and the rows agree. */
     private static final class Layout {
-        int damage, percent, dps, hits, biggest, guard, guardHits, taken, guarded, blocked, gear, tracking, nameEnd;
+        int damage, percent, dps, hits, biggest, guard, guardHits, taken, gear, tracking, nameEnd;
     }
 
     private Layout layout(int width) {
@@ -106,14 +106,6 @@ class BreakdownPane extends Pane {
         if (width >= NEED_GEAR) {
             l.gear = right - (4 * (GEAR + GEAR_GAP));
             right = l.gear - 12;
-        }
-        if (width >= NEED_BLOCKED) {
-            l.blocked = right;
-            right -= 72;
-        }
-        if (width >= NEED_GUARDED) {
-            l.guarded = right;
-            right -= 76;
         }
         if (width >= NEED_TAKEN) {
             l.taken = right;
@@ -174,12 +166,11 @@ class BreakdownPane extends Pane {
     /** The fight in four figures, so the table underneath has something to be a share of. */
     private void paintSummary(Graphics2D g, int width) {
         double seconds = Math.max(1, fightMs / 1000.0);
-        long taken = 0, guarded = 0;
+        long taken = 0;
         int hits = 0;
         for (LiveModel.Row r : rows) {
             hits += r.hits;
             if (r.damageTaken > 0) taken += r.damageTaken;
-            if (r.guarded > 0) guarded += r.guarded;
         }
         String[][] cells = {
                 {SonarTheme.number(total), "party damage"},
@@ -187,7 +178,6 @@ class BreakdownPane extends Pane {
                 {enemyHealth > 0 ? String.format("%.0f%%", total * 100.0 / enemyHealth) : "-", "of its health"},
                 {SonarTheme.number(hits), "hits landed"},
                 {taken > 0 ? SonarTheme.number(taken) : "-", "damage taken"},
-                {guarded > 0 ? SonarTheme.number(guarded) : "-", "armour guarded"},
         };
         int cell = Math.max(100, (width - PAD * 2) / cells.length);
         for (int i = 0; i < cells.length; i++) {
@@ -218,9 +208,6 @@ class BreakdownPane extends Pane {
         if (l.guard > 0) right(g, "INTO GUARD", l.guard, y);
         if (l.guardHits > 0) right(g, "GUARD HITS", l.guardHits, y);
         if (l.taken > 0) right(g, "TAKEN", l.taken, y);
-        // "absorbed" rather than "guarded", which now has to mean the boss's guard as well
-        if (l.guarded > 0) right(g, "ABSORBED", l.guarded, y);
-        if (l.blocked > 0) right(g, "BLOCKED", l.blocked, y);
         if (l.gear > 0) g.drawString("GEAR", l.gear, y);
         if (l.tracking > 0) right(g, "TRACKING", l.tracking, y);
         g.setColor(SonarTheme.LINE_STRONG);
@@ -443,12 +430,16 @@ class BreakdownPane extends Pane {
         Color guardInk = r.guardDamage > 0 ? SonarTheme.DANGER : SonarTheme.FAINT;
         cell(g, l.guard, mid, r.guardDamage > 0 ? SonarTheme.number(r.guardDamage) : "-", guardInk);
         cell(g, l.guardHits, mid, r.guardHits > 0 ? SonarTheme.number(r.guardHits) : "-", guardInk);
+        // What the run cost them. The server announces this one outright for everybody else,
+        // so it is their figure rather than ours; the user's own row is the exception, worked
+        // out from the shot that hit them and this client's own idea of its defence.
+        //
+        // Absorbed and Blocked used to sit beside it and no longer do. Absorbed was raw damage
+        // minus what landed, which needs the shot to have been seen - so it under-reported by
+        // however much happened off screen, and answered a question nobody asks. Blocked was
+        // only ever known for the user, so nineteen rows in twenty read as a dash.
         cell(g, l.taken, mid, r.damageTaken >= 0 ? SonarTheme.number(r.damageTaken) : "-",
                 r.damageTaken > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
-        cell(g, l.guarded, mid, r.guarded >= 0 ? SonarTheme.number(r.guarded) : "-",
-                r.guarded > 0 ? SonarTheme.EXALT : SonarTheme.FAINT);
-        cell(g, l.blocked, mid, r.blocked >= 0 ? SonarTheme.number(r.blocked) : "-",
-                r.blocked > 0 ? SonarTheme.MINT : SonarTheme.FAINT);
 
         if (l.gear > 0) {
             int gx = l.gear;

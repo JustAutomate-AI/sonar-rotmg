@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.19.0
+
+**Two columns gone, and the ones left have room**
+- **ABSORBED** and **BLOCKED** are removed from the damage breakdown, along with the *armour guarded* figure in the summary strip above it.
+- Absorbed was what a player's own armour took off a hit: the shot's raw damage minus what landed. Working that out needs Sonar to have seen the shot, and where it did not the two figures are equal, so the hit counted as nothing absorbed. It under-reported by however much happened off screen, and it answered a question nobody was asking.
+- Blocked was only ever known for the user - the server does not announce a hit on somebody else that dealt nothing - so nineteen rows in twenty read as a dash.
+- **TAKEN stays.** For everybody except you it is the server's own figure, announced outright with the hit; your own row is the exception, worked out from the shot that hit you and this client's idea of its defence.
+- The 148 pixels those two columns held go back to the table, so **INTO GUARD** and **GUARD HITS** now appear at a window a third narrower than before, and TRACKING returns sooner too.
+
 ## 2.18.0
 
 **Guard damage is always red**
