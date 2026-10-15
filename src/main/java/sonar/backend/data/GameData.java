@@ -327,6 +327,10 @@ public class GameData {
         } else if (isPlayerEntity(idType)) {
             playerList.put(id, entity);
             playerListUpdated.put(id, entity);
+            // Somebody who walked out of view and back was still counted as having left, because
+            // the drop was recorded and never taken back. A player who returns plainly did not
+            // nexus, so the record goes - only a drop with no return means they are gone.
+            playerDroppedAt.remove(id);
             if (id == worldPlayerId) {
                 player = entity;
                 entity.setUser(charId);
@@ -1176,6 +1180,9 @@ public class GameData {
         lootAttribution.handleTextPacket(p, map != null ? map.seed : -1);
 
         ChatPings.updateChat(p);
+        // the one figure the game ever states outright: the top damage dealer at the end of
+        // Oryx's Sanctuary, with their number. Checked against our own in OryxAccuracy.
+        sonar.ui.OryxAccuracy.heard(p);
     }
 
     /**

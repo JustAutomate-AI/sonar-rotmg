@@ -585,6 +585,8 @@ public class SonarShell extends JPanel {
                 LiveModel.Past past = LiveModel.summary(data.dpsData.get(s.pastCounted++));
                 s.pastCache.add(past);
                 InstanceHistory.record(past);
+                // a finished run is the moment to hold our numbers against what the server said
+                OryxAccuracy.measure(past.frozen);
                 // the who-was-where index is built from these files, so it is stale the moment one lands
                 PlayerHistory.invalidate();
             }

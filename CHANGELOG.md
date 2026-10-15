@@ -2,6 +2,21 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.10.0
+
+**Sonar now checks itself against the game**
+- At the end of Oryx's Sanctuary the server announces the top damage dealer with their damage and their share: *"Username1 dealt the crucial blows with 1,149,325 (18.6%) damage!"*. That is the only figure the game ever states outright, and it is the one thing that can tell Sonar whether it gave the credit to the right person.
+- Every O3 run is now a free test. The comparison is made when the run finishes and kept, so accuracy is something you can look at rather than assume.
+- **Copy accuracy** on the Run summary puts the record on the clipboard. It carries **no names at all** - whether the top dealer matched is a yes or no, and the rest is numbers. A record taken from a packet sniffer has no business carrying the username of somebody who never agreed to it.
+- Nothing is uploaded. Sonar still sends nothing anywhere; sharing the record is a copy and a paste, by hand, if you choose to.
+
+**When the top dealer has nexused, the game stops naming them**
+- It says "a hero of the nexus" instead. Read as a name, that would have recorded a miss on exactly the runs where Sonar may well have been right.
+- It is read as what it is: the server saying its top dealer left. The check then becomes whether the player Sonar put top had left too.
+
+**Someone who walked out of view and back counted as having left**
+- A player leaving your view is recorded as a drop, and the record was never taken back when they returned - so anyone who rounded a corner was treated as having nexused. A player who comes back plainly did not, and the record now goes when they do.
+
 ## 2.9.3
 
 **The game can update itself again while Sonar is open**

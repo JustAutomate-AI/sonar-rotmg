@@ -453,6 +453,12 @@ class LiveView {
      */
     private final SonarButton shareBossButton = new SonarButton("", true, this::shareBossResults).icon("share");
     private final SonarButton shareButton = new SonarButton("All", false, this::shareResults);
+    /**
+     * Copies the Oryx 3 accuracy record. Deliberately a copy rather than an upload: Sonar
+     * says plainly that nothing leaves the machine, and that claim is worth more than the
+     * convenience of collecting this automatically. What it copies carries no names.
+     */
+    private final SonarButton accuracyButton = new SonarButton("Accuracy", false, this::copyAccuracy);
     /** The same share, on the board itself. */
     private final SonarButton damageShare = new SonarButton("", false, this::shareBossResults).icon("share");
     /** The star that leaves: one player rather than the whole board. */
@@ -565,6 +571,18 @@ class LiveView {
         navigate.accept(PLAYERS);
     }
 
+    /** Puts the accuracy record on the clipboard, with the same flash the share buttons use. */
+    private void copyAccuracy() {
+        try {
+            String block = OryxAccuracy.copyBlock();
+            java.awt.datatransfer.StringSelection text = new java.awt.datatransfer.StringSelection(block);
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(text, text);
+            flashShareButton(accuracyButton, "Accuracy", OryxAccuracy.last() == null ? "Nothing yet" : "Copied!");
+        } catch (Throwable t) {
+            flashShareButton(accuracyButton, "Accuracy", "Couldn't copy");
+        }
+    }
+
     private javax.swing.JComponent shareAccessory() {
         javax.swing.Box nav = javax.swing.Box.createHorizontalBox();
         nav.add(reviewMode);
@@ -572,8 +590,11 @@ class LiveView {
         nav.add(shareBossButton);
         nav.add(javax.swing.Box.createHorizontalStrut(5));
         nav.add(shareButton);
+        nav.add(javax.swing.Box.createHorizontalStrut(5));
+        nav.add(accuracyButton);
         shareBossButton.setToolTipText("Copy the bosses of this instance as an image, ready to paste into Discord");
         shareButton.setToolTipText("Copy every player's damage as an image instead");
+        accuracyButton.setToolTipText("Copy how Sonar's Oryx 3 numbers compared with the game's own announcement. No names.");
         return nav;
     }
 
