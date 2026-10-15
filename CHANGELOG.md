@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.15.0
+
+**The guard, on the bar**
+- A player's damage bar now ends in **red for the share of it that went into the guard**, growing from the right end inwards - the same way the Live page already marks a pet's share in gold. Somebody who did nothing but shoot the guard has a bar that is red nearly all the way along, and you know it at a glance without reading a figure.
+- On the Live page, on the damage breakdown, and on the pictures you share, so the three agree.
+- Growing from the right was the right call: that is the end of the bar with the least on it, so most rows are untouched by it.
+- **When it does reach under the text**, which is exactly what happens to a pure blaster, the name stays readable. The line is drawn in three runs rather than two, each clipped to one stretch of what is actually behind it - the class colour, then the red, then the panel - each in the ink that suits it. The red keeps its true proportion instead of being stopped short of the text, because the proportion is the thing being reported.
+
 ## 2.14.0
 
 **Who shot the guard**

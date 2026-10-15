@@ -2509,6 +2509,13 @@ class LiveView {
         summed.merge(blaster);
         report.accept("guard damage adds up when fights are summed together",
                 summed.guardDamage == 240000 && summed.guardHits == 680);
+        // the red run on the right end of a bar is this share of its length
+        report.accept("the red run is the guard's share of the bar",
+                Math.abs(blaster.guardShare() - 0.24) < 0.0001 && clean.guardShare() == 0);
+        LiveModel.Row overcounted = new LiveModel.Row();
+        overcounted.damage = 1000;
+        overcounted.guardDamage = 4000;
+        report.accept("a bar is never asked to be longer than itself", overcounted.guardShare() == 1);
 
         // ---- what a posted picture is worth zooming into ----
         // The picture is read by zooming in on it in a Discord, which is when a sprite drawn

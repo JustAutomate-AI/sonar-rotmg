@@ -397,14 +397,34 @@ public final class SonarTheme {
      */
     public static void across(Graphics2D g, String text, float x, float y, double barEnd,
                               int top, int height, Color onBar, Color offBar) {
+        across(g, text, x, y, barEnd, barEnd, top, height, onBar, onBar, offBar);
+    }
+
+    /**
+     * The same, for a bar that ends in a second colour - the red run that marks damage put
+     * into a boss's guard, which grows from the right end of the bar inwards.
+     * <p>
+     * This is the backup the red run needs. A player who did nothing but shoot the guard has
+     * a bar that is red nearly all the way along, and their name sits on top of it; ink
+     * chosen for a Paladin's yellow would be unreadable there. So the line is drawn three
+     * times rather than twice, each run clipped to one stretch of what is actually behind
+     * it, which keeps the red honest about its proportion instead of stopping it short of
+     * the text. Where the red is absent the middle stretch is empty and this costs nothing.
+     *
+     * @param guardStart where the second colour begins; pass {@code barEnd} for none.
+     */
+    public static void across(Graphics2D g, String text, float x, float y, double guardStart, double barEnd,
+                              int top, int height, Color onBar, Color onGuard, Color offBar) {
         if (text == null || text.isEmpty()) return;
+        double[] from = {-10000, guardStart, barEnd};
+        double[] to = {guardStart, barEnd, 20000};
+        Color[] ink = {onBar, onGuard, offBar};
         Shape old = g.getClip();
-        for (int side = 0; side < 2; side++) {
+        for (int zone = 0; zone < 3; zone++) {
+            if (to[zone] <= from[zone]) continue;
             g.setClip(old);
-            g.clip(side == 0
-                    ? new java.awt.geom.Rectangle2D.Double(-10000, top, 10000 + barEnd, height)
-                    : new java.awt.geom.Rectangle2D.Double(barEnd, top, 20000, height));
-            g.setColor(side == 0 ? onBar : offBar);
+            g.clip(new java.awt.geom.Rectangle2D.Double(from[zone], top, to[zone] - from[zone], height));
+            g.setColor(ink[zone]);
             g.drawString(text, x, y);
         }
         g.setClip(old);

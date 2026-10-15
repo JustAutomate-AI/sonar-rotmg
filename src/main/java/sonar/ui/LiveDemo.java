@@ -463,11 +463,15 @@ final class LiveDemo {
         // three of the roster blast the guard, which is roughly how a real run goes: one
         // person doing most of it, a couple more doing some. Without it the column and the
         // badge have nothing to draw and no screenshot ever shows them.
-        int[] blasters = {1, 4, 6};
+        // one who did almost nothing but shoot the guard, one who did a fair bit and one who
+        // caught a little of it, which is roughly the spread a real run produces - and the
+        // first of them is the case the red run has to survive, since it reaches under their
+        // name and their class
+        int[] blasters = {1, 4, 6}, blastShare = {78, 21, 6};
         for (int i = 0; guardPhase && i < blasters.length; i++) {
             if (p != blasters[i]) continue;
-            r.guardDamage = damage * (14 - i * 5) / 100;
-            r.guardHits = Math.max(1, hits * (14 - i * 5) / 100);
+            r.guardDamage = damage * blastShare[i] / 100;
+            r.guardHits = Math.max(1, hits * blastShare[i] / 100);
         }
         verifyGear(r);
         verifyLook(r);

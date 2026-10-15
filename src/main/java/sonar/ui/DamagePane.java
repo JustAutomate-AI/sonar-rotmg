@@ -248,6 +248,17 @@ class DamagePane extends Pane {
             g.clip(track);
             Shape bar = SonarTheme.round(barStart, y, barLength, ROW, 11);
             g.fill(bar);
+            // what went into a boss's guard, taken off the right end of the bar the same way
+            // the pet's share is - so "how much of that was the part nobody wanted" is read
+            // from the bar itself rather than from a column. Red because that is what it is.
+            if (b.row.guardDamage > 0 && b.row.damage > 0) {
+                double guardWidth = barLength * b.row.guardShare();
+                g.clip(bar);
+                g.setColor(SonarTheme.alpha(SonarTheme.DANGER, 0.82));
+                g.fill(new java.awt.geom.Rectangle2D.Double(barEnd - guardWidth, y, guardWidth, ROW));
+                g.setColor(new Color(0, 0, 0, 70));
+                g.fill(new java.awt.geom.Rectangle2D.Double(barEnd - guardWidth, y, 1.2, ROW));
+            }
             if (b.row.pet > 0 && b.row.damage > 0) {
                 // the end of the bar, as wide as the pet's part of the damage
                 double petWidth = barLength * Math.min(1.0, (double) b.row.pet / b.row.damage);

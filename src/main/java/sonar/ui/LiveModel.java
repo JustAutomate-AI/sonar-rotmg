@@ -462,6 +462,17 @@ final class LiveModel {
          */
         long guardDamage;
         int guardHits;
+
+        /**
+         * How much of this player's damage went into the guard, 0 to 1 - the length of the
+         * red run on the right end of their bar. Clamped, because the two figures come from
+         * different places: the damage total is server-checked for the user themselves while
+         * the guard tally is counted hit by hit, and a bar longer than itself is not a thing
+         * to draw.
+         */
+        double guardShare() {
+            return damage <= 0 || guardDamage <= 0 ? 0 : Math.min(1, guardDamage / (double) damage);
+        }
         /** Names of the weapon, ability, armor and ring last seen on the player; empty when unknown. */
         String[] loadout = {"", "", "", ""};
         /** Enchant names on those four items, separated by line breaks; empty when none or unknown. */

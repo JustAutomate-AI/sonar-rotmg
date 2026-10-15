@@ -358,6 +358,17 @@ class BreakdownPane extends Pane {
         g.setPaint(new GradientPaint(PAD, 0, SonarTheme.alpha(SonarTheme.classColor(r.cls, false), 0.55),
                 (float) (PAD + Math.max(90, barW)), 0, SonarTheme.alpha(SonarTheme.classColor(r.cls, true), 0.55)));
         g.fill(SonarTheme.round(PAD, top + 2, Math.max(barW, 10), ROW - 5, 7));
+        // the part of that bar that went into the guard, taken off its right end, the same
+        // way the Live page marks a pet's share. A player who did nothing but shoot the guard
+        // has a bar that is almost all red, which is the whole point of showing it this way.
+        double guardW = r.guardShare() * barW;
+        if (guardW > 0.5) {
+            g.setPaint(null);
+            g.setColor(SonarTheme.alpha(SonarTheme.DANGER, 0.78));
+            g.fill(new java.awt.geom.Rectangle2D.Double(PAD + barW - guardW, top + 2, guardW, ROW - 5));
+            g.setColor(new Color(0, 0, 0, 70));
+            g.fill(new java.awt.geom.Rectangle2D.Double(PAD + barW - guardW, top + 2, 1.2, ROW - 5));
+        }
         g.setClip(clip);
         g.setPaint(null);
 
@@ -380,15 +391,19 @@ class BreakdownPane extends Pane {
         // in the ink that suits whatever is actually behind it. The bar is its class colour
         // laid over the panel at just over half strength, which is the surface to read against.
         double barEnd = PAD + barW;
+        // where the red run starts, which is a third surface the text may cross
+        double guardStart = barEnd - guardW;
         int clipTop = top + 2, clipH = ROW - 5;
         Color barFace = SonarTheme.mix(SonarTheme.SURFACE, SonarTheme.classColor(r.cls, true), 0.55);
         Color onBar = SonarTheme.inkOn(barFace);
+        Color onGuard = SonarTheme.inkOn(SonarTheme.mix(barFace, SonarTheme.DANGER, 0.78));
 
         int mid = top + ROW / 2;
         g.setFont(SonarTheme.font(10f));
         String rank = String.valueOf(index + 1);
         SonarTheme.across(g, rank, PAD + 14 - g.getFontMetrics().stringWidth(rank), mid + 4,
-                barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.55), SonarTheme.FAINT);
+                guardStart, barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.55),
+                SonarTheme.alpha(onGuard, 0.55), SonarTheme.FAINT);
 
         int x = PAD + 22;
         if (!Glyph.player(g, r.skin, r.dyeMain, r.dyeAccessory, x, mid - PORTRAIT / 2.0, PORTRAIT)) {
@@ -399,14 +414,14 @@ class BreakdownPane extends Pane {
 
         g.setFont(SonarTheme.bold(12f));
         String name = SonarTheme.fit(r.name.isEmpty() ? "Unknown" : r.name, g.getFontMetrics(), Math.max(40, l.nameEnd - x));
-        SonarTheme.across(g, name, x, mid + 4, barEnd, clipTop, clipH, onBar, SonarTheme.TEXT);
+        SonarTheme.across(g, name, x, mid + 4, guardStart, barEnd, clipTop, clipH, onBar, onGuard, SonarTheme.TEXT);
         int after = x + g.getFontMetrics().stringWidth(name) + 7;
         if (!r.cls.isEmpty() && after < l.nameEnd - 20) {
             g.setFont(SonarTheme.font(10f));
             // the class stays the quieter of the two, on the bar as well as off it
             String cls = SonarTheme.fit(r.cls, g.getFontMetrics(), l.nameEnd - after);
-            SonarTheme.across(g, cls, after, mid + 4,
-                    barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.7), SonarTheme.FAINT);
+            SonarTheme.across(g, cls, after, mid + 4, guardStart, barEnd, clipTop, clipH,
+                    SonarTheme.alpha(onBar, 0.7), SonarTheme.alpha(onGuard, 0.7), SonarTheme.FAINT);
             after += g.getFontMetrics().stringWidth(cls) + 7;
         }
         after = paintGuardTag(g, r, after, mid, l, barEnd);
