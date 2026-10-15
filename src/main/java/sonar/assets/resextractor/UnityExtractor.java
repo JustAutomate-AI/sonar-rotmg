@@ -25,14 +25,19 @@ public class UnityExtractor {
         AssetExtractor.setDisplay("Creating Folders");
         createFolders(output);
 
-        Resources res = new Resources(input);
-
-        AssetExtractor.setDisplay("Extracting Spritesheet File");
-        extractSpritesheet(res, output[0]);
-        AssetExtractor.setDisplay("Extracting Sprites");
-        extractSprites(res, output[1]);
-        AssetExtractor.setDisplay("Extracting Xml Files");
-        extractXml(res, output[2]);
+        // Closed when the three passes below are done. Sonar used to keep this handle on the
+        // game's resources.assets for its whole run, and Windows will not let the game's own
+        // launcher replace a file another program has open - so a patch day ended in a sharing
+        // violation telling the player to "remove the build manually". Nothing reads through it
+        // after this block, so there is nothing to keep it open for.
+        try (Resources res = new Resources(input)) {
+            AssetExtractor.setDisplay("Extracting Spritesheet File");
+            extractSpritesheet(res, output[0]);
+            AssetExtractor.setDisplay("Extracting Sprites");
+            extractSprites(res, output[1]);
+            AssetExtractor.setDisplay("Extracting Xml Files");
+            extractXml(res, output[2]);
+        }
     }
 
     private void createFolders(File[] output) {

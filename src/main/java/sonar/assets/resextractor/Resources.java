@@ -8,7 +8,7 @@ import java.util.ArrayList;
 /**
  * Class extracted from UnityPy https://github.com/K0lb3/UnityPy
  */
-public class Resources {
+public class Resources implements java.io.Closeable {
 
     ArrayList<TextAsset> assetTextAsset = new ArrayList<>();
     ArrayList<SpriteAtlas> assetSpriteAtlas = new ArrayList<>();
@@ -27,9 +27,24 @@ public class Resources {
         }
     }
 
+    /** The file this was read from, so the handle can be released when extraction is done. */
+    private SerializedFile serialized;
+
     public void extractAssets(File f, FileHeader header) throws IOException {
         SerializedFile sf = new SerializedFile(f, header);
+        serialized = sf;
         parseAllResources(sf);
+    }
+
+    /**
+     * Lets go of the game's assets file. Until this ran, Sonar kept a read handle open for as
+     * long as it was running, and Windows will not let the game's launcher replace a file that
+     * something else has open - so updating the game failed on every patch day with a sharing
+     * violation and an error message pointing nowhere near the cause.
+     */
+    @Override
+    public void close() throws IOException {
+        if (serialized != null && serialized.reader != null) serialized.reader.close();
     }
 
     public void parseAllResources(SerializedFile sf) throws IOException {

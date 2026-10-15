@@ -26,11 +26,17 @@ public class SerializedFile {
     public long[] type_dependencies;
     public ObjectReader[] objects;
 
+    /** The one handle on the assets file, held open while the objects below are read. */
+    public DataReader reader;
+
     public SerializedFile(File f, FileHeader header) throws IOException {
         this.version = header.version;
         this.data_offset = header.data_offset;
 
         DataReader reader = DataReader.getReader(f, header.bigEndian);
+        // kept so the handle on the assets file can be let go once extraction finishes; every
+        // object below reads through it lazily, so it cannot simply be closed here
+        this.reader = reader;
 
         for (int i = 0; i < 12; i++) {
             reader.readInt();

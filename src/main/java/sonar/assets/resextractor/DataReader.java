@@ -5,7 +5,7 @@ import java.io.*;
 /**
  * Class extracted from UnityPy https://github.com/K0lb3/UnityPy
  */
-public class DataReader {
+public class DataReader implements java.io.Closeable {
     private final FileInputStream fileIo;
     private final DataInputStream buffer;
     private final long length;
@@ -17,6 +17,13 @@ public class DataReader {
         this.buffer = buffer;
         this.length = length;
         this.isBigEndian = isBig;
+    }
+
+    /** Releases the handle on the assets file. Held open, it locks the game's own data. */
+    @Override
+    public void close() throws IOException {
+        buffer.close();
+        fileIo.close();
     }
 
     public static DataReader getReader(File f, boolean endian) throws IOException {

@@ -27,9 +27,17 @@ public class FileHeader {
     public int type;
 
     public FileHeader(File f) throws IOException {
-        FileInputStream fin = new FileInputStream(f);
-        DataInputStream reader = new DataInputStream(fin);
+        // Closed when the header has been read. Left open, this handle alone is enough to stop
+        // the game's own launcher replacing resources.assets on a patch day - Windows refuses
+        // the write and tells the player to "remove the build manually", which points nowhere
+        // near Sonar.
+        try (FileInputStream fin = new FileInputStream(f);
+             DataInputStream reader = new DataInputStream(fin)) {
+            read(f, reader);
+        }
+    }
 
+    private void read(File f, DataInputStream reader) throws IOException {
         size = f.length();
         metadata_size = Integer.toUnsignedLong(reader.readInt());
         file_size = Integer.toUnsignedLong(reader.readInt());

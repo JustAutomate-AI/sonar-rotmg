@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.9.3
+
+**The game can update itself again while Sonar is open**
+- Sonar held the game's `resources.assets` open for as long as it was running. Windows will not let one program replace a file another has open, so on patch day the RotMG launcher failed with a sharing violation and told you to "remove the build manually" - an error pointing nowhere near the cause. Closing Sonar and clicking the same button worked, which is not something anyone would guess.
+- Two handles were being left open: one taken to read the file's header and never closed at all, and one held for the whole extraction and never released afterwards. Both are closed now, the second as soon as the last pass over the file is done.
+- Checked rather than assumed: with the fix, a forced re-extraction runs to completion and the assets file can be opened exclusively by another program while Sonar is still running.
+
 ## 2.9.2
 
 **The version number in the rail opens the release notes**
