@@ -118,6 +118,12 @@ final class Wardrobe {
         return name == null ? "" : name;
     }
 
+    /** A shape the game turns a player into, or an unfinished entry - not something to wear. */
+    private static boolean isTransformation(String name) {
+        String n = name == null ? "" : name.toLowerCase();
+        return n.contains("transform") || n.contains("placeholder");
+    }
+
     private static synchronized void loadSkins() {
         if (skinsByClass != null) return;
         Map<Integer, List<Skin>> byClass = new HashMap<>();
@@ -133,7 +139,17 @@ final class Wardrobe {
             Matcher n = NAME.matcher(m.group(1));
             Skin skin = new Skin(id, n.find() ? n.group(1) : "Skin " + Integer.toHexString(id));
             names.put(id, skin.name);
-            if (wearer == ANY_CLASS) anyClass.add(skin);
+            if (wearer == ANY_CLASS) {
+                // Seventeen skins say any class may wear them, and thirteen of those are not
+                // skins at all: the temporary shapes the game turns you into - Anubis, Bat,
+                // Ghost, Zombie, the boss transformations - plus one entry openly named a
+                // placeholder. Nobody can equip them, so offering them in the Wardrobe would
+                // be offering a wardrobe of things that cannot be worn. The game's data gives
+                // nothing to tell them apart but their names, which is why this reads as it
+                // does. What survives is the four genuine ones: Beefcake Santa, Baby Djinja,
+                // Calcium Skeleton and The Mistake.
+                if (!isTransformation(skin.name)) anyClass.add(skin);
+            }
             else byClass.computeIfAbsent(wearer, k -> new ArrayList<>()).add(skin);
         }
         for (List<Skin> list : byClass.values()) {

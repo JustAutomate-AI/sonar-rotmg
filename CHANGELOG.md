@@ -2,6 +2,23 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.8.3
+
+**The dungeon-call ping now hears guild chat**
+- "j" is called out in guild chat at least as often as in party chat - a guild running keys calls them to the guild - and the ping only ever listened to party chat. That is why it could be switched on and still never fire. It now rings from either, and is still held back while you are already in a dungeon, where the call is for somebody else.
+
+**The Players page keeps its own switches**
+- Its damage window took DPS/Total and Everyone/Party from the Live page, so flipping a switch on one page quietly changed another. It owns all three of its switches now - what is counted, how it is measured and whose - and remembers them separately.
+
+**The Analysis page stops leaving half of itself blank**
+- Boss segments is three rows in a dungeon with three bosses and the Shatters panel is empty everywhere except the Shatters, so between them they left most of the page empty. Those two share the left column now and the leaderboard, which always has something in it, takes the full height of the right.
+
+**The Wardrobe stops offering things that cannot be worn**
+- Seventeen skins claim any class may wear them. Thirteen are not skins: they are the temporary shapes the game turns you into - Anubis, Bat, Ghost, Zombie, the boss transformations - plus one entry openly named a placeholder. They are no longer listed. The four real ones stay: Beefcake Santa, Baby Djinja, Calcium Skeleton and The Mistake.
+
+**Window layouts reset once**
+- The Analysis change moves windows that were already placed, so saved layouts are rebuilt from the new defaults. Anything you had arranged on other pages is set out afresh too.
+
 ## 2.8.2
 
 **Updating an installed copy would have deleted your settings**

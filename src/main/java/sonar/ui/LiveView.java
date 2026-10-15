@@ -117,6 +117,19 @@ class LiveView {
         sonar.util.PropertiesManager.setProperties("sonar.players.damage.tab", String.valueOf(i));
         refresh();
     });
+    // This window used to take its measure and its audience from the Live page, which is a
+    // control governing a window it is not attached to - flipping a switch on one page quietly
+    // changed another. It owns all three of its switches now, and remembers them separately.
+    private final Segmented playerMetric = new Segmented(new String[]{"DPS", "Total"},
+            "1".equals(sonar.util.PropertiesManager.getProperty("sonar.players.damage.metric")) ? 1 : 0, i -> {
+        sonar.util.PropertiesManager.setProperties("sonar.players.damage.metric", String.valueOf(i));
+        refresh();
+    });
+    private final Segmented playerAudience = new Segmented(new String[]{"Everyone", "Party"},
+            "1".equals(sonar.util.PropertiesManager.getProperty("sonar.players.damage.party")) ? 1 : 0, i -> {
+        sonar.util.PropertiesManager.setProperties("sonar.players.damage.party", String.valueOf(i));
+        refresh();
+    });
     // the measure shown on the bars and headlines: damage per second, or total damage dealt
     private final Segmented metric = new Segmented(new String[]{"DPS", "Total"}, "1".equals(sonar.util.PropertiesManager.getProperty("sonar.damage.metric")) ? 1 : 0, i -> {
         sonar.util.PropertiesManager.setProperties("sonar.damage.metric", String.valueOf(i));
@@ -202,9 +215,13 @@ class LiveView {
         history.icons = true;
         // Analysis page: the deeper-dive tools (per-boss breakdown, leaderboard/classification, the Shatters radar beta) -
         // split out from Instance since the two pages together had grown to seven windows fighting for one grid
-        bossSegmentsWindow = window(analysisPage, "bosssegments", "Boss segments", bossSegments, null, 0.006, 0.006, 0.46, 0.988, 240, 220);
-        leaderboardWindow = window(analysisPage, "leaderboard", "Leaderboard", leaderboard, leaderboardTab, 0.534, 0.006, 0.46, 0.60, 240, 180);
-        shattersWindow = window(analysisPage, "shatters", "Shatters (beta)", shatters, shattersAccessory(), 0.534, 0.614, 0.46, 0.380, 220, 110);
+        // The two windows whose content comes and goes share the left column, and the one that
+        // always has something in it takes the full height of the right. Boss segments is three
+        // rows in a dungeon with three bosses, and the Shatters panel is empty everywhere except
+        // the Shatters - giving either of them a full-height window left most of the page blank.
+        bossSegmentsWindow = window(analysisPage, "bosssegments", "Boss segments", bossSegments, null, 0.006, 0.006, 0.46, 0.60, 240, 220);
+        shattersWindow = window(analysisPage, "shatters", "Shatters (beta)", shatters, shattersAccessory(), 0.006, 0.614, 0.46, 0.380, 220, 110);
+        leaderboardWindow = window(analysisPage, "leaderboard", "Leaderboard", leaderboard, leaderboardTab, 0.534, 0.006, 0.46, 0.988, 240, 180);
         // the puzzle gets its own page: it is wanted at a glance, in a hurry, with nothing else in the way
         puzzleWindow = window(puzzlePage, "puzzle", "Observatory puzzle", puzzlePane, puzzleAccessory(), 0.006, 0.006, 0.988, 0.988, 260, 200);
         collectionWindow = window(collectionPage, "collection", "Dungeon collections", collectionPane, null, 0.006, 0.006, 0.988, 0.988, 300, 220);
@@ -222,7 +239,7 @@ class LiveView {
         gearWindow = window(playersPage, "gear", "Gear and stats", gear, null, 0.282, 0.006, 0.40, 0.60, 240, 150);
         // the bars run the width of both columns above them, where the party and the
         // per-item list used to sit
-        playerDamageWindow = window(playersPage, "playerdamage", "Damage", playerDamage, playerScope, 0.006, 0.612, 0.676, 0.382, 360, 150);
+        playerDamageWindow = window(playersPage, "playerdamage", "Damage", playerDamage, playerDamageHeader(), 0.006, 0.612, 0.676, 0.382, 360, 150);
         // the right column belongs to whoever is selected: who they are, then where their
         // damage came from. Both answer the same question and now sit together, which is
         // where the per-item list belongs rather than under the roster it has nothing to do with
@@ -311,6 +328,17 @@ class LiveView {
     }
 
     /** The roster list with its All / Near me tab above it. */
+    /** The Players page's own damage switches: what is counted, how it is measured, and whose. */
+    private javax.swing.JComponent playerDamageHeader() {
+        javax.swing.Box row = javax.swing.Box.createHorizontalBox();
+        row.add(playerMetric);
+        row.add(javax.swing.Box.createHorizontalStrut(6));
+        row.add(playerAudience);
+        row.add(javax.swing.Box.createHorizontalStrut(6));
+        row.add(playerScope);
+        return row;
+    }
+
     private javax.swing.JComponent withScope(javax.swing.JComponent list) {
         javax.swing.Box row = javax.swing.Box.createHorizontalBox();
         row.add(rosterScope);
@@ -2436,18 +2464,22 @@ class LiveView {
         Object key = Arrays.asList(m.instanceKey, tab, partyView, oneFight ? picked.name : "",
                 tab == ENEMY && shownTarget != null ? shownTarget.id : 0);
         damage.show(key, hasRows ? shownTarget : null, emptyTitle, emptyHint);
-        playerDamage.totals(totals);
-        // The Players page answers for itself rather than following the Live page's switch: it is
-        // read while picking through the roster, so the fight the Live page happens to be locked
-        // onto is not what is wanted here.
+        // The Players page answers for itself rather than following the Live page: it is read
+        // while picking through the roster, so neither the fight the Live page is locked onto
+        // nor the switches sitting on it are what is wanted here.
+        playerDamage.totals(playerMetric.selected() == 1);
         boolean playerBosses = playerScope.selected() == PLAYER_BOSSES;
+        boolean playerParty = playerAudience.selected() == 1;
         LiveModel.Target playerEveryone = playerBosses ? m.mainBosses : m.whole;
-        LiveModel.Target playerTarget = partyView ? partyOnly(playerEveryone) : playerEveryone;
+        LiveModel.Target playerTarget = playerParty ? partyOnly(playerEveryone) : playerEveryone;
         boolean playerRows = m.tracked && playerTarget != null && !playerTarget.rows.isEmpty();
         String playerEmptyTitle, playerEmptyHint;
         if (!m.tracked) {
             playerEmptyTitle = emptyTitle;
             playerEmptyHint = emptyHint;
+        } else if (playerParty && playerEveryone != null && !playerEveryone.rows.isEmpty()) {
+            playerEmptyTitle = "No party damage here yet";
+            playerEmptyHint = "Switch to Everyone and click a player's bar to add them";
         } else if (playerBosses) {
             playerEmptyTitle = "No boss fought yet";
             playerEmptyHint = "Boss damage shows here from the first hit on this instance's boss";
@@ -2455,7 +2487,7 @@ class LiveView {
             playerEmptyTitle = "No damage yet";
             playerEmptyHint = "Bars appear as soon as someone lands a hit";
         }
-        Object playerKey = Arrays.asList(m.instanceKey, "players", playerBosses, partyView);
+        Object playerKey = Arrays.asList(m.instanceKey, "players", playerBosses, playerParty);
         playerDamage.show(playerKey, playerRows ? playerTarget : null, playerEmptyTitle, playerEmptyHint);
         playerDamageWindow.setNote(!playerRows ? "" : SonarTheme.compact(playerTarget.total) + "  ·  "
                 + (playerBosses ? (playerTarget.id == 1 ? "1 boss" : playerTarget.id + " bosses") + "  ·  "

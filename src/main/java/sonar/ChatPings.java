@@ -141,18 +141,24 @@ public class ChatPings {
         }
         String name = p.name.split(",")[0];
         boolean pinged = false;
+        // "j" on its own is how a popped dungeon is called out, and it is called out in guild
+        // chat at least as often as in party chat - a guild running keys calls them to the
+        // guild. Listening only to party chat is why this ping could be on and still never
+        // fire. Only where the call is any use: once you are already in a dungeon it is for
+        // somebody else, and the ping is noise in the middle of a fight.
+        boolean joinCall = !isPlayer && Sound.playJoinSound && !inDungeon(data) && isJoinCall(p.text);
         if (p.recipient.contains("*Guild*")) {
             a = "[Guild]";
-            if (!isPlayer && Sound.playGuildSound) {
+            if (joinCall) {
+                Sound.join.play();
+                pinged = true;
+            } else if (!isPlayer && Sound.playGuildSound) {
                 Sound.guild.play();
                 pinged = true;
             }
         } else if (p.recipient.contains("*Party*")) {
             a = "[Party]";
-            // "j" on its own in party chat is how a popped dungeon is called out; it gets its own
-            // ping. Only where that is any use: once you are already in one, the call is for
-            // somebody else and the ping is just noise in the middle of a fight.
-            if (!isPlayer && Sound.playJoinSound && !inDungeon(data) && isJoinCall(p.text)) {
+            if (joinCall) {
                 Sound.join.play();
                 pinged = true;
             } else if (!isPlayer && Sound.playPartySound) {

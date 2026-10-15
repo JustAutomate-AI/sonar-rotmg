@@ -24,7 +24,7 @@ class Workspace extends JPanel implements Scrollable {
     // 12: the Live page gained a roster and your stat block, the Players page traded
 // the party and per-item lists for the damage bars, and the Instance page was
 // rebuilt around reviewing a finished run.
-    private static final String LAYOUT_VERSION = "12";
+    private static final String LAYOUT_VERSION = "13";
 
     private final ArrayList<FloatWindow> windows = new ArrayList<>();
     private final boolean savedLayoutIsCurrent = LAYOUT_VERSION.equals(PropertiesManager.getProperty("sonar.layout"));
