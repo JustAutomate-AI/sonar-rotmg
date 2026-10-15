@@ -219,7 +219,8 @@ class BreakdownPane extends Pane {
      * announces, so it is the only one named; everything else - nexused, disconnected, closed the
      * game - arrives as the same packet and is called "left" rather than guessed at.
      */
-    private void paintLeftTag(Graphics2D g, LiveModel.Row r, int x, int mid, Layout l) {
+    private void paintLeftTag(Graphics2D g, LiveModel.Row r, int x, int mid, Layout l,
+                              double barEnd, Color barFace) {
         // Only where it means something: gone before the final boss was done. Somebody who left
         // during the victory lap did the run, and tagging them would be noise.
         if (!r.left() || r.completed) return;
@@ -249,16 +250,44 @@ class BreakdownPane extends Pane {
         if (g.getFontMetrics().stringWidth(when) > room) when = "";
         if (room < 0) return;
 
+        // The tag sits where the class bar may already be, and a bar is a different colour for
+        // every class - so neither a fixed ink nor a fixed wash can be right for all of them.
+        // It is drawn the way the names are: twice, clipped either side of where the bar ends,
+        // each half in the ink that suits what is actually behind it. On the bar that means a
+        // dark scrim with the mark colour over it, which holds up against every class colour
+        // the game has; off it, the quieter wash this has always used on the panel.
         Color mark = r.died ? SonarTheme.CORAL : SonarTheme.GOLD;
-        g.setColor(SonarTheme.alpha(mark, 0.16));
-        g.fill(SonarTheme.round(x, mid - 7, tagW, 14, 4));
-        g.setFont(SonarTheme.bold(8.5f));
-        g.setColor(mark);
-        g.drawString(tag, x + 5, mid + 3);
+        Shape clip = g.getClip();
+        int top = mid - 7;
+        for (int side = 0; side < 2; side++) {
+            boolean onBar = side == 0;
+            g.setClip(clip);
+            g.clip(onBar
+                    ? new java.awt.geom.Rectangle2D.Double(-10000, top - 4, 10000 + barEnd, 22)
+                    : new java.awt.geom.Rectangle2D.Double(barEnd, top - 4, 20000, 22));
 
-        g.setFont(SonarTheme.font(9f));
-        g.setColor(SonarTheme.FAINT);
-        g.drawString(when, x + tagW + 4, mid + 3);
+            g.setColor(onBar ? new Color(0x15, 0x10, 0x1a, 170) : SonarTheme.alpha(mark, 0.16));
+            g.fill(SonarTheme.round(x, top, tagW, 14, 4));
+            g.setFont(SonarTheme.bold(8.5f));
+            g.setColor(onBar ? SonarTheme.alpha(mark, 0.95) : mark);
+            g.drawString(tag, x + 5, mid + 3);
+
+            g.setFont(SonarTheme.font(9f));
+            // the detail is the part that vanished against a bright bar; on the bar it takes the
+            // ink the bar calls for rather than the panel's grey
+            if (onBar) {
+                // full strength on the bar: a gradient runs brighter at its right end, and
+                // anything held back got lost in it. A soft shadow underneath carries the
+                // letters across the light part without needing a scrim behind them.
+                g.setColor(new Color(0, 0, 0, 90));
+                g.drawString(when, x + tagW + 5, mid + 4);
+                g.setColor(SonarTheme.inkOn(barFace));
+            } else {
+                g.setColor(SonarTheme.FAINT);
+            }
+            g.drawString(when, x + tagW + 4, mid + 3);
+        }
+        g.setClip(clip);
     }
 
     private void paintRow(Graphics2D g, int width, int top, int index, LiveModel.Row r, Layout l, long best) {
@@ -324,7 +353,7 @@ class BreakdownPane extends Pane {
                     barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.7), SonarTheme.FAINT);
             after += g.getFontMetrics().stringWidth(cls) + 7;
         }
-        paintLeftTag(g, r, after, mid, l);
+        paintLeftTag(g, r, after, mid, l, barEnd, barFace);
 
         g.setFont(SonarTheme.bold(12f));
         g.setColor(SonarTheme.TEXT);

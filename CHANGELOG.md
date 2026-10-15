@@ -9,6 +9,7 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 - Saying somebody nexused says nothing about whether that was reasonable. Leaving on four percent with the boss nearly dead is a different story from leaving at full health with most of the fight left, and only one of those is worth anybody's annoyance. Sonar cannot know **why** somebody left - that would mean predicting shots about to land - but it can say what was true when they did.
 - The boss's figure is whatever largest thing the party had been hitting was still standing, which in a dungeon is the fight they were in the middle of. It says how close the run was to being over.
 - A narrow window drops the boss first and the time last, keeping the health, which is the part worth having when only one fits.
+- The tag reads on any class bar. It sits where the bar often already is, and a bar is a different colour for every class - so it is drawn the way names are, twice, clipped either side of where the bar ends, each half in the ink that suits what is behind it. On the bar that is a dark badge with the mark colour over it; off it, the quieter wash on the panel.
 
 ## 2.11.0
 
