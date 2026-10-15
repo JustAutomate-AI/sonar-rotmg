@@ -34,7 +34,7 @@ import java.util.zip.ZipInputStream;
 final class Updater {
 
     /** Version of this build. Raise it for each release; tools/make-release.ps1 reads it for the zip name. */
-    static final String CURRENT = "2.9.0";
+    static final String CURRENT = "2.9.1";
 
     private static final String REPOSITORY = "https://github.com/JustAutomate-AI/sonar-rotmg";
     private static final String LATEST = REPOSITORY + "/releases/latest";
@@ -60,7 +60,7 @@ final class Updater {
     static void check(Component parent, Consumer<String> status, boolean quiet) {
         if (busy) return;
         busy = true;
-        if (!quiet) status.accept("Checking…");
+        if (!quiet) status.accept("Checkingâ€¦");
         AtomicBoolean done = new AtomicBoolean();
         // whatever happens on the network, the button never stays on "Checking"
         Timer giveUp = new Timer(GIVE_UP_MS, e -> {
@@ -152,7 +152,7 @@ final class Updater {
     /** Downloads the release, stages it and hands over to the script that swaps the files and restarts. */
     private static void install(Component parent, Consumer<String> status, String tag, File root) {
         busy = true;
-        status.accept("Downloading…");
+        status.accept("Downloadingâ€¦");
         Thread t = new Thread(() -> {
             String error = null;
             File work = sonar.DataDir.file("update").getAbsoluteFile();
@@ -168,7 +168,7 @@ final class Updater {
                 if (installedByInstaller(root)) {
                     File msi = new File(work, "Sonar-" + version + "-setup.msi");
                     download(REPOSITORY + "/releases/download/" + tag + "/Sonar-" + version + "-setup.msi", msi, status);
-                    SwingUtilities.invokeLater(() -> status.accept("Opening the installer…"));
+                    SwingUtilities.invokeLater(() -> status.accept("Opening the installerâ€¦"));
                     log("handing " + tag + " to the Windows installer");
                     // Sonar has to be gone before its own files can be replaced, so the installer
                     // is started and this copy closes behind it. Settings, characters and history
@@ -190,7 +190,7 @@ final class Updater {
 
                 File zip = new File(work, "Sonar-" + version + ".zip");
                 download(REPOSITORY + "/releases/download/" + tag + "/Sonar-" + version + "-windows.zip", zip, status);
-                SwingUtilities.invokeLater(() -> status.accept("Installing…"));
+                SwingUtilities.invokeLater(() -> status.accept("Installingâ€¦"));
                 File staged = new File(work, "staged");
                 boolean hasApp = unzip(zip, staged);
                 zip.delete();
@@ -228,7 +228,7 @@ final class Updater {
                     if (choice == 0) browse(parent, REPOSITORY + "/releases/tag/" + tag);
                     return;
                 }
-                status.accept("Restarting…");
+                status.accept("Restartingâ€¦");
                 // closing the window the normal way saves the layout and stops the sniffer; the script takes over once Sonar is gone
                 Window window = parent instanceof Window ? (Window) parent : parent == null ? null : SwingUtilities.getWindowAncestor(parent);
                 if (window != null) window.dispatchEvent(new WindowEvent(window, WindowEvent.WINDOW_CLOSING));
@@ -331,11 +331,33 @@ final class Updater {
      * rather than by counting levels.
      */
     private static File installRoot() {
+        // Where this code actually sits, asked first, because the working directory is not
+        // Sonar's to rely on. Started from a shortcut with the wrong "Start in", or from a
+        // script, that directory can be anywhere - and this used to resolve a root from it
+        // and hand that to the installer, which would then unpack an update over a folder
+        // with nothing to do with Sonar. Seen for real: launched with the working directory
+        // left at the user profile, it resolved C:\Users and tried to copy there.
+        File code = codeFolder();
+        for (File f : new File[]{code, code == null ? null : code.getParentFile()}) {
+            if (f != null && looksLikeInstall(f)) return f;
+        }
         File here = new File("").getAbsoluteFile();
         if (looksLikeInstall(here)) return here;
         File up = here.getParentFile();
         if (up != null && looksLikeInstall(up)) return up;
         return up == null ? here : up;
+    }
+
+    /** The folder holding the jar this code was loaded from, or null if that cannot be read. */
+    private static File codeFolder() {
+        try {
+            java.security.CodeSource source = Updater.class.getProtectionDomain().getCodeSource();
+            if (source == null || source.getLocation() == null) return null;
+            File at = new File(source.getLocation().toURI());
+            return at.isDirectory() ? at : at.getParentFile();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** Whether a folder is the one the application was installed into. */

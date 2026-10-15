@@ -191,6 +191,13 @@ public class SonarShell extends JPanel {
         // look for a newer release once, shortly after starting; it stays silent unless there is one
         if (!demo && System.getProperty("sonar.shot") == null) {
             WindowsShell.refreshLauncherIfStale(Updater.current());
+            // An update closes the app, swaps its files and opens it again, which leaves no
+            // sign of what it did. This says so once, a moment after the window is up so it
+            // lands on a drawn app rather than an empty one, and never again for that version.
+            Timer notes = new Timer(1200, e ->
+                    WhatsNew.showIfUpdated(SwingUtilities.getWindowAncestor(this)));
+            notes.setRepeats(false);
+            notes.start();
             if (autoStartOn()) {
                 Timer sniff = new Timer(1500, e -> Sniffer.toggleSniffer());
                 sniff.setRepeats(false);

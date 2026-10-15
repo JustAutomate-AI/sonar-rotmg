@@ -2,6 +2,18 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.9.1
+
+**An update now tells you what it changed**
+- An update closes Sonar, swaps its files and opens it again, which left no sign of what it did. The version in the corner went up and everything else looked the same, so anything new landed only if you went looking for it.
+- The first time a new version starts, its release notes appear once. Skipping versions is handled: somebody three releases behind gets all three, newest first, rather than only the one they happened to land on.
+- The notes are read from the changelog inside Sonar itself, so they need no connection and always describe the build they are part of. A fresh install sees nothing - there is no previous version to have come from.
+
+**The updater no longer trusts the working directory**
+- It worked out where Sonar was installed from whatever directory the process happened to start in. Launched from a shortcut with the wrong "Start in", or from a script, that can be anywhere - and the updater would then hand the installer a folder with nothing to do with Sonar and unpack an update over it.
+- Seen for real while testing this release: started with the working directory left at the user profile, it resolved `C:\Users` and tried to copy there. Windows refused on permissions, which is the only reason it did no damage.
+- It now asks where its own code is first and falls back to the old guess only if that cannot be read.
+
 ## 2.9.0
 
 **Pick a fight by its picture**

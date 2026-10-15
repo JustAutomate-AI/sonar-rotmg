@@ -87,6 +87,13 @@ public class Version {
 """)
     }
 }
+// The changelog ships inside the jar, so the window that appears after an update has
+// something to read without going to the network - and what it reads is always the file
+// this build was cut from rather than whatever a release page says later.
+processResources {
+    from('CHANGELOG.md')
+}
+
 compileJava.dependsOn generateSources
 compileJava.source generateSources.outputs.files, sourceSets.main.java
 
