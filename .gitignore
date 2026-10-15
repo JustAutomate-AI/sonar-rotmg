@@ -47,3 +47,7 @@ sonar.properties
 /Start Sonar*.bat
 /Sonar.exe
 /dist/
+
+# Asset research: extracted game art, kept locally for reference only.
+# Not Sonar's to redistribute, and not shipped in any release.
+/research/

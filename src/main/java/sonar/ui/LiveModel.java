@@ -872,6 +872,7 @@ final class LiveModel {
             // the crucible and blood ritual ids ride on every player entity, so anyone in
             // sight can be read the same way the user is
             sonar.backend.data.CrucibleBonusManager.notePlayer(r.name, p);
+            sonar.backend.data.PlayerCensus.note(p);
             r.seasonal = statValue(p, StatType.SEASONAL) == 1;
             String[] marks = sonar.backend.data.CrucibleBonusManager.marksOf(p);
             r.crucibleId = marks[0];

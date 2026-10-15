@@ -302,6 +302,13 @@ class GearPane extends Pane {
     static int potionsToMax(int[] caps, int stat, int total, int boost) {
         if (caps == null || stat < 0 || stat >= caps.length || caps[stat] <= 0) return 0;
         int own = total - boost;
+        // Clamped deliberately rather than defensively. A stat can come back a single point
+        // above its class ceiling: the game rounds the figure it reports and the boost it
+        // reports separately, so where the boost is negative - a blood ritual, or gear that
+        // costs speed or dexterity - the two roundings can disagree by one. Seen 26 times in
+        // 20,272 readings, always by exactly one, always with a negative boost, and never on
+        // anything else. One point over the ceiling means finished, and finished means
+        // nothing is owed.
         int short_ = Math.max(0, caps[stat] - own);
         if (short_ == 0) return 0;
         int perPotion = stat < 2 ? 5 : 1;
