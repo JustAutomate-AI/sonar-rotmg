@@ -2,7 +2,44 @@
 
 A damage tracker for Realm of the Mad God. Sonar reads the game's network packets (it never modifies, blocks or sends any) and shows who is dealing how much damage in the instance you are in.
 
-**[⬇ Download the latest release](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest)** - get `Sonar-<version>-windows.zip` from there, not the "Code" button above. The "Code" button downloads the source, which needs to be built; the release is ready to run.
+**[⬇ Download the latest release](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest)** - get `Sonar-<version>-setup.msi` from there, not the "Code" button above. The "Code" button downloads the source, which needs to be built.
+
+## What it does and does not do
+
+Sonar **reads**. It never writes, and that is a design limit rather than a promise:
+
+- It **never sends anything to the game**. No packet injection, no automation, no input simulation, no clicking or moving for you. The game's upstream channel is RC4 encrypted and stateful, so anything injected would desync the cipher and disconnect you - listening only is the only thing that works, and it is what Sonar does.
+- It **never reads your password**. Sonar watches game traffic on your own machine; it has no login, no account access and no interest in one.
+- **Nothing leaves your computer** except one request to GitHub's release page, to see whether a newer version exists. No telemetry, no analytics, no uploads, no accounts. That check is in [`Updater.java`](src/main/java/sonar/ui/Updater.java) and it is the only outbound call in the program.
+
+Third-party tools are a grey area under the game's terms of service, and a passive reader is at the mildest end of that. It is still your call and your risk.
+
+## Install
+
+Download **`Sonar-<version>-setup.msi`** and run it.
+
+It installs for **your user only**, so Windows does not ask for administrator rights at any point. Sonar brings its own Java, so there is nothing else to install, and it appears in Add or Remove Programs like any other application.
+
+The one thing it cannot bring with it is **Npcap**, the driver that lets any program read network traffic - its licence does not allow redistribution. Sonar tells you if it is missing and points you at [npcap.com](https://npcap.com/). Npcap's own installer *does* ask for administrator rights, because it installs a driver; it is signed by the Nmap project, who have published security tools since 1997. Everything except the sniffer works without it.
+
+A portable `Sonar-<version>-windows.zip` is also on the release page if you would rather not install anything: unpack it anywhere and run `Sonar.exe`.
+
+## About the Windows warning
+
+**Windows will warn you about this download, and here is exactly why.**
+
+Sonar is not code-signed. A signing certificate requires a registered company with three or more years of filings, or several hundred dollars a year; this is a one-person project a few weeks old, so it has neither. Windows cannot tell an unsigned program written carefully apart from an unsigned program written badly, so it warns about both.
+
+What that looks like: SmartScreen may say *"Windows protected your PC"*. Click **More info**, then **Run anyway**. You should not take that advice from a README alone, so here is how to check the file instead of trusting it.
+
+**Every release is built in public, and you can prove the download came from this source code.** Releases are built by [a GitHub Actions workflow](.github/workflows/release.yml) you can read, and each file carries a signed provenance attestation tying it to the exact commit it was built from:
+
+```
+gh attestation verify Sonar-<version>-setup.msi --repo JustAutomate-AI/sonar-rotmg
+```
+
+That passes only if the file you have is the file that workflow produced from this repository. Nothing I say can be substituted for it. Each release also carries `SHA256SUMS-<version>.txt`, and the build log is public under the Actions tab.
+
 
 ![The Live screen](docs/design/sonar-live.png)
 
@@ -17,18 +54,7 @@ A damage tracker for Realm of the Mad God. Sonar reads the game's network packet
 - **Party**: click the rank number on a player's bar to add them. The party is remembered by username across instances and sessions.
 - Windows can be moved, resized and closed; the layout is remembered.
 
-## Install (Windows)
-
-Download `Sonar-<version>-windows.zip` from the
-[latest release](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest),
-unpack it anywhere, and run **`Sonar.exe`**.
-
-That is the whole installation. Sonar brings its own Java, so there is nothing else
-to install. On first run it offers a desktop shortcut and tells you if **Npcap** is
-missing - that driver is the one thing it cannot bring with it, because its licence
-does not allow that. Everything except the sniffer works without it.
-
-**To build it yourself:**
+## Building it yourself
 
 1. Clone this repository.
 2. Double-click `Setup.bat` - it checks the prerequisites (a 64-bit JDK, Npcap),
@@ -37,10 +63,6 @@ does not allow that. Everything except the sniffer works without it.
    runtime and `Sonar.exe`, ready to unpack and run.
 
 [INSTALL.md](INSTALL.md) has the details and the fixes for known problems.
-
-## A note on use
-
-Sonar only listens to traffic on your own machine. Third-party tools are still a grey area under the game's terms of service, so use it at your own risk.
 
 ## Licence
 

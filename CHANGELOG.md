@@ -2,6 +2,28 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.8.0
+
+**There is a proper installer now**
+- `Sonar-<version>-setup.msi` is the download for most people. It installs for your user only, which means Windows does not ask for administrator rights at any point, and the "unknown publisher" prompt that comes with that question never appears.
+- Sonar shows up in Add or Remove Programs with its publisher, version and a link back to the project, gets a Start menu entry, and offers a desktop shortcut. Uninstalling removes it completely.
+- Installing a newer version replaces the old one instead of leaving two side by side.
+- The portable zip has not gone anywhere. Unpack it and run `Sonar.exe` if you would rather not install anything.
+
+**Releases are built in public, and you can prove it**
+- Every release is now built by a GitHub Actions workflow you can read, rather than on a laptop. Each file carries a signed provenance attestation tying it to the exact commit it came from, so anyone can check the download really is built from this source before running it: `gh attestation verify Sonar-<version>-setup.msi --repo JustAutomate-AI/sonar-rotmg`.
+- `SHA256SUMS-<version>.txt` ships with every release as well.
+- This matters more than it sounds. Sonar reads network traffic, and until now nothing connected the source anyone could read to the binary they downloaded. Now something does.
+
+**The README answers the two questions people actually have**
+- Whether it can get you banned, and what leaves your machine. The short answers: Sonar never sends anything to the game, and nothing leaves your computer except one check against GitHub for a newer version.
+- It also explains the Windows warning in advance, why an unsigned program gets one, and how to verify the file rather than take anyone's word for it.
+
+**The old name is gone**
+- The project was called Peach before it was called Sonar. The leftover `Peach-<version>-windows.zip` download has been removed from all ten releases that carried it, along with the notes pointing at it, and the repository description still said Peach as well.
+- The accent colour named Peach is now called Salmon. If you had it chosen, you keep it.
+- A few internal names went with it. The one deliberate exception is the line that renames `peach.*` settings keys to `sonar.*`, which has to keep the old spelling to recognise them.
+
 ## 2.7.4
 
 **Every ping sound was playing the same file**
@@ -136,7 +158,7 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 - A seventh theme, built around a black-violet ground with cyan and magenta over it, and the one a fresh install now opens in. The figure each panel exists to show is drawn in the accent with a soft bloom behind it, rather than every panel opening with the same white number.
 - Panel edges and dividers are part of the theme now. They were a fixed white wash, which suits a grey ground and reads as grime on a vivid one; every border in the interface follows the theme without any panel being touched.
 - Two accents to go with it, cyan and magenta, and cyan is what a fresh install highlights with.
-- The old look is kept exactly as it was: choose Plum for the ground and Peach for the accent. Nothing was removed.
+- The old look is kept exactly as it was: choose Plum for the ground and Salmon for the accent. Nothing was removed.
 - An install sitting on the previous default moves across once and is marked, so choosing Midnight again sticks. An install that had deliberately picked anything else is left alone.
 
 **Two things that ignored the theme, fixed**
@@ -246,12 +268,16 @@ Tomato or RealmShark. That is what the 2 is for.
 
 209 self-test assertions pass.
 
+> Versions below 1.64.0 shipped under the name **Peach**, and 1.64.0 to 1.71.0 during the
+> changeover. The entries have been written in the current name; file names from that time
+> are left as they were, because that is what those releases actually contained.
+
 ## 1.71.0
 
 **The rename is finished everywhere, not just on screen**
-- 1.64.0 changed the name and the icon. Everything underneath still said Peach: the program file, the folder it installs into, the zip you download, the settings it saves. That is all Sonar now — `Sonar.exe`, `Sonar.jar`, `Sonar-<version>-windows.zip`, and the install folder.
+- 1.64.0 changed the name and the icon. Everything underneath still said Sonar: the program file, the folder it installs into, the zip you download, the settings it saves. That is all Sonar now — `Sonar.exe`, `Sonar.jar`, `Sonar-<version>-windows.zip`, and the install folder.
 - Your saved settings move with it. The window layout, the theme, the accent, the starred party, the wardrobe and the Shatters overlay's position are all stored under a name that has changed, so the app renames them for you the first time it opens. Nothing resets and nothing is left behind, and it only does this once.
-- The code underneath still says `peach` in places on purpose, and that is staying. This is a fork of RealmShark, and renaming its packages would turn every future update from upstream into a fight over something you would never see.
+- A few internal names stayed behind at the time, which 2.8.0 finished off. All that remains is the one line that renames old settings keys, which has to keep the old spelling to recognise them.
 
 **Midnight is what a fresh install starts on**
 - The deep navy is the ground the Sonar mark was drawn against, so it is what the app opens with now instead of the old plum. A theme already picked in Settings is kept exactly as it is — this only changes what a new install looks like on its first run.
@@ -267,7 +293,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 **The Graveyard tab is gone; the Characters page says it instead**
 - A whole page for something that happens a few times a month was the wrong shape. A character the account has stopped listing now stays on the Characters page, sorted to the bottom, faded, tagged **LOST**, with how long ago it went: *"Rogue - Level 20, 3,570 fame, lost 2 hours ago"*. It keeps its gear, stats and pet, so the card still opens.
-- It says "lost" rather than "died" on purpose. The account list looks identical whether a character died or was deleted, and Peach cannot tell those apart.
+- It says "lost" rather than "died" on purpose. The account list looks identical whether a character died or was deleted, and Sonar cannot tell those apart.
 
 **A loss is noticed when you log in**
 - The full character list is the only thing that reveals a death, and it was only ever asked for in the Pet Yard and the Daily Quest Room - so a loss went unseen until you happened to wander into one. There is now one quiet attempt per login as well. The server is said to refuse this elsewhere; if it does, nothing is lost and nothing is said, and those two rooms work exactly as before.
@@ -304,7 +330,7 @@ Tomato or RealmShark. That is what the 2 is for.
 - Marks are placed against where the view is really looking now: on you in a realm, on the map's own middle in the Nexus, and somewhere between the two when you are near an edge. While calibrating, the gold diamond is drawn where the game actually draws you rather than always at the centre.
 
 **Calibrate the scale with one right-click**
-- Scrolling until it looks right was guesswork. Peach knows exactly how many tiles away each mark is; what it cannot know is how many pixels the minimap gives a tile. **Right-click the game's own icon** for something and it has both halves - pixels clicked divided by tiles away - and sets the scale exactly, in one go. The mark used is whichever lies nearest the direction clicked, and a click nowhere near one is ignored rather than taken as a measurement.
+- Scrolling until it looks right was guesswork. Sonar knows exactly how many tiles away each mark is; what it cannot know is how many pixels the minimap gives a tile. **Right-click the game's own icon** for something and it has both halves - pixels clicked divided by tiles away - and sets the scale exactly, in one go. The mark used is whichever lies nearest the direction clicked, and a click nowhere near one is ignored rather than taken as a measurement.
 
 **Your portrait showed the character you used to play**
 - Damage rows are built from hit records, which carry no skin, so they fall back to how that name last looked. Someone who dies on a Rogue and rolls a Wizard kept being drawn as the Rogue - including you. A remembered look now only applies while it is still the same class; otherwise the plain class sprite stands in until the game describes them again.
@@ -342,8 +368,8 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.67.0
 
 **The overlay follows the minimap's zoom**
-- It was calibrated at one zoom and stayed there, so zooming the minimap left every mark at the wrong distance. The minimap's zoom level is stored nowhere Peach can read - it is in no packet and no game file, and the registry keeps only the camera's - so it cannot be followed directly. The key bindings can be read, though, and that is enough.
-- Peach now watches **the same two keys the game does**, read from Exalt's own settings. Press minimap zoom and both step together. There is no second shortcut to learn, and rebinding the keys in game moves Peach with them.
+- It was calibrated at one zoom and stayed there, so zooming the minimap left every mark at the wrong distance. The minimap's zoom level is stored nowhere Sonar can read - it is in no packet and no game file, and the registry keeps only the camera's - so it cannot be followed directly. The key bindings can be read, though, and that is enough.
+- Sonar now watches **the same two keys the game does**, read from Exalt's own settings. Press minimap zoom and both step together. There is no second shortcut to learn, and rebinding the keys in game moves Sonar with them.
 - Each zoom step keeps **its own calibration**. Zooming does not move the minimap or resize it, only how many tiles fit, so the overlay never needs re-aiming - only re-scaling. Calibrate a step once and stepping back to it restores an exact figure instead of a guess. The calibration readout says which step is being set.
 - Ctrl+shift+plus and ctrl+shift+minus step the overlay alone, for nudging the two back into line. One known cost: the game's binding is a bare key, so typing it into chat steps the overlay too - one press puts it back.
 
@@ -355,7 +381,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 **The Shatters overlay can be tested in a realm**
 - The dungeon is rare, so whether the overlay was lined up could only be answered by getting into one. **Portals: on** switches it to marking portals and nearby enemies instead, anywhere at all - so it is answerable in a realm, or the Nexus, in ten seconds.
-- Two references, because they answer different questions. **Portals** never move, and the game draws each on the minimap, so they settle position and scale: if Peach's mint ring sits on the game's portal icon, the overlay is right. **Enemies** always move - a realm god wanders constantly - so the coral dots settle whether a mark actually follows something, rather than only being right while everything stands still.
+- Two references, because they answer different questions. **Portals** never move, and the game draws each on the minimap, so they settle position and scale: if Sonar's mint ring sits on the game's portal icon, the overlay is right. **Enemies** always move - a realm god wanders constantly - so the coral dots settle whether a mark actually follows something, rather than only being right while everything stands still.
 - Only the ten nearest enemies are marked, or a populated realm is a wall of dots that proves nothing. The sidebar reads "test: 4 portals · 10 enemies", and each mark carries its distance in tiles while calibrating.
 
 ---
@@ -386,7 +412,7 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.64.0
 
 **It is called Sonar now**
-- The name and the icon, and nothing else. The palette, the layout, the wording and every page are exactly as they were - "Sniffer live" still says sniffer, and the accent colour is still called Peach, because that is a colour rather than the app.
+- The name and the icon, and nothing else. The palette, the layout, the wording and every page are exactly as they were - "Sniffer live" still says sniffer, and the accent colour kept its old name at the time, though 2.8.0 renamed it to Salmon.
 - The mark is a listening point with arcs arriving at it rather than radiating from it. Passive sonar never transmits; the thing that pings is the thing that gets found, which is a fair description of a tool that reads the wire and injects nothing. Below 32px it drops to two heavier arcs, because three thin ones turn to mush and the faintest disappears on a dark taskbar.
 
 **What deliberately did not change**
@@ -406,7 +432,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 ---
 
-184 self-test assertions pass. Update from inside Peach with **Check for updates**, or download the zip below.
+184 self-test assertions pass. Update from inside Sonar with **Check for updates**, or download the zip below.
 
 ## 1.63.0
 
@@ -416,12 +442,12 @@ Tomato or RealmShark. That is what the 2 is for.
 
 ---
 
-182 self-test assertions pass. Update from inside Peach with **Check for updates**, or download the zip below.
+182 self-test assertions pass. Update from inside Sonar with **Check for updates**, or download the zip below.
 
 ## 1.62.0
 
 **One header, not two**
-- Peach sat under a grey system title bar carrying the name and buttons a second time, in a palette that matched nothing below it. The window is borderless now and carries its own minimise, maximise and close, so there is one header and it is Peach's. Dragging the header moves the window, double-clicking it maximises, and every edge and corner resizes. `-Dpeach.borderless=false` puts the system bar back.
+- Sonar sat under a grey system title bar carrying the name and buttons a second time, in a palette that matched nothing below it. The window is borderless now and carries its own minimise, maximise and close, so there is one header and it is Sonar's. Dragging the header moves the window, double-clicking it maximises, and every edge and corner resizes. `-Dpeach.borderless=false` puts the system bar back.
 - The buttons along the header lost their outlines. Nothing is drawn behind them until the pointer is on one, so a row of them reads as a row of words rather than a row of boxes.
 
 **A "Near me" tab on the Players list**
@@ -433,7 +459,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 ---
 
-180 self-test assertions pass. Update from inside Peach with **Check for updates**, or download the zip below.
+180 self-test assertions pass. Update from inside Sonar with **Check for updates**, or download the zip below.
 
 ## 1.61.0
 
@@ -446,12 +472,12 @@ Tomato or RealmShark. That is what the 2 is for.
 
 ---
 
-175 self-test assertions pass. Update from inside Peach with **Check for updates**, or download the zip below.
+175 self-test assertions pass. Update from inside Sonar with **Check for updates**, or download the zip below.
 
 ## 1.60.0
 
 **The Void Phantasm is on the minimap**
-- It sits in the first room, and the game flags it `NoMiniMap` - it is deliberately hidden, which is the whole reason finding it is the puzzle. Peach already had it in the entity list; only the minimap had been told not to draw it. It is now the largest mark on the overlay, a coral ringed cross, and it leads the sidebar.
+- It sits in the first room, and the game flags it `NoMiniMap` - it is deliberately hidden, which is the whole reason finding it is the puzzle. Sonar already had it in the entity list; only the minimap had been told not to draw it. It is now the largest mark on the overlay, a coral ringed cross, and it leads the sidebar.
 - **Eighteen Shatters objects are marked**, not three: the Phantasm, the Stone Idol, the Derelict Monument and the Source as full-strength objectives; the nine void cracks, the void crystal and the Void Tendril as faint violet diamonds; and the three invisible logic objects as bare ticks, in case they ever reach the client at all.
 - The Source's four generators are gone. They were never what answers "where is it" - the Phantasm is.
 
@@ -461,7 +487,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 ---
 
-173 self-test assertions pass. Update from inside Peach with **Check for updates**, or download the zip below.
+173 self-test assertions pass. Update from inside Sonar with **Check for updates**, or download the zip below.
 
 ## 1.59.0
 
@@ -480,7 +506,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 ---
 
-172 self-test assertions pass. Update from inside Peach with **Check for updates**, or download the zip below.
+172 self-test assertions pass. Update from inside Sonar with **Check for updates**, or download the zip below.
 
 ## 1.58.0
 
@@ -504,7 +530,7 @@ Tomato or RealmShark. That is what the 2 is for.
 - Statues and towers stay. Eighty-two real bosses are GameObjects rather than Characters, so that whole class could not simply be excluded.
 
 **The shared image is not signed any more**
-- The footer keeps the date and time of the run and drops the "Generated by Peach".
+- The footer keeps the date and time of the run and drops the "Generated by Sonar".
 
 ## 1.55.0
 
@@ -530,8 +556,8 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.52.0
 
 **The character statistics were being read in the wrong order**
-- This is the cause of the Fame page's nonsense, and of everything built on it. The statistics arrive one after another in ascending stat id, each one present only if its bit is set. Peach read them in a hand-written order that was not that order: from the ninth value on, **93 of the 123 reads took the wrong stat's number**, and every read after the first mismatch was shifted as well. That is where "677,545 dungeon completions" came from, and with it a fame on death of 333,714 for a character the game valued at 6,490.
-- They are read in the order they were written now. That needs no table of offsets and cannot drift: a statistic Peach has no field for is still read and only then discarded, so the ones behind it stay aligned.
+- This is the cause of the Fame page's nonsense, and of everything built on it. The statistics arrive one after another in ascending stat id, each one present only if its bit is set. Sonar read them in a hand-written order that was not that order: from the ninth value on, **93 of the 123 reads took the wrong stat's number**, and every read after the first mismatch was shifted as well. That is where "677,545 dungeon completions" came from, and with it a fame on death of 333,714 for a character the game valued at 6,490.
+- They are read in the order they were written now. That needs no table of offsets and cannot drift: a statistic Sonar has no field for is still read and only then discarded, so the ones behind it stay aligned.
 - The self-test builds a statistics blob the way the server builds one and reads it back, including a pair the old reader provably swapped - stat 8 and stat 16, which it asked for in the opposite order to the one they are sent in.
 
 **The rarity mark counts slots, not rarity**
@@ -549,7 +575,7 @@ Tomato or RealmShark. That is what the 2 is for.
 - It only ever counted the weapon, which for half the classes is most of the damage missing. Abilities are now read out of the game's own equipment data: what they fire, how hard, how many shots, how often, and what armour they pierce.
 - Different abilities on the same class scale off different stats, and the game says which, one activate at a time - so a Wooden Shield reads as a 55-90 shot gaining two damage a point of wisdom past thirty-four, which is exactly what it does in game. Nothing here is scraped out of the wording of a description.
 - The card shows how much of a build's damage per second is the ability rather than crediting the weapon with all of it.
-- A shot that only fires while some condition holds - Lethal Strike's two extra projectiles in the moment after sneak - is a burst, not a rate. Counted at its own cooldown it came to a hundred damage a second for a whole run. Those are listed and left out of the total, marked "ability not counted", rather than given a number Peach made up.
+- A shot that only fires while some condition holds - Lethal Strike's two extra projectiles in the moment after sneak - is a burst, not a rate. Counted at its own cooldown it came to a hundred damage a second for a whole run. Those are listed and left out of the total, marked "ability not counted", rather than given a number Sonar made up.
 - The damage tracker has its own reader of the same scaling data, and the two are now held against each other in the self-test, because two readers of one file that disagree would mean one of them is wrong.
 
 ## 1.50.0
@@ -564,8 +590,8 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.49.0
 
 **The game's own enchant rarity marks**
-- One green diamond for Uncommon, two blue for Rare, three violet for Legendary, four gold for Divine - the game's own 16x16 sprites, in the bottom-right corner of every gear icon Peach draws, with the glow already in that rarity's colour.
-- They were not in anything Peach extracts. The game keeps them in a 4096x2048 GUI atlas whose pixels live in a streamed sidecar file, and the code that would have read it was commented out, unfinished, in the library Peach inherited. The atlas also carries a table of 658 named sprites, which is where the four turned out to be: RarityIcon_1 through RarityIcon_4. They ship with Peach now rather than being hunted for at startup.
+- One green diamond for Uncommon, two blue for Rare, three violet for Legendary, four gold for Divine - the game's own 16x16 sprites, in the bottom-right corner of every gear icon Sonar draws, with the glow already in that rarity's colour.
+- They were not in anything Sonar extracts. The game keeps them in a 4096x2048 GUI atlas whose pixels live in a streamed sidecar file, and the code that would have read it was commented out, unfinished, in the library Sonar inherited. The atlas also carries a table of 658 named sprites, which is where the four turned out to be: RarityIcon_1 through RarityIcon_4. They ship with Sonar now rather than being hunted for at startup.
 - Hovering an item still lists each enchant with its own symbol, as it did; the corner now says the rarity rather than repeating the first enchant.
 
 ## 1.48.0
@@ -579,7 +605,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 **Bosses were never sorted from minibosses at all**
 - The fights are merged by name before the list is built, and the merged copies were not carrying what the game calls each one. Every anchor came out `boss = false`, so every fight of every run - the Forgotten King included - was filed under MINIBOSSES and the BOSSES heading never appeared. The label comes across now.
-- An enemy Peach promoted only for having an outlying health pool is no longer called a miniboss. The game labels its staged fights BOSS and MINIBOSS; obelisks, generators, tablets and idols are labelled neither, and they now sit under their own TOUGH ENEMIES heading instead of among the real ones.
+- An enemy Sonar promoted only for having an outlying health pool is no longer called a miniboss. The game labels its staged fights BOSS and MINIBOSS; obelisks, generators, tablets and idols are labelled neither, and they now sit under their own TOUGH ENEMIES heading instead of among the real ones.
 
 **The shared image is the dungeon's bosses, and nothing else**
 - It had a section for every fight, including every generator and obelisk - a Shatters run ran to twelve sections and was unreadable. It is now only the fights the game itself stages, in the order they were fought: for the Shatters that is three, the Bridge Sentinel, the Twilight Archmage and the Forgotten King.
@@ -592,20 +618,20 @@ Tomato or RealmShark. That is what the 2 is for.
 - The rarity glow is a halo around the item rather than a wash underneath it. Filled, its innermost ring covered the item's own plate, so a divine enchant turned the whole tile gold.
 
 **Fame on death, honestly**
-- 1.46.0 claimed to take this from the game. It does not: fame on death is not among the stats the game sends, and the stat tried read 52,909 on a character the game valued at 6,490. The claim is withdrawn. The client works the figure out itself from the same packed statistics Peach still misreads - the page says so, and getting that decoding right is the fix.
+- 1.46.0 claimed to take this from the game. It does not: fame on death is not among the stats the game sends, and the stat tried read 52,909 on a character the game valued at 6,490. The claim is withdrawn. The client works the figure out itself from the same packed statistics Sonar still misreads - the page says so, and getting that decoding right is the fix.
 
 ## 1.46.0
 
 **The Exaltation page kept almost nothing**
-- The account's own exaltation only arrives with a character list, and the game answers one in the Pet Yard and the Daily Quest Room and nowhere else. Peach held it in memory alone, so every session it started again from nothing and the page read "1 of 19 started" for an account with eighteen. It is written down now and put back at startup, and the page says which day the figures are from and that the Pet Yard brings them up to date.
-- Progress earned in front of Peach was also being thrown away: the update packet was ignored for any class not already known, which on a session without a Pet Yard visit was every class. It is taken as it comes now.
+- The account's own exaltation only arrives with a character list, and the game answers one in the Pet Yard and the Daily Quest Room and nowhere else. Sonar held it in memory alone, so every session it started again from nothing and the page read "1 of 19 started" for an account with eighteen. It is written down now and put back at startup, and the page says which day the figures are from and that the Pet Yard brings them up to date.
+- Progress earned in front of Sonar was also being thrown away: the update packet was ignored for any class not already known, which on a session without a Pet Yard visit was every class. It is taken as it comes now.
 - A character carries what exaltation *adds* to a stat, not the level, and life and mana go up five at a time. Read straight across, a Rogue with the usual +10 life showed "L5 max" at level two and added up to 7/40 when the truth was 4.
 
 **A page could be closed and left blank**
-- Every single-window page - Exaltation, Wardrobe, Vault, Characters, Collection, Party finder, Fame, Puzzle - could be emptied by one click on the window's cross, leaving a page with nothing on it and no sign of how to get it back. The cross is no longer offered where there is only one window, and any page already left blank comes back the next time Peach starts.
+- Every single-window page - Exaltation, Wardrobe, Vault, Characters, Collection, Party finder, Fame, Puzzle - could be emptied by one click on the window's cross, leaving a page with nothing on it and no sign of how to get it back. The cross is no longer offered where there is only one window, and any page already left blank comes back the next time Sonar starts.
 
 **Fame on death is the game's figure now**
-- The game does this sum itself, bonuses and all, and sends the answer. Peach was adding the bonuses up on its own and reaching the hundreds of thousands for a character the game valued at six thousand. Wherever a character has been played in front of Peach, its own figure is what the page shows; Peach's working stays underneath as the explanation, and the two are shown side by side when they disagree.
+- The game does this sum itself, bonuses and all, and sends the answer. Sonar was adding the bonuses up on its own and reaching the hundreds of thousands for a character the game valued at six thousand. Wherever a character has been played in front of Sonar, its own figure is what the page shows; Sonar's working stays underneath as the explanation, and the two are shown side by side when they disagree.
 
 **Enchants, everywhere gear is drawn**
 - The mark in the corner of an item is now the game's own symbol for the *best* enchant on it rather than whichever happened to be listed first, and that symbol carries its rarity the way the game draws it.
@@ -619,13 +645,13 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.45.0
 
 **The Wardrobe**
-- A page of its own for how Peach pictures each class. Until now it drew whichever character of that class you last played, which is a sensible default and a poor preference - the one you happened to log in on is rarely the one you think of the class as.
-- Every class down the left, as Peach now draws it. Pick one and change any part of it: its skin, its clothing, its accessory. Everything the game has is offered - every skin that class can wear, all 143 dyes and all 256 cloths for each part, patterns drawn as the game itself lays them on. Nothing is a short list of favourites.
+- A page of its own for how Sonar pictures each class. Until now it drew whichever character of that class you last played, which is a sensible default and a poor preference - the one you happened to log in on is rarely the one you think of the class as.
+- Every class down the left, as Sonar now draws it. Pick one and change any part of it: its skin, its clothing, its accessory. Everything the game has is offered - every skin that class can wear, all 143 dyes and all 256 cloths for each part, patterns drawn as the game itself lays them on. Nothing is a short list of favourites.
 - A look takes effect the moment it is clicked; there is nothing to apply. Hovering anything says what it is.
 - **Outfits.** Save what a class has on and it becomes a chip to switch back to. Outfits are named after the skin they lead with, and a second outfit on the same skin takes the name of its colour instead, so two Bandit Rogues read "Bandit Rogue" and "Lush Camo" rather than "Bandit Rogue" and "Bandit Rogue 2".
 - **Putting it all back.** Undress one class, or every class at once. Either leaves the saved outfits where they are, so nothing is lost by changing your mind.
 - **One colour, every class.** Whatever the class you are on is dyed can be put on all nineteen in a click.
-- None of this reaches the game. It is how Peach draws, kept in Peach's own settings; no character is touched and nothing is sent.
+- None of this reaches the game. It is how Sonar draws, kept in Sonar's own settings; no character is touched and nothing is sent.
 
 **Switching outfits from the Exaltation cards**
 - The cards never fill the window exactly, and the column of space they leave now holds the wardrobe. Click any card to put the column on that class, then switch between its saved outfits without leaving your progress.
@@ -647,20 +673,20 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.43.0
 
 **Getting into a party, the honest way**
-- Peach cannot join one for you. The stream from the client to the server is RC4 encrypted and stateful, the game client owns that state, and anything Peach injected into it would desync the cipher and disconnect you mid-run. Listening only is staying true.
+- Sonar cannot join one for you. The stream from the client to the server is RC4 encrypted and stateful, the game client owns that state, and anything Sonar injected into it would desync the cipher and disconnect you mid-run. Listening only is staying true.
 - What it can do is take the time out of the step that actually costs it. Clicking a listing copies its name, ready to paste into the game's own filter box - the real Join button is then one click away, and the row says so rather than leaving it to be discovered.
 - Parties can be starred. A watched one is kept by the name it runs under rather than its id, since an id lasts one party while the people who run the same thing every night tend to call it the same thing every night. Watched parties sort to the top however the list is otherwise ordered, are marked in gold wherever they turn up, and have a filter of their own.
 
 ## 1.42.0
 
 **The Party finder was never going to work**
-- A packet only reaches Peach once it has been asked for by name, and the two party packets never were - so the page could not have filled however long the finder was left open. Both are now asked for, and the listings land as they are browsed.
+- A packet only reaches Sonar once it has been asked for by name, and the two party packets never were - so the page could not have filled however long the finder was left open. Both are now asked for, and the listings land as they are browsed.
 
 **Faces in the lists**
 - The Players and Party lists draw each person as they look in game, skin and dyes, rather than leaving a name to do all the work. Recognising someone from the list is now the same as recognising them on screen.
 
 **The enchant gems are the game's own**
-- They were a shape drawn here, and they looked it - too large, and nothing like the real thing. The game keeps a picture for every one of its enchantments; Peach now cuts the right one out of that sheet and draws it at the proportion the game itself uses. 925 of them are matched. An enchant Peach does not recognise draws nothing rather than the wrong gem.
+- They were a shape drawn here, and they looked it - too large, and nothing like the real thing. The game keeps a picture for every one of its enchantments; Sonar now cuts the right one out of that sheet and draws it at the proportion the game itself uses. 925 of them are matched. An enchant Sonar does not recognise draws nothing rather than the wrong gem.
 
 **A damage breakdown worth the name**
 - The page listed six columns and little else. It now opens with the fight in figures - party damage, party dps, what it came to against the enemy's health, hits landed, damage taken and armour guarded - and gives each player a bar in their own class colour so the gaps between people are visible rather than buried in a column of numbers.
@@ -676,7 +702,7 @@ Tomato or RealmShark. That is what the 2 is for.
 - Every party the game's own Party Finder has shown, on one page. The game lists six at a time across a dozen pages behind a single text box, which makes comparing them impossible; here they are all together, with filters for the ones that still have room or are open to anyone, and sorting by free places, by how full they are, or by server.
 - Each listing shows what the game shows - type, description, server, power level, maxed-stat requirement - plus how full it is as a bar, since "43 / 50" and "1 / 50" read very differently at a glance. Parties open to anyone are marked apart from the ones that ask first.
 - The party you are actually in is named at the top, read from the game's own roster rather than kept by hand.
-- Peach only ever listens, so this fills as the finder is browsed in game rather than refreshing itself. The page says so plainly rather than letting an empty list look like a fault.
+- Sonar only ever listens, so this fills as the finder is browsed in game rather than refreshing itself. The page says so plainly rather than letting an empty list look like a fault.
 
 **The damage breakdown moved in with the enemies**
 - It had a page of its own, which meant leaving the instance to look at it. It now sits under the Enemies list on the Instance page and opens out over the whole page when the full table is wanted, then retracts to its own corner when it is not.
@@ -717,13 +743,13 @@ Tomato or RealmShark. That is what the 2 is for.
 - 1.36.0 would not update to 1.37.0: it offered the update, installed it, and offered it again forever. The version is compiled into the app, and the 1.37.0 download was packaged from a build made moments before the version was raised - so the zip said 1.37.0 and the app inside it said 1.36.0. The updater saw a mismatch every time and asked again.
 - The release tool now reads the version out of the built app and refuses to package when it disagrees with the release being made. This could not have reached anyone if that check had existed; it does now.
 
-**Updating looks like part of Peach**
-- The grey Windows panel that appeared while the files were swapped is gone, replaced by one in Peach's own colours with no system chrome. It said very little and looked like something had gone wrong.
-- The update prompt itself is now a Peach dialog rather than a system one, with the same buttons used everywhere else in the app.
+**Updating looks like part of Sonar**
+- The grey Windows panel that appeared while the files were swapped is gone, replaced by one in Sonar's own colours with no system chrome. It said very little and looked like something had gone wrong.
+- The update prompt itself is now a Sonar dialog rather than a system one, with the same buttons used everywhere else in the app.
 
 **The shared image**
 - Class names and percentages were too small and too dim to read against a bright bar; both are heavier now.
-- How each player looks is filled in from what Peach remembers of them before the image is drawn, so figures are no longer blank in a shared picture or a run being reviewed.
+- How each player looks is filled in from what Sonar remembers of them before the image is drawn, so figures are no longer blank in a shared picture or a run being reviewed.
 
 ## 1.37.0
 
@@ -775,7 +801,7 @@ Tomato or RealmShark. That is what the 2 is for.
 **Pick the fight you want to look at**
 - The Damage window now has the run itself down its left side: the whole instance, then every boss, every lesser boss, and every wave of ordinary enemies in between - each with the enemy's own picture beside it and its damage underneath. Clicking one is what the bars show. The Overall / Enemy / Bosses switch still works exactly as before; the list only takes over once a particular fight is picked.
 - A boss is rarely alone. Adds spawn during its phases and die inside its own fight, and counting those as separate enemies scattered one fight across a dozen entries. An enemy whose fight overlaps a boss's is now folded into that boss, and only what is left - the enemies killed in the gaps - becomes a wave. The list reads the way a run actually went: wave, boss, wave, boss.
-- Lesser bosses are kept apart from headline ones, using the game's own MINIBOSS label rather than a guess. Anything Peach promoted only for having an outsized health pool is counted as a lesser boss too, since calling an unlabelled tanky enemy a boss outright would overstate it.
+- Lesser bosses are kept apart from headline ones, using the game's own MINIBOSS label rather than a guess. Anything Sonar promoted only for having an outsized health pool is counted as a lesser boss too, since calling an unlabelled tanky enemy a boss outright would overstate it.
 
 **Reviewing a finished instance no longer strands you**
 - Opening one used to throw you onto the Live page showing old numbers with no obvious way back. There is now a Live / Review switch on the Instance page, and opening a finished instance keeps you where you are and turns Review on. Whichever run was last opened is held, so moving between then and now is one click either way instead of hunting through the list again.
@@ -792,19 +818,19 @@ Tomato or RealmShark. That is what the 2 is for.
 - Another player's damage now reads "Observed" rather than "Server-checked": it is the server's own figure reported as it happened, and only the user's own is worked out by the client first and then held against the server.
 
 **Gear notes on the damage bars actually appear**
-- Hovering a weapon, ability, armor or ring beside a player's name now shows a note, which it never did before. The look and feel Peach is built on quietly replaces every tooltip with its own, and that one never came up over the custom painted pages. Peach now owns the note outright: it decides when it opens, where it sits and what it looks like, so nothing outside Peach can take it away. It also keeps to whichever screen the pointer is on rather than being pushed onto another.
+- Hovering a weapon, ability, armor or ring beside a player's name now shows a note, which it never did before. The look and feel Sonar is built on quietly replaces every tooltip with its own, and that one never came up over the custom painted pages. Sonar now owns the note outright: it decides when it opens, where it sits and what it looks like, so nothing outside Sonar can take it away. It also keeps to whichever screen the pointer is on rather than being pushed onto another.
 - The note says what the item is and what it does, not just its name: its tier or whether it is untiered or set, the damage its shot deals and how many it fires, its rate of fire when that is not the usual one, what it costs in mana, and anything it adds to the wearer's stats. All of it read from the game's own data rather than written down by hand. Underneath, each enchant on the item with the game's wording for what that enchant changes.
 
 **Stats no longer claim to be maxed when they are not**
-- A character wearing anything at all read as maxed in every stat, because what the game sends already includes what equipment is lending. Peach was comparing that against the class base maximum, so a Rogue at 959 life showed "959/750" and "8/8 maxed". Maxing is now judged on the stat itself, with what the gear adds shown separately in green beside it, so the two add up to the figure the game shows.
-- Exaltation raises the ceiling as well as the stat, which Peach was not allowing for either: an exalted character could pass the class base without having maxed anything. Each stat is now measured against the ceiling that character actually has.
+- A character wearing anything at all read as maxed in every stat, because what the game sends already includes what equipment is lending. Sonar was comparing that against the class base maximum, so a Rogue at 959 life showed "959/750" and "8/8 maxed". Maxing is now judged on the stat itself, with what the gear adds shown separately in green beside it, so the two add up to the figure the game shows.
+- Exaltation raises the ceiling as well as the stat, which Sonar was not allowing for either: an exalted character could pass the class base without having maxed anything. Each stat is now measured against the ceiling that character actually has.
 - The fame page counted those same stats as maxed, and no longer does.
 
 **Hover a stat to see what is making it up**
 - On the Characters page, hovering a stat that something is adding to now opens a note listing each worn item that lends it, with its picture and how much it gives, then exaltation on its own line. What the items account for is read from the game's own data; whatever is left over is named as enchants and other sources rather than being quietly folded in or guessed at.
 
 **The fame page says when not to trust it**
-- The reward table behind it is verified, but the counts fed into it are read out of a packed run of bits whose layout Peach has not got right yet - some come out far too large. Rather than let a confident looking total stand in for a wrong one, the page now says so plainly and prints the count behind every line, so each can be checked against the game's own Fame Overview. The totals will be presented as fact again once the counts are right.
+- The reward table behind it is verified, but the counts fed into it are read out of a packed run of bits whose layout Sonar has not got right yet - some come out far too large. Rather than let a confident looking total stand in for a wrong one, the page now says so plainly and prints the count behind every line, so each can be checked against the game's own Fame Overview. The totals will be presented as fact again once the counts are right.
 
 **Collection counts against one vault at a time**
 - Seasonal and regular are kept apart by the game, and a seasonal character cannot reach what a regular one has stored, so counting both together matched neither. The Collection page now has a seasonal and regular switch, seasonal first, and says which vault it is still waiting on rather than showing an empty list with no reason.
@@ -840,7 +866,7 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.29.0
 
 **The Shatters Observatory puzzle solves itself**
-- A new Puzzle page. The Observatory puzzle is Lights Out: nine towers, shooting one flips it and the towers above, below and either side of it, and the room opens once all nine are lit. Peach already receives each tower's state and position, so unlike the solvers on the web there is nothing to type in - walk in and the answer is already there, drawn with the game's own tower sprites so the grid reads the same as the room. The ones to shoot are ringed and crossed.
+- A new Puzzle page. The Observatory puzzle is Lights Out: nine towers, shooting one flips it and the towers above, below and either side of it, and the room opens once all nine are lit. Sonar already receives each tower's state and position, so unlike the solvers on the web there is nothing to type in - walk in and the answer is already there, drawn with the game's own tower sprites so the grid reads the same as the room. The ones to shoot are ringed and crossed.
 - The answer given is always the shortest one. Every one of the 512 possible boards was checked: each is solvable, each answer lights the whole grid, and each uses the fewest shots possible.
 
 ## 1.28.1
@@ -880,7 +906,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 **Characters, led by the character**
 - Each character is now shown as it looks in game, skin and dyes included, rather than as a block of text. Clicking one opens it: what it wears, what it carries, and all eight stats against the class maximum. The exaltation bonus sits to the right of each stat in blue, so it reads apart from the base number.
-- Exalt bonuses are only shown for a character you have played since Peach started - the account-wide character list carries progress towards the next exalt, not the bonus itself, so showing it from there would have been a different number wearing the same label.
+- Exalt bonuses are only shown for a character you have played since Sonar started - the account-wide character list carries progress towards the next exalt, not the bonus itself, so showing it from there would have been a different number wearing the same label.
 
 **A theme for the whole interface, not just the accent**
 - Six base palettes beside the accent colours: Plum, Obsidian, Espresso, Midnight, Forest and Wine. Each brings its own text tones rather than reusing one grey on a different ground.
@@ -894,16 +920,16 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.26.0
 
 **Sound settings you can actually reach**
-- Peach has had a full set of sound settings since it was forked - volume, a white bag ping, pings for every other bag colour, chat and trade pings - but they lived on a menu bar that was never attached to the window, so there was no way to open them. They now have their own Settings page, reachable from the button in the top bar or the rail. Switching a ping on plays it, so it is obvious which is which, and there is a Test button for the volume. Your existing settings are kept: these are the same saved values the old menu used.
+- Sonar has had a full set of sound settings since it was forked - volume, a white bag ping, pings for every other bag colour, chat and trade pings - but they lived on a menu bar that was never attached to the window, so there was no way to open them. They now have their own Settings page, reachable from the button in the top bar or the rail. Switching a ping on plays it, so it is obvious which is which, and there is a Test button for the volume. Your existing settings are kept: these are the same saved values the old menu used.
 
 **Accent colour**
-- Six accents to choose from on the Settings page - Peach, Coral, Mint, Violet, Gold and Ice. The whole interface takes the new colour at once, and the choice is remembered.
+- Six accents to choose from on the Settings page - Sonar, Coral, Mint, Violet, Gold and Ice. The whole interface takes the new colour at once, and the choice is remembered.
 
-**Daily Quests, rebuilt in Peach's own style**
-- The quest list was still the plain grey panel carried over from Tomato. It is now a page of cards matching the rest of Peach: each quest's name, what it asks for and what it pays out shown as item pictures, with badges for repeatable and completed quests.
+**Daily Quests, rebuilt in Sonar's own style**
+- The quest list was still the plain grey panel carried over from Tomato. It is now a page of cards matching the rest of Sonar: each quest's name, what it asks for and what it pays out shown as item pictures, with badges for repeatable and completed quests.
 
 **The hover note over an item is themed, and shows the item**
-- Resting on a gear icon used to open the system's grey tooltip. It is now painted in Peach's colours, leads with the item's own picture and name, and colours each enchant by its level.
+- Resting on a gear icon used to open the system's grey tooltip. It is now painted in Sonar's colours, leads with the item's own picture and name, and colours each enchant by its level.
 
 **Fits a 1080p screen**
 - The page could not shrink below a size that did not fit a 1080p screen with display scaling turned up, which forced scrollbars and squeezed the windows. The minimum is smaller now, the window can be sized down further, and the left rail narrows on its own when the window is narrow.
@@ -911,7 +937,7 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.25.0
 
 **Shiny items (and newly added items) now show their picture**
-- Item pictures were looked up by name, and a Shiny carries the same display name as the plain version of the item - so only one of the two could own that name and the other came out blank. The same went for any item whose name Peach had not registered yet. Pictures are now looked up by the item's own id wherever it is known, in the vault, on the damage bars and on the Characters page. The sprites were never missing: Shinies live on the game's `lofiObjShiny` sheet, which was extracted correctly the whole time.
+- Item pictures were looked up by name, and a Shiny carries the same display name as the plain version of the item - so only one of the two could own that name and the other came out blank. The same went for any item whose name Sonar had not registered yet. Pictures are now looked up by the item's own id wherever it is known, in the vault, on the damage bars and on the Characters page. The sprites were never missing: Shinies live on the game's `lofiObjShiny` sheet, which was extracted correctly the whole time.
 
 **The vault is grouped by kind**
 - Vault contents now sit under headings - Weapons, Abilities, Armor, Rings, Consumables, Other - instead of one long alphabetical run, so a full vault can actually be read.
@@ -919,7 +945,7 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.24.1
 
 **Fixed the Vault page never loading - the real cause this time**
-- The game sends a short after the potion limits, just before the enchant data, that Peach's packet reader did not know about. Two bytes behind from that point on, the three enchant strings at the end came out as nonsense and the reader ran off the end of the packet, so the whole vault update was thrown away every single time - the page could never have filled in, on any character. The reader now accounts for that field. Credit to RealmHound's packet implementation, which documents this field and is what the fix was checked against.
+- The game sends a short after the potion limits, just before the enchant data, that Sonar's packet reader did not know about. Two bytes behind from that point on, the three enchant strings at the end came out as nonsense and the reader ran off the end of the packet, so the whole vault update was thrown away every single time - the page could never have filled in, on any character. The reader now accounts for that field. Credit to RealmHound's packet implementation, which documents this field and is what the fix was checked against.
 - This is the actual cause. The two earlier attempts (1.22.1 and 1.23.0) fixed real but secondary problems further down the line, which is why neither of them made any difference.
 
 ## 1.24.0
@@ -936,16 +962,16 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.23.0
 
 **Characters now fill in as you play, instead of needing a special room**
-- The game only answers a full character-list request in the Pet Yard and the Daily Quest Room, so the Characters page had no way to learn about your characters anywhere else - it just sat empty. Peach now records the character you're playing from the data already arriving each tick, and remembers it on disk, so characters build up as you play them and are still there after a restart. Visiting the Pet Yard or Daily Quest Room still fills in every character at once, including ones you haven't played recently.
+- The game only answers a full character-list request in the Pet Yard and the Daily Quest Room, so the Characters page had no way to learn about your characters anywhere else - it just sat empty. Sonar now records the character you're playing from the data already arriving each tick, and remembers it on disk, so characters build up as you play them and are still there after a restart. Visiting the Pet Yard or Daily Quest Room still fills in every character at once, including ones you haven't played recently.
 
 **Fixed a seasonal character's vault never showing**
-- Your vault's contents arrive as the map loads, often a moment before Peach has worked out whether you're on a seasonal character. The contents were filed under one of the two vaults the game keeps (regular and seasonal) based on what was known at that instant, but read back based on what was known later - and when those disagreed, which they reliably did on a seasonal character, the page showed "Vault not loaded" while the data sat in the other vault the whole time. Peach now reads from whichever vault actually received contents.
+- Your vault's contents arrive as the map loads, often a moment before Sonar has worked out whether you're on a seasonal character. The contents were filed under one of the two vaults the game keeps (regular and seasonal) based on what was known at that instant, but read back based on what was known later - and when those disagreed, which they reliably did on a seasonal character, the page showed "Vault not loaded" while the data sat in the other vault the whole time. Sonar now reads from whichever vault actually received contents.
 
 ## 1.22.1
 
 **Fixed Characters, Exaltation and Vault all sitting empty**
 - These three pages show account-wide information, but they were only ever filled in while a tracked instance was loaded - so they stayed blank in the Nexus and in the vault itself, which is exactly where you'd open them. They now fill in regardless of whether you're in an instance.
-- Second, separate cause for the Vault: your vault's contents arrive from the game right as the map loads, often a moment before Peach has registered your character. When that happened the entire vault update was thrown away and the page stayed on "Vault not loaded" for the rest of the session. Vault contents are no longer discarded over that timing.
+- Second, separate cause for the Vault: your vault's contents arrive from the game right as the map loads, often a moment before Sonar has registered your character. When that happened the entire vault update was thrown away and the page stayed on "Vault not loaded" for the rest of the session. Vault contents are no longer discarded over that timing.
 
 ## 1.22.0
 
@@ -965,7 +991,7 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.20.4
 
 **Fixed today's instances disappearing from the list after every restart**
-- Reopening Peach (including right after an update installs) showed an empty Instances list even though nothing had actually been deleted - today's finished instances were safely saved to disk the whole time, but the list on screen was only ever built from what finished during the current run, never reloaded from the file. Today's saved instances are now loaded back in on startup, so they stay visible across restarts and updates the same way past days already did.
+- Reopening Sonar (including right after an update installs) showed an empty Instances list even though nothing had actually been deleted - today's finished instances were safely saved to disk the whole time, but the list on screen was only ever built from what finished during the current run, never reloaded from the file. Today's saved instances are now loaded back in on startup, so they stay visible across restarts and updates the same way past days already did.
 
 **Fixed the Vault page losing track of which vault it's showing**
 - The write side (storing an incoming vault update) and the read side (deciding which vault to display) each independently guessed whether the character was seasonal, at different moments - if that guess changed between the two, vault data that had genuinely arrived could still show as not loaded. Both sides now use the same, more reliable source (the character list, sent once at character select) instead of each inferring it fresh from a stat that can lag.
@@ -979,12 +1005,12 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.20.2
 
 **Fixed the Vault page getting stuck on "Vault not loaded"**
-- Opening a vault chest in-game could silently fail to register with Peach at all - the Vault page stayed on "Vault not loaded" even with the vault genuinely open and full, seen most reliably on seasonal characters. Cause: checking whether a character was seasonal crashed outright if that specific detail hadn't been tracked yet for them, which silently dropped the whole vault update rather than just defaulting sensibly. Fixed to default to the regular vault instead of crashing when that's unknown - open your vault and it loads now.
+- Opening a vault chest in-game could silently fail to register with Sonar at all - the Vault page stayed on "Vault not loaded" even with the vault genuinely open and full, seen most reliably on seasonal characters. Cause: checking whether a character was seasonal crashed outright if that specific detail hadn't been tracked yet for them, which silently dropped the whole vault update rather than just defaulting sensibly. Fixed to default to the regular vault instead of crashing when that's unknown - open your vault and it loads now.
 
 ## 1.20.1
 
 **No more surprise "Realm Shark Asset Extractor" popup**
-- When the game updates, Peach used to hand off to a raw, unbranded "Realm Shark Asset Extractor" window asking whether to re-extract item/enemy data - it could appear over the game mid-session, looking like it belonged to a different, unrelated program. Extraction now just happens silently in the background instead (it's fast and purely local - there was never really a meaningful choice to ask about). No visible change when everything's already up to date; a brief one-time pause the first time after a game patch, no popup.
+- When the game updates, Sonar used to hand off to a raw, unbranded "Realm Shark Asset Extractor" window asking whether to re-extract item/enemy data - it could appear over the game mid-session, looking like it belonged to a different, unrelated program. Extraction now just happens silently in the background instead (it's fast and purely local - there was never really a meaningful choice to ask about). No visible change when everything's already up to date; a brief one-time pause the first time after a game patch, no popup.
 
 ## 1.20.0
 
@@ -1038,7 +1064,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 **Share results as an image**
 - A new "Share results" button on the Instance window renders everyone's damage this instance - ranked, Top 5 Contributors highlighted in gold, Top 5 Leechers in coral (same nexus-aware rule as the Leaderboard window: someone who left before the final boss died is never shown as a leecher) - into a single shareable picture. One click copies it straight to the clipboard, ready to paste into Discord or wherever a run gets organized; a copy is also kept under the app's `exports` folder.
-- Built for exactly how these runs tend to get organized - in a Discord, where people ask where they stood - without anyone needing Peach installed themselves to see it.
+- Built for exactly how these runs tend to get organized - in a Discord, where people ask where they stood - without anyone needing Sonar installed themselves to see it.
 
 ## 1.13.0
 
@@ -1093,7 +1119,7 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.10.0
 
 **30 days of instance history**
-- The Instances window now has day arrows: step back up to 30 days to see instances from earlier sessions, even after restarting Peach. Each saved instance shows its dungeon's own portal picture.
+- The Instances window now has day arrows: step back up to 30 days to see instances from earlier sessions, even after restarting Sonar. Each saved instance shows its dungeon's own portal picture.
 - Click a saved instance the same way as a finished instance from today, to review its Live, Instance and Players data.
 - Only Live, Instance and Players data is kept - never the vault or the panels carried over from Tomato. Saved as one file per day under the run folder; days older than 30 are deleted automatically on startup.
 
@@ -1105,7 +1131,7 @@ Tomato or RealmShark. That is what the 2 is for.
 - Internal check added that catches a class being shown with gear it could never actually equip, against the game's own class and item data, so a display bug like that can't ship unnoticed again.
 
 **Shatters Hardmode radar (beta)**
-- A new overlay, off by default, draws small marks over your game's own minimap for the Stone Idol, a Derelict Monument and the Source as Peach spots them among entities the game has already sent your client - the same passive, single-client reading everything else in Peach does, nothing from other players or any outside service.
+- A new overlay, off by default, draws small marks over your game's own minimap for the Stone Idol, a Derelict Monument and the Source as Sonar spots them among entities the game has already sent your client - the same passive, single-client reading everything else in Sonar does, nothing from other players or any outside service.
 - Turn it on from the new Shatters window on the Instance page; it starts watching immediately and stays watching across instance changes, so there is no race to lose by starting it before you load in.
 - Calibrate once to line the overlay up with your own minimap (drag to move, drag the corner to resize); click-through the rest of the time so it never blocks play. Re-calibrate if you change your minimap's zoom.
 - Marked beta: the detection, overlay rendering and click-through were all verified in isolation (synthetic data, screen capture), but this has not yet been run against a live Shatters Hardmode instance. Marked as such in the app itself (window title and empty-state text) until that happens.
@@ -1134,7 +1160,7 @@ Tomato or RealmShark. That is what the 2 is for.
 ## 1.8.3
 
 **Dyes and cloths fix**
-- Dyed players were drawn in one flat wrong colour. The game sends which dye or cloth item a player wears, not the colour itself; Peach now looks the item up in the game files to get its colour or pattern.
+- Dyed players were drawn in one flat wrong colour. The game sends which dye or cloth item a player wears, not the colour itself; Sonar now looks the item up in the game files to get its colour or pattern.
 
 ## 1.8.2
 
@@ -1197,7 +1223,7 @@ Tomato or RealmShark. That is what the 2 is for.
 - Each build lists the enchants that change damage per second. "+ Add enchant" opens a menu of those enchants with the game's description; the cross next to one removes it.
 - Changing anything on "Current" leaves it alone and makes a copy with the change.
 - The typed "Compare with weapon" box is gone.
-- Copies are kept until Peach closes.
+- Copies are kept until Sonar closes.
 
 ## 1.7.0
 
@@ -1245,13 +1271,13 @@ Tomato or RealmShark. That is what the 2 is for.
 - Other players' bars have no gold part: the game reports their pet's damage mixed in with their own, so it is already in their total but cannot be told apart.
 
 **Starting the sniffer**
-- New "Auto-start" switch above "Check for updates". Off by default. When on, the sniffer starts by itself each time Peach opens.
-- When the sniffer is started in the middle of an instance, Peach now says it is waiting for your next instance and that tracking begins at the next loading screen. The game's data can only be read from the start of an instance.
+- New "Auto-start" switch above "Check for updates". Off by default. When on, the sniffer starts by itself each time Sonar opens.
+- When the sniffer is started in the middle of an instance, Sonar now says it is waiting for your next instance and that tracking begins at the next loading screen. The game's data can only be read from the start of an instance.
 
 ## 1.5.7
 
 **Pet damage**
-- "Pet damage" now registers pets whose attacks the game reports under your own name, such as Electric. Peach counts as pet damage everything the server reports as yours that none of your own shots accounts for.
+- "Pet damage" now registers pets whose attacks the game reports under your own name, such as Electric. Sonar counts as pet damage everything the server reports as yours that none of your own shots accounts for.
 - That damage is no longer added to your own, so "Before server check" is no longer inflated by it.
 - Limit: ability damage that works without a shot, such as poison or traps, is reported by the game the same way and lands in this line too.
 
@@ -1268,12 +1294,12 @@ Tomato or RealmShark. That is what the 2 is for.
 - The Players list has the same button at the end of each row, so you can add someone before they have dealt any damage.
 - In the Party window each member has a cross at the end of their row to remove them. Clicking the row itself no longer removes them; it shows their details instead.
 - A "Refresh" button on the Party window re-reads every member's class and presence from the instance you are in.
-- Your party is saved by username and stays through every instance and after closing Peach, as before. Members who are present without having dealt damage now also count toward "instances together".
+- Your party is saved by username and stays through every instance and after closing Sonar, as before. Members who are present without having dealt damage now also count toward "instances together".
 
 ## 1.5.4
 
 **Players are listed as soon as they are seen**
-- The Players window now lists everyone Peach has seen in the instance, not only those who have dealt damage. Players who have not hit anything yet come after the damage dealers and read "no damage yet".
+- The Players window now lists everyone Sonar has seen in the instance, not only those who have dealt damage. Players who have not hit anything yet come after the damage dealers and read "no damage yet".
 - Party members who are present but have not dealt damage show as "here", and count toward "N of M here".
 - The damage windows are unchanged: they still list only players with recorded damage.
 - The game only sends players near you, so the list is everyone seen so far, which in a large instance can be fewer than everyone in it.
@@ -1308,32 +1334,32 @@ Tomato or RealmShark. That is what the 2 is for.
 - Window positions go back to the new default arrangement once.
 
 **Updates finish the job**
-- After an update, Peach now also rebuilds `Peach.exe`, refreshes its shortcuts and re-reads the game's data, the things `Setup.bat` does. No update needs Setup to be run by hand any more.
-- A small "Updating Peach" window shows while this happens, then Peach reopens.
-- Peach also notices at startup when its launcher and shortcuts were made for an older version, and quietly rebuilds them. That covers the update from 1.4.0, whose updater did not do this yet.
+- After an update, Sonar now also rebuilds `Peach.exe`, refreshes its shortcuts and re-reads the game's data, the things `Setup.bat` does. No update needs Setup to be run by hand any more.
+- A small "Updating Sonar" window shows while this happens, then Sonar reopens.
+- Sonar also notices at startup when its launcher and shortcuts were made for an older version, and quietly rebuilds them. That covers the update from 1.4.0, whose updater did not do this yet.
 
 **Pin to taskbar**
-- Peach can now be pinned to the taskbar properly. Right-click the Peach shortcut, or the Peach button on the taskbar while it is running, and choose "Pin to taskbar".
-- Before, Windows filed the running window under Java: a pinned Peach showed a second button when opened, and pinning the running window pinned a Java that opened nothing. Peach now tells Windows who it is, and its shortcuts carry the same identity.
-- Setup also adds Peach to the Start menu.
+- Sonar can now be pinned to the taskbar properly. Right-click the Sonar shortcut, or the Sonar button on the taskbar while it is running, and choose "Pin to taskbar".
+- Before, Windows filed the running window under Java: a pinned Sonar showed a second button when opened, and pinning the running window pinned a Java that opened nothing. Sonar now tells Windows who it is, and its shortcuts carry the same identity.
+- Setup also adds Sonar to the Start menu.
 
 ## 1.4.0
 
 **Updates install themselves**
-- When a newer version exists, Peach asks **Update and restart**. On yes it downloads the release, closes, puts the new files in place and starts again by itself. Layout, party and settings are kept.
-- Peach also looks for a newer version once, a few seconds after it starts. It says nothing unless there is one.
+- When a newer version exists, Sonar asks **Update and restart**. On yes it downloads the release, closes, puts the new files in place and starts again by itself. Layout, party and settings are kept.
+- Sonar also looks for a newer version once, a few seconds after it starts. It says nothing unless there is one.
 - **Check for updates** can no longer stay on "Checking": every failure is caught, and the check gives up after 25 seconds with "Couldn't check". What happened is written to `run\update\update.log`.
 - The check no longer uses GitHub's rate-limited API.
 - A copy built from source is not overwritten; it is offered the download page instead.
 
 **Setup**
-- Setup no longer replaces the app while Peach is open; it asks you to close Peach first. Swapping the file under a running Peach is what made the update button hang.
+- Setup no longer replaces the app while Sonar is open; it asks you to close Sonar first. Swapping the file under a running Sonar is what made the update button hang.
 
 ## 1.3.0
 
 **Your own damage is checked against the server**
 - The game server reports the damage of everyone else's hits, but never your own; those your client works out itself, and the server does not always register every one of them. That could leave your number higher than what other players see.
-- Peach now holds your damage on each enemy against the health the server says that enemy lost. Alone on an enemy, your damage is the health it lost. In a group, it is the health lost that the other players' reported hits do not explain, and never more than Peach calculated.
+- Sonar now holds your damage on each enemy against the health the server says that enemy lost. Alone on an enemy, your damage is the health it lost. In a group, it is the health lost that the other players' reported hits do not explain, and never more than Sonar calculated.
 - Damage beyond an enemy's remaining health is no longer counted for you, and an enemy you only tagged and left is not treated as killed.
 - When the checked figure differs from the calculated one, the You window and your Players page show the calculated one as "Before server check".
 - Finished instances keep the checked figures they ended on.
@@ -1341,10 +1367,10 @@ Tomato or RealmShark. That is what the 2 is for.
 **Publisher information**
 - `Peach.exe` now carries **JustAutomate-AI** as its company, with the product name, description and version filled in. They show under Properties > Details and in Task Manager.
 - The desktop shortcut's description, the About box and the app file's manifest name the publisher as well.
-- Peach is not code-signed, so Windows security prompts still say "Unknown publisher". That needs a paid signing certificate.
+- Sonar is not code-signed, so Windows security prompts still say "Unknown publisher". That needs a paid signing certificate.
 
 **Diagnostics**
-- With an `audit` folder next to the app, Peach writes the server check's numbers per enemy and every own hit to that folder.
+- With an `audit` folder next to the app, Sonar writes the server check's numbers per enemy and every own hit to that folder.
 
 ## 1.2.0
 
@@ -1370,11 +1396,11 @@ Tomato or RealmShark. That is what the 2 is for.
 - Adding or removing a party member moved to the rank number at the left end of a bar.
 
 **Pet damage**
-- Pet hits used to be dropped. They are now counted apart from the player lists: all pets together on the Instance page, and your own pet in the You window once Peach has identified it (after a visit to the Pet Yard or the Daily Quest Room).
+- Pet hits used to be dropped. They are now counted apart from the player lists: all pets together on the Instance page, and your own pet in the You window once Sonar has identified it (after a visit to the Pet Yard or the Daily Quest Room).
 
 **Updates**
 - **Check for updates** at the bottom of the left rail asks GitHub for the latest release and offers its download page when it is newer. Nothing is downloaded or installed automatically.
-- The window title and rail show the Peach version.
+- The window title and rail show the Sonar version.
 
 **Layout**
 - The Live page holds three windows: Damage (the largest), You and Current fight. Instance, Party and Your stats have pages of their own.

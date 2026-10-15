@@ -1,0 +1,87 @@
+# Builds a release where anyone can watch it happen.
+#
+# The point of this file is not convenience. Sonar reads network traffic, so the fair
+# question from a stranger is "the source looks fine, but did the binary I downloaded
+# come from it?" A release built on a laptop cannot answer that. This one can: the job
+# runs in public, and attest-build-provenance signs a statement tying each file to this
+# workflow and this commit. Anyone can check it before running anything:
+#
+#   gh attestation verify Sonar-<version>-setup.msi --repo JustAutomate-AI/sonar-rotmg
+#
+# The self-test is not run here. Its 217 assertions read the game's own sprite sheets,
+# which only exist on a machine with Realm of the Mad God installed, so it stays a gate
+# that is passed locally before the tag is pushed.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, without the v'
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Work out the version
+        id: v
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = if ("${{ inputs.version }}") { "${{ inputs.version }}" } else { $tag -replace '^v', '' }
+          # the tag and Updater.CURRENT must agree, or the app would offer an update to itself
+          $source = Get-Content src/main/java/sonar/ui/Updater.java -Raw
+          if ($source -notmatch 'CURRENT\s*=\s*"([^"]+)"') { throw "Could not read the version from Updater.java" }
+          $declared = $Matches[1]
+          if ($declared -ne $version) { throw "Tag says $version but Updater.CURRENT says $declared" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        shell: pwsh
+        run: ./gradlew.bat shadowJar
+
+      - name: Package the zip, the installer and the checksums
+        shell: pwsh
+        run: ./tools/make-package.ps1 -Version ${{ steps.v.outputs.version }}
+
+      - name: Attest where these files came from
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/Sonar-${{ steps.v.outputs.version }}-windows.zip
+            dist/Sonar-${{ steps.v.outputs.version }}-setup.msi
+
+      - name: Keep the build for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-${{ steps.v.outputs.version }}
+          path: dist/*
+
+      - name: Attach everything to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload ${{ github.ref_name }} `
+            "dist/Sonar-${{ steps.v.outputs.version }}-windows.zip" `
+            "dist/Sonar-${{ steps.v.outputs.version }}-setup.msi" `
+            "dist/SHA256SUMS-${{ steps.v.outputs.version }}.txt" `
+            --clobber

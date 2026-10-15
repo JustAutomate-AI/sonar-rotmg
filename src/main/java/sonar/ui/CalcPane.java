@@ -184,7 +184,7 @@ final class CalcPane extends JPanel {
     private static final String[] THEIRS = {"Curse", "Exposed", "Armor Broken", "Armored"};
     private static final String[] SLOTS = {"Weapon", "Ability", "Armor", "Ring"};
     // a fixed set telling the builds apart, not the interface accent - these must stay distinct from each other
-    private static final Color[] COLORS = {SonarTheme.PEACH, SonarTheme.MINT, SonarTheme.VIOLET, SonarTheme.GOLD, SonarTheme.CORAL};
+    private static final Color[] COLORS = {SonarTheme.SALMON, SonarTheme.MINT, SonarTheme.VIOLET, SonarTheme.GOLD, SonarTheme.CORAL};
     private static final int MAX_DEF = 150, LEFT = 310, TILE = 42;
     private static final Item NOTHING = new Item();
 

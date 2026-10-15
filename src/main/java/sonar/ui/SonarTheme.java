@@ -101,7 +101,7 @@ public final class SonarTheme {
             new Base("Plum", 0x130f19, 0x191320, 0x201929, 0x2a2135, 0xf5eef8, 0xa99db6, 0x7a6f87),
             // near-black with a cool graphite bias; the quietest of the set
             new Base("Obsidian", 0x0d0f14, 0x12151c, 0x171b24, 0x1f242f, 0xeef1f7, 0x9aa3b2, 0x6c7482),
-            // warm dark brown, made for the gold and peach accents
+            // warm dark brown, made for the gold and salmon accents
             new Base("Espresso", 0x16110e, 0x1c1613, 0x241c18, 0x2f2520, 0xf7efe8, 0xb3a295, 0x82726a),
             // deep navy, cool and even, at its best with ice or mint
             new Base("Midnight", 0x0c1019, 0x111726, 0x161d2e, 0x1e2740, 0xeaf0fa, 0x97a4bd, 0x68748c),
@@ -200,7 +200,7 @@ public final class SonarTheme {
         apply(THEMES[themeIndex]);
         sonar.util.PropertiesManager.setProperties("sonar.theme", THEMES[themeIndex].name);
     }
-    public static final Color PEACH = new Color(0xffa07a);
+    public static final Color SALMON = new Color(0xffa07a);
     public static final Color CORAL = new Color(0xff6b8b);
     public static final Color MINT = new Color(0x5ee6c5);
     public static final Color GOLD = new Color(0xf5c56b);
@@ -217,11 +217,11 @@ public final class SonarTheme {
     // ---- accent: the one colour the interface highlights with, chosen in Settings ----
 
     /** The accents on offer, each a pair of the colour itself and a slightly deeper partner for gradients. */
-    public static final String[] ACCENT_NAMES = {"Cyan", "Magenta", "Peach", "Coral", "Mint", "Violet", "Gold", "Ice"};
+    public static final String[] ACCENT_NAMES = {"Cyan", "Magenta", "Salmon", "Coral", "Mint", "Violet", "Gold", "Ice"};
     private static final Color[] ACCENTS = {
             NEON_CYAN,
             NEON_MAGENTA,
-            PEACH,
+            SALMON,
             new Color(0xff7a93),
             new Color(0x5ee6c5),
             new Color(0xb79cff),
@@ -245,6 +245,8 @@ public final class SonarTheme {
 
     /** The named accent, or the default's position if the name is not one we know. */
     private static int indexOfAccent(String name) {
+        // this accent was called Peach until the name went; anyone who chose it keeps it
+        if ("Peach".equalsIgnoreCase(name)) name = "Salmon";
         for (int i = 0; i < ACCENT_NAMES.length; i++) {
             if (ACCENT_NAMES[i].equalsIgnoreCase(name)) return i;
         }

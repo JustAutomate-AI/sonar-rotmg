@@ -9,7 +9,7 @@ import java.awt.*;
 class StatsPane extends Pane {
 
     // one colour per stat, fixed so each stat keeps its own identity whatever the interface accent is
-    private static final Color[] ACCENT = {SonarTheme.CORAL, SonarTheme.VIOLET, SonarTheme.PEACH, SonarTheme.GOLD, SonarTheme.MINT, SonarTheme.PEACH, SonarTheme.CORAL, SonarTheme.VIOLET};
+    private static final Color[] ACCENT = {SonarTheme.CORAL, SonarTheme.VIOLET, SonarTheme.SALMON, SonarTheme.GOLD, SonarTheme.MINT, SonarTheme.SALMON, SonarTheme.CORAL, SonarTheme.VIOLET};
     private static final int TILE_H = 74, GAP = 8;
 
     private final Motion.Value[] shown = new Motion.Value[8];

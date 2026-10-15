@@ -4,9 +4,16 @@
 # Run Setup.bat or gradlew shadowJar first so build\libs\Sonar.jar is current, then:
 #   powershell -ExecutionPolicy Bypass -File tools\make-package.ps1
 #
-# Produces dist\Sonar-<version>-windows.zip - unpack it anywhere and run Sonar.exe.
+# Produces two things in dist\:
+#   Sonar-<version>-windows.zip   portable - unpack anywhere and run Sonar.exe
+#   Sonar-<version>-setup.msi     the installer most people should use
+#
+# The installer needs WiX 3.x (candle.exe and light.exe). Pass -Wix with the folder
+# holding them, or leave it and the usual install locations are tried. GitHub's
+# windows runners already carry WiX, so CI needs no argument. Without WiX the zip is
+# still built and the installer is skipped with a warning.
 
-param([string]$Version)
+param([string]$Version, [string]$Wix)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -87,3 +94,58 @@ $stream.Dispose()
 $size = [Math]::Round((Get-Item $zip).Length / 1MB, 1)
 Write-Host "Created $zip ($size MB)" -ForegroundColor Green
 Write-Host "  unpack it anywhere and run Sonar.exe - no Java needed"
+
+# ---- the installer ----
+#
+# Built from the app image above, so the installer and the portable zip are the same
+# program - there is no second build to go out of step.
+#
+# It installs per user. That is the whole point: a per-user install writes only inside
+# the user's own profile, so Windows never raises the administrator prompt, and the
+# "unknown publisher" warning that comes with it never appears. Sonar is not code
+# signed, and until it is, not asking for admin is the difference between an install
+# that looks ordinary and one that looks alarming. The only prompt left in the whole
+# process belongs to Npcap, which is signed by the Nmap project.
+if (-not $Wix) {
+    foreach ($c in @("${env:ProgramFiles(x86)}\WiX Toolset v3.14in",
+                     "${env:ProgramFiles(x86)}\WiX Toolset v3.11in",
+                     "$env:WIXin")) {
+        if ($c -and (Test-Path (Join-Path $c 'candle.exe'))) { $Wix = $c; break }
+    }
+}
+if (-not $Wix -or -not (Test-Path (Join-Path $Wix 'candle.exe'))) {
+    Write-Warning "WiX not found - the .msi was skipped. The portable zip above is unaffected."
+    return
+}
+
+Write-Host "Building the installer..." -ForegroundColor Cyan
+$env:PATH = "$Wix;$env:PATH"
+# A fixed id, which is what tells Windows one version replaces the last rather than
+# installing beside it. It must never change.
+$upgradeUuid = '9fc754e4-6e35-4968-923a-fb3a351bc9b0'
+& $jpackage --type msi --app-image $stage --name Sonar `
+    --app-version $Version --vendor 'JustAutomate-AI' `
+    --description 'Damage tracker for Realm of the Mad God' `
+    --copyright 'MIT - see LICENSE.md' `
+    --license-file (Join-Path $root 'LICENSE.md') `
+    --about-url 'https://github.com/JustAutomate-AI/sonar-rotmg' `
+    --win-per-user-install --win-dir-chooser `
+    --win-menu --win-menu-group 'Sonar' `
+    --win-shortcut --win-shortcut-prompt `
+    --win-upgrade-uuid $upgradeUuid `
+    --dest $dist
+if ($LASTEXITCODE -ne 0) { throw "jpackage could not build the installer" }
+
+$built = Get-ChildItem $dist -Filter '*.msi' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$msi = Join-Path $dist "Sonar-$Version-setup.msi"
+if ($built.FullName -ne $msi) { Move-Item $built.FullName $msi -Force }
+$msiSize = [Math]::Round((Get-Item $msi).Length / 1MB, 1)
+Write-Host "Created $msi ($msiSize MB)" -ForegroundColor Green
+Write-Host "  installs per user, so Windows asks for no administrator rights"
+
+# Checksums, so anyone can confirm the file they downloaded is the file that was built.
+$sums = Join-Path $dist "SHA256SUMS-$Version.txt"
+Get-FileHash $zip, $msi -Algorithm SHA256 |
+    ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+    Set-Content $sums -Encoding ascii
+Write-Host "Created $sums" -ForegroundColor Green

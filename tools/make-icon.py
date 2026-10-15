@@ -15,7 +15,9 @@ at an integer factor, which keeps edges hard instead of ringing them soft.
 from PIL import Image, ImageDraw
 import pathlib
 
-ROOT = pathlib.Path(r"E:/user/.peach-workshop")
+# the repository root, found from this file rather than written down,
+# so the script works wherever the checkout happens to live
+ROOT = pathlib.Path(__file__).resolve().parent.parent
 CYAN = (111, 216, 255, 255)
 SS = 8  # integer supersample, reduced with a box filter
 
