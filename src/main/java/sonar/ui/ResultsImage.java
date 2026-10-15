@@ -596,6 +596,10 @@ final class ResultsImage {
         boolean topContributor = rank <= 5 && rank <= m.whole.rows.size();
         boolean overallLeecher = containsId(m.topLeechers, r.id);
         boolean overallPumper = containsId(m.topPumpers, r.id);
+        // Gone before the final boss was finished. Said plainly, in the word a player would use,
+        // and beside the name where it is read rather than tucked away in grey - somebody who
+        // nexused at four minutes did not under-perform for the rest of the run, they were not
+        // there for it, and a board that does not say so reads as an accusation.
         boolean leftEarly = m.completionKnown && !r.completed;
 
         Color tint = overallLeecher ? SonarTheme.CORAL : overallPumper ? SonarTheme.MINT : topContributor ? SonarTheme.GOLD : null;
@@ -629,7 +633,12 @@ final class ResultsImage {
         int tagX = nameX + Math.min(nameW, 240) + 8;
         if (overallLeecher) tagX = drawTag(g, tagX, y + 8, "LEECHER", SonarTheme.CORAL);
         else if (overallPumper) tagX = drawTag(g, tagX, y + 8, "PUMPER", SonarTheme.MINT);
-        if (leftEarly) drawTag(g, tagX, y + 8, "LEFT EARLY", SonarTheme.FAINT);
+        if (leftEarly) {
+            // A death is announced by the game, so it is the one cause that is known rather than
+            // guessed; everything else - nexused, disconnected, closed the game - is the same
+            // packet and is called what a player would call it.
+            drawTag(g, tagX, y + 8, r.died ? "DIED" : "NEXUS", r.died ? SonarTheme.CORAL : SonarTheme.GOLD);
+        }
 
         g.setFont(SonarTheme.font(11f));
         g.setColor(SonarTheme.FAINT);

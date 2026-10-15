@@ -415,6 +415,23 @@ final class LiveModel {
         int hitsTaken;
         /** True unless this player is known to have left (nexused, died or disconnected) before the dungeon's confirmed final boss was defeated. Meaningless outside the Top Contributors/Leechers lists. */
         boolean completed = true;
+        /**
+         * How far into the run this player disappeared, or -1 if they were still here at the
+         * end. Separate from {@link #completed}, which answers a narrower question and says
+         * "yes" both when somebody stayed and when there is no final boss to judge against.
+         */
+        long leftAtMs = -1;
+        /**
+         * Whether the game announced their death. A player simply vanishing is the same packet
+         * whether they nexused, disconnected or closed the game - only a death is announced, so
+         * that is the one cause that can be told apart rather than guessed at.
+         */
+        boolean died;
+
+        /** True when this player is known to have gone before the run ended, however they went. */
+        boolean left() {
+            return leftAtMs >= 0;
+        }
         int hits;
         long biggestHit;
         /** Names of the weapon, ability, armor and ring last seen on the player; empty when unknown. */
@@ -912,7 +929,7 @@ final class LiveModel {
             int[] raw = sonar.game.RealmCharacter.exalts.get((int) me.objectType);
             for (int i = 0; i < 8; i++) m.exaltProgress[i] = raw == null ? 0 : Math.max(0, Math.min(EXALT_PROGRESS_CAP, raw[EXALT_ORDER[i]]));
         }
-        buildLeaderboards(m, m.seen, data.playerDroppedAt());
+        buildLeaderboards(m, m.seen, data.playerDroppedAt(), data.getTimePcFirst(), deadIds(data));
         HashMap<Integer, Row> seenById = new HashMap<>();
         for (Row r : m.seen) seenById.put(r.id, r);
         LeechAnalysis.refine(m, seenById);
@@ -934,7 +951,7 @@ final class LiveModel {
                 extraRoster.add(r);
             }
         }
-        buildLeaderboards(m, extraRoster, d.playerDroppedAt);
+        buildLeaderboards(m, extraRoster, d.playerDroppedAt, d.dungeonStartTime, deadIds(d.deathNotifications));
         LeechAnalysis.refine(m, Map.of());
         return m;
     }
@@ -1650,7 +1667,23 @@ final class LiveModel {
      * there is no reliable way to tell "nexused before the fight was over" apart from
      * "finished and walked out", so every player is counted rather than guessing.
      */
-    private static void buildLeaderboards(LiveModel m, Collection<Row> extraRoster, Map<Integer, Long> droppedAt) {
+    /** The entity ids the game announced a death for, which is the one cause of leaving it states. */
+    private static java.util.Set<Integer> deadIds(sonar.backend.data.GameData data) {
+        return deadIds(data == null ? null : data.getDeathNotifications());
+    }
+
+    private static java.util.Set<Integer> deadIds(
+            java.util.List<sonar.packets.incoming.NotificationPacket> notes) {
+        java.util.Set<Integer> out = new java.util.HashSet<>();
+        if (notes == null) return out;
+        for (sonar.packets.incoming.NotificationPacket n : notes) {
+            if (n != null) out.add(n.objectId);
+        }
+        return out;
+    }
+
+    private static void buildLeaderboards(LiveModel m, Collection<Row> extraRoster, Map<Integer, Long> droppedAt,
+                                          long startTimePc, java.util.Set<Integer> deadIds) {
         LinkedHashMap<Integer, Row> roster = new LinkedHashMap<>();
         for (Row r : m.whole.rows) roster.put(r.id, r);
         for (Row r : extraRoster) roster.putIfAbsent(r.id, r);
@@ -1667,6 +1700,11 @@ final class LiveModel {
         for (Row r : roster.values()) {
             Long left = droppedAt == null ? null : droppedAt.get(r.id);
             r.completed = !m.completionKnown || left == null || left >= finalBoss.lastHit;
+            // Recorded whether or not the dungeon has a final boss to judge against: that a
+            // player went is worth showing on its own, and only the leecher lists need it tied
+            // to finishing. The time is measured from the first thing anybody hit.
+            r.leftAtMs = left == null ? -1 : Math.max(0, left - startTimePc);
+            r.died = deadIds != null && deadIds.contains(r.id);
         }
 
         ArrayList<Row> byDamageDesc = new ArrayList<>(roster.values());

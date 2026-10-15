@@ -2,6 +2,20 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.11.0
+
+**Who nexused is written beside their name**
+- A player who went before the final boss was finished now carries **NEXUS** next to their name, on the damage breakdown and in the image you copy to share a run. The breakdown also says how far in they went.
+- This matters for reading a board fairly. Somebody who nexused at two minutes did not under-perform for the rest of the run - they were not there for it - and a list that does not say so reads as an accusation.
+- A death is the one cause the game announces, so it is the only one named: that row says **DIED** instead. Everything else - nexused, disconnected, closed the game - arrives as the same packet and is called what a player would call it rather than guessed at.
+- Only before the final boss is done. Someone who left during the victory lap did the run.
+
+**Walking out of view no longer counts as leaving**
+- A player leaving your view is recorded as a drop, and the record was never taken back when they returned - so anyone who rounded a corner was treated as having nexused. Found while building the label above, and it would have made the label wrong often.
+
+**Nobody real is left in the test data**
+- The sample rosters used to build and check these pages carried names that looked very much like they were taken from a real run. Five more files of them are now Username1 onwards. No real player should appear in a screenshot, a mock-up or a repository without having been asked.
+
 ## 2.10.0
 
 **Sonar now checks itself against the game**

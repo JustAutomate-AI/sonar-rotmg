@@ -222,6 +222,18 @@ final class LiveDemo {
             m.whole.total += sum[p];
         }
         m.whole.rows.sort((a, b) -> Long.compare(b.damage, a.damage));
+        // Two people who did not see the end of this run, so the board shows what that looks
+        // like: one nexused partway, one died. A real run almost always has at least one.
+        for (LiveModel.Row r : m.whole.rows) {
+            if ("Username9".equals(r.name)) {
+                r.leftAtMs = Math.max(1, elapsed * 2 / 5);
+                r.completed = false;
+            } else if ("Username14".equals(r.name)) {
+                r.leftAtMs = Math.max(1, elapsed * 3 / 4);
+                r.died = true;
+                r.completed = false;
+            }
+        }
         // the demo builds its model by hand, so the list of fights has to be built the same way the
         // real one does - otherwise the Damage window's rail sits empty in demo mode
         LiveModel.buildGroupsForDemo(m);

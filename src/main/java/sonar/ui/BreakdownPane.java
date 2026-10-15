@@ -211,6 +211,38 @@ class BreakdownPane extends Pane {
         g.drawString(text, x - g.getFontMetrics().stringWidth(text), y);
     }
 
+    /**
+     * Marks a player who went before the end, and when.
+     * <p>
+     * It matters for reading a board: somebody who nexused at four minutes did not under-perform
+     * for the rest of the run, they were not there for it. A death is the one cause the game
+     * announces, so it is the only one named; everything else - nexused, disconnected, closed the
+     * game - arrives as the same packet and is called "left" rather than guessed at.
+     */
+    private void paintLeftTag(Graphics2D g, LiveModel.Row r, int x, int mid, Layout l) {
+        // Only where it means something: gone before the final boss was done. Somebody who left
+        // during the victory lap did the run, and tagging them would be noise.
+        if (!r.left() || r.completed) return;
+        String tag = r.died ? "DIED" : "NEXUS";
+        String when = SonarTheme.clock(r.leftAtMs);
+        g.setFont(SonarTheme.bold(8.5f));
+        int tagW = g.getFontMetrics().stringWidth(tag) + 10;
+        g.setFont(SonarTheme.font(9f));
+        int whenW = g.getFontMetrics().stringWidth(when) + 4;
+        if (x + tagW + whenW > l.damage - 10) return; // no room without crowding the figure
+
+        Color mark = r.died ? SonarTheme.CORAL : SonarTheme.GOLD;
+        g.setColor(SonarTheme.alpha(mark, 0.16));
+        g.fill(SonarTheme.round(x, mid - 7, tagW, 14, 4));
+        g.setFont(SonarTheme.bold(8.5f));
+        g.setColor(mark);
+        g.drawString(tag, x + 5, mid + 3);
+
+        g.setFont(SonarTheme.font(9f));
+        g.setColor(SonarTheme.FAINT);
+        g.drawString(when, x + tagW + 4, mid + 3);
+    }
+
     private void paintRow(Graphics2D g, int width, int top, int index, LiveModel.Row r, Layout l, long best) {
         boolean hovered = hoverY >= top && hoverY < top + ROW;
         boolean open = r.id == opened;
@@ -235,6 +267,8 @@ class BreakdownPane extends Pane {
             g.draw(SonarTheme.round(PAD + 0.5, top + 2.5, width - PAD * 2 - 1, ROW - 6, 7));
         }
 
+        // Dimmed only where the dungeon has a final boss to judge against, since that is what
+        // "did not finish" means. The tag is drawn whenever somebody went, final boss or not.
         boolean left = completionKnown && !r.completed;
         Composite old = g.getComposite();
         g.setComposite(AlphaComposite.SrcOver.derive(left ? 0.45f : 1f));
@@ -267,9 +301,12 @@ class BreakdownPane extends Pane {
         if (!r.cls.isEmpty() && after < l.nameEnd - 20) {
             g.setFont(SonarTheme.font(10f));
             // the class stays the quieter of the two, on the bar as well as off it
-            SonarTheme.across(g, SonarTheme.fit(r.cls, g.getFontMetrics(), l.nameEnd - after), after, mid + 4,
+            String cls = SonarTheme.fit(r.cls, g.getFontMetrics(), l.nameEnd - after);
+            SonarTheme.across(g, cls, after, mid + 4,
                     barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.7), SonarTheme.FAINT);
+            after += g.getFontMetrics().stringWidth(cls) + 7;
         }
+        paintLeftTag(g, r, after, mid, l);
 
         g.setFont(SonarTheme.bold(12f));
         g.setColor(SonarTheme.TEXT);
