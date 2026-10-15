@@ -23,7 +23,7 @@ Most meters give you one number for the whole run. Sonar splits the run the way 
 - **Two audiences** — everyone in the instance, or just your party
 - **Your own damage is server-checked.** The game never reports your own hits, so Sonar holds its calculation against the health each enemy was actually seen to lose
 - **Pet damage is counted separately**, so it never inflates your number
-- **Damage into a boss's guard is counted separately.** In Oryx's Sanctuary, damage put into the guard fills it rather than hurting him, and filling it pushes the fight into its next phase early - so Sonar records who did it, from the boss's own state at the moment of each hit
+- **Damage into a boss's guard is counted separately**, and shown as **red on the right end of that player's bar**. In Oryx's Sanctuary, damage put into the guard fills it rather than hurting him, and filling it pushes the fight into its next phase early — so somebody who did nothing but shoot the guard has a bar that is red nearly all the way along. Read from the boss's own state at the moment of each hit
 - **A two-click reset** zeroes the current instance, with undo
 
 ## Every player, down to the item
