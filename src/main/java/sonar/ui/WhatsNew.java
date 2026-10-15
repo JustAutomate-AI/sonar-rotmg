@@ -54,6 +54,29 @@ final class WhatsNew {
                 html(sections));
     }
 
+    /**
+     * The notes for the last few releases, shown on demand rather than once.
+     * <p>
+     * The same thing an update shows, reachable again afterwards: somebody who dismissed it,
+     * or who has been away, has nowhere else to look without going to the website. It hangs
+     * off the version number in the rail rather than a button of its own - the number is what
+     * a person already looks at when they wonder what version they are on, and the rail is
+     * read during a run, where a changelog has no business taking up a row.
+     */
+    static void showRecent(Window parent, int howMany) {
+        List<String[]> all = sections();
+        if (all.isEmpty()) {
+            SonarDialog.ask(parent, "Sonar " + Updater.current(),
+                    "The notes for this build could not be read.", "Close");
+            return;
+        }
+        List<String[]> recent = all.subList(0, Math.min(howMany, all.size()));
+        SonarDialog.notes(parent, "What's changed",
+                recent.size() == 1 ? "The latest release"
+                        : "The last " + recent.size() + " releases, newest first",
+                html(recent));
+    }
+
     /** Every changelog section above {@code from} and up to {@code to}, newest first. */
     private static List<String[]> sectionsBetween(String from, String to) {
         List<String[]> out = new ArrayList<>();
@@ -73,6 +96,31 @@ final class WhatsNew {
                 }
             }
             keep(out, version, body, from, to);
+        } catch (Exception ignored) {
+            // without the file there are no notes to show, which is survivable
+        }
+        return out;
+    }
+
+    /** Every section in the changelog, newest first. */
+    private static List<String[]> sections() {
+        List<String[]> out = new ArrayList<>();
+        String version = null;
+        StringBuilder body = new StringBuilder();
+        try (InputStream in = WhatsNew.class.getResourceAsStream("/CHANGELOG.md")) {
+            if (in == null) return out;
+            BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            String line;
+            while ((line = r.readLine()) != null) {
+                if (line.startsWith("## ")) {
+                    if (version != null) out.add(new String[]{version, body.toString()});
+                    version = line.substring(3).trim().split("\\s")[0];
+                    body.setLength(0);
+                } else if (version != null) {
+                    body.append(line).append('\n');
+                }
+            }
+            if (version != null) out.add(new String[]{version, body.toString()});
         } catch (Exception ignored) {
             // without the file there are no notes to show, which is survivable
         }

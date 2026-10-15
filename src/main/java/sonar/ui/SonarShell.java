@@ -281,7 +281,28 @@ public class SonarShell extends JPanel {
         JLabel version = new JLabel("Sonar " + Updater.current());
         version.setFont(SonarTheme.font(11f));
         version.setForeground(SonarTheme.FAINT);
-        version.setToolTipText("Sonar " + version());
+        version.setToolTipText("What has changed in the last few releases");
+        // The notes an update shows, reachable again afterwards. Hung off the version number
+        // rather than given a row of its own: the number is already what somebody looks at
+        // when they wonder what they are running, and the rail is read during a run, where a
+        // changelog has no business taking up space beside the pages.
+        version.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        version.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                WhatsNew.showRecent(SwingUtilities.getWindowAncestor(SonarShell.this), 5);
+            }
+
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                version.setForeground(SonarTheme.MUTED);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                version.setForeground(SonarTheme.FAINT);
+            }
+        });
         version.setAlignmentX(LEFT_ALIGNMENT);
         updateButton.setAlignmentX(LEFT_ALIGNMENT);
         JPanel foot = new JPanel();

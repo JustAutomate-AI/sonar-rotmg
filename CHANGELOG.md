@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.9.2
+
+**The version number in the rail opens the release notes**
+- The notes an update shows went by once and were then unreachable. Clicking the version at the bottom of the rail brings them back: the last five releases, newest first, read from the changelog inside Sonar with no connection needed.
+- It hangs off the version rather than taking a row of its own. The number is already what you look at when you wonder what you are running, and the rail is read during a run, where a changelog has no business taking up space beside the pages.
+
 ## 2.9.1
 
 **An update now tells you what it changed**
