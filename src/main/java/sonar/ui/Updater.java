@@ -34,7 +34,7 @@ import java.util.zip.ZipInputStream;
 final class Updater {
 
     /** Version of this build. Raise it for each release; tools/make-release.ps1 reads it for the zip name. */
-    static final String CURRENT = "2.7.0";
+    static final String CURRENT = "2.7.1";
 
     private static final String REPOSITORY = "https://github.com/JustAutomate-AI/sonar-rotmg";
     private static final String LATEST = REPOSITORY + "/releases/latest";
@@ -288,10 +288,34 @@ final class Updater {
         f.delete();
     }
 
-    /** The folder holding Sonar.exe and Setup.bat: the app runs from its "run" folder one level below. */
+    /**
+     * The folder an update should be unpacked over: the one holding Sonar.exe.
+     * <p>
+     * There are two layouts and they differ by a level. A portable copy runs from a "run"
+     * folder with Sonar.exe one above it, so the parent is right. A packaged install runs
+     * from the folder that holds Sonar.exe itself, so the parent is whatever that install
+     * happens to sit inside - a Desktop, a Downloads folder, the root of a drive.
+     * <p>
+     * This used to take the parent either way. On a packaged install that meant an update
+     * unpacked the whole application into the folder beside it rather than over itself:
+     * the install was left untouched on the old version, and a copy of the app appeared
+     * loose wherever it had been put. So the folder is now identified by what is in it
+     * rather than by counting levels.
+     */
     private static File installRoot() {
-        File run = new File("").getAbsoluteFile();
-        return run.getParentFile() == null ? run : run.getParentFile();
+        File here = new File("").getAbsoluteFile();
+        if (looksLikeInstall(here)) return here;
+        File up = here.getParentFile();
+        if (up != null && looksLikeInstall(up)) return up;
+        return up == null ? here : up;
+    }
+
+    /** Whether a folder is the one the application was installed into. */
+    private static boolean looksLikeInstall(File dir) {
+        if (dir == null || !dir.isDirectory()) return false;
+        return new File(dir, "Sonar.exe").isFile()
+                || new File(dir, "app" + File.separator + "Sonar.jar").isFile()
+                || new File(dir, "Setup.bat").isFile();
     }
 
     private static void browse(Component parent, String page) {

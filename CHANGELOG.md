@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.7.1
+
+**An update installed itself next to the application instead of over it**
+- There are two layouts and they sit a level apart. A portable copy runs from a `run` folder with Sonar.exe one above it; a packaged install runs from the folder that holds Sonar.exe itself. The updater took the parent either way, which is right for the first and wrong for the second.
+- On a packaged install that meant an update unpacked the whole application into whatever folder the install happened to sit inside - a Desktop, a Downloads folder - and left the install itself untouched on the old version. The copy that started afterwards was the loose one, with none of your settings, characters or extracted assets beside it, so it opened with nothing in it.
+- The folder is now found by looking for Sonar.exe rather than by counting levels, and the self-test checks it.
+- Only 2.7.0 could reach this, because every build before it could not download an update at all.
+
 ## 2.7.0
 
 **Updating works again, and so do the character list and exaltation stats**

@@ -1153,6 +1153,33 @@ class LiveView {
         boolean realm = where.passive();
         where.instance = "Lost Halls";
         boolean halls = where.passive();
+        // An update unpacks itself over whatever this says, so getting it wrong copies the
+        // whole application into a folder beside the install and leaves the install behind.
+        try {
+            java.lang.reflect.Method looks = Updater.class.getDeclaredMethod("looksLikeInstall", java.io.File.class);
+            looks.setAccessible(true);
+            java.io.File tmp = java.nio.file.Files.createTempDirectory("sonar-root").toFile();
+            java.io.File packaged = new java.io.File(tmp, "packaged");
+            java.io.File portable = new java.io.File(tmp, "portable");
+            java.io.File loose = new java.io.File(tmp, "loose");
+            new java.io.File(packaged, "app").mkdirs();
+            portable.mkdirs();
+            loose.mkdirs();
+            new java.io.File(packaged, "Sonar.exe").createNewFile();
+            new java.io.File(packaged, "app/Sonar.jar").createNewFile();
+            new java.io.File(portable, "Setup.bat").createNewFile();
+            boolean a = (Boolean) looks.invoke(null, packaged);
+            boolean b = (Boolean) looks.invoke(null, portable);
+            boolean c = (Boolean) looks.invoke(null, loose);
+            report.accept("an update recognises the folder it was installed into", a && b && !c);
+            new java.io.File(packaged, "app/Sonar.jar").delete();
+            new java.io.File(packaged, "app").delete();
+            new java.io.File(packaged, "Sonar.exe").delete();
+            new java.io.File(portable, "Setup.bat").delete();
+            packaged.delete(); portable.delete(); loose.delete(); tmp.delete();
+        } catch (Exception e) {
+            report.accept("an update recognises the folder it was installed into", false);
+        }
         report.accept("the Nexus and the vault are places with nothing to fight", nexus && vault);
         report.accept("the realm and a dungeon are not", !realm && !halls);
         report.accept("map ids are shown under the names the game uses", LiveModel.prettyMapName("{s.rotmg}").equals("Realm of the Mad God") && LiveModel.prettyMapName("{s.nexus}").equals("Nexus") && LiveModel.prettyMapName("Lost Halls").equals("Lost Halls"));
