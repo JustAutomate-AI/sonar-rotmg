@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.7.2
+
+**The Fame tab is gone**
+- It showed a sum Sonar worked out itself beside a warning that the sum was being read in the wrong order, which is not something worth keeping on screen. The page and the code behind it have been removed. Fame still appears where it is actually read from the game: on the Characters page, against each character.
+
+**The glow behind the big figures is much quieter**
+- It was still drawing a visible halo. It now reaches three pixels instead of four and at roughly a third of the strength, so the figure is lifted off the panel rather than wrapped in light.
+
+**The roster says how many it has yet to name**
+- Players arrive as entities before their names do, and one without a name cannot be listed. Where that happens the Live page now reads "30 of 107 here" rather than just "30 players", so a roster that is still filling looks like one that is still filling.
+
 ## 2.7.1
 
 **An update installed itself next to the application instead of over it**

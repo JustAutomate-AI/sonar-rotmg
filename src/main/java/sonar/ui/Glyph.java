@@ -50,10 +50,6 @@ final class Glyph {
             case "Exaltation":
                 line(p, 10, 1, 12.1, 7.1, 18.6, 7.2, 13.4, 11.1, 15.3, 17.3, 10, 13.6, 4.7, 17.3, 6.6, 11.1, 1.4, 7.2, 7.9, 7.1, 10, 1);
                 break;
-            case "Fame":
-                // a laurel-framed star, the game's own mark of fame
-                line(p, 10, 2, 12.1, 8.1, 18.6, 8.2, 13.4, 12.1, 15.3, 18.3, 10, 14.6, 4.7, 18.3, 6.6, 12.1, 1.4, 8.2, 7.9, 8.1, 10, 2);
-                break;
             case "Collection":
                 // a chest with its lid banded
                 g2.draw(new java.awt.geom.RoundRectangle2D.Double(2.5, 6.5, 15, 11, 2, 2));

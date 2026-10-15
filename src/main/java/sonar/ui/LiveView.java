@@ -14,11 +14,11 @@ import java.util.List;
  */
 class LiveView {
 
-    static final String LIVE = "Live", PLAYERS = "Players", INSTANCE = "Instance", ANALYSIS = "Analysis", VAULT = "Vault", CHARACTERS = "Characters", EXALTATION = "Exaltation", PUZZLE = "Puzzle", COLLECTION = "Collection", FAME = "Fame", PARTYFINDER = "Party finder", WARDROBE = "Wardrobe";
+    static final String LIVE = "Live", PLAYERS = "Players", INSTANCE = "Instance", ANALYSIS = "Analysis", VAULT = "Vault", CHARACTERS = "Characters", EXALTATION = "Exaltation", PUZZLE = "Puzzle", COLLECTION = "Collection", PARTYFINDER = "Party finder", WARDROBE = "Wardrobe";
 
     // eight pages: the fight, the people in it, the place it happens in, the deeper-dive tools, your
     // account-wide storage, your roster of characters, their exaltation progress, and the Shatters puzzle
-    private final Workspace livePage = new Workspace(), playersPage = new Workspace(), instancePage = new Workspace(), analysisPage = new Workspace(), vaultPage = new Workspace(), charactersPage = new Workspace(), exaltationPage = new Workspace(), puzzlePage = new Workspace(), collectionPage = new Workspace(), famePage = new Workspace(), partyFinderPage = new Workspace(), wardrobePage = new Workspace();
+    private final Workspace livePage = new Workspace(), playersPage = new Workspace(), instancePage = new Workspace(), analysisPage = new Workspace(), vaultPage = new Workspace(), charactersPage = new Workspace(), exaltationPage = new Workspace(), puzzlePage = new Workspace(), collectionPage = new Workspace(), partyFinderPage = new Workspace(), wardrobePage = new Workspace();
     /** What each dungeon drops against what the account already holds. */
     private final CollectionPane collectionPane = new CollectionPane();
     private final FloatWindow collectionWindow;
@@ -29,9 +29,6 @@ class LiveView {
     /** The list of fights down the left of the Damage window, and the strip it sits in. */
     private final FightRail fightRail = new FightRail();
     private final javax.swing.JPanel railHolder = new javax.swing.JPanel(new java.awt.BorderLayout());
-    /** Where each character's fame would come from if it died now. */
-    private final FamePane famePane = new FamePane();
-    private final FloatWindow fameWindow;
     private java.util.function.Consumer<String> navigate = page -> {
     };
 
@@ -206,7 +203,6 @@ class LiveView {
         // the breakdown sits under the enemies as a card, and opens over the page when it is wanted
         breakdownWindow = window(instancePage, "breakdown", "Damage breakdown", breakdownPane, breakdownAccessory(),
                 0.642, 0.006, 0.352, 0.988, 240, 150);
-        fameWindow = window(famePage, "fame", "Fame", famePane, null, 0.006, 0.006, 0.988, 0.988, 300, 220);
         if (shattersEnabled) openShattersOverlay();
         party.onAction(this::removePartyMember);
         itemList.icons = true;
@@ -261,7 +257,6 @@ class LiveView {
         pages.put(WARDROBE, wardrobePage);
         pages.put(COLLECTION, collectionPage);
         pages.put(PARTYFINDER, partyFinderPage);
-        pages.put(FAME, famePage);
         pages.put(PUZZLE, puzzlePage);
         return pages;
     }
@@ -1579,14 +1574,6 @@ class LiveView {
         report.accept("nothing reads past the fifth level however large the bonus",
                 LiveModel.exaltLevelFromBonus(0, 40) == 5 && LiveModel.exaltLevelFromBonus(3, 9) == 5);
 
-        // fame on death: the game does this sum and sends the answer, so Sonar stops guessing
-        FameBonus.Breakdown guessed = new FameBonus.Breakdown("Nobody", 1000);
-        report.accept("without the game's figure, Sonar shows its own working",
-                guessed.total() == guessed.worked() && guessed.total() == 1000);
-        guessed.reported = 6211;
-        report.accept("the game's own fame on death is what gets shown",
-                guessed.total() == 6211 && guessed.worked() == 1000);
-
         // abilities, read out of the game's own data rather than left out of the sum. A Wooden
         // Shield fires a 55-90 shot that gains two damage a point of wisdom past thirty-four.
         java.util.List<Abilities.Hit> shield = Abilities.of(0xa08);
@@ -2586,10 +2573,6 @@ class LiveView {
         int exalted = 0;
         for (LiveModel.ExaltSummary e : live.exaltClasses) if (e.totalLevel > 0) exalted++;
         exaltationWindow.setNote(exalted == 0 ? "" : exalted + " of " + live.exaltClasses.size() + " started");
-        famePane.show(live.fame);
-        long bestFame = 0;
-        for (FameBonus.Breakdown fb : live.fame) bestFame = Math.max(bestFame, fb.total());
-        fameWindow.setNote(live.fame.isEmpty() ? "" : "best " + SonarTheme.number(bestFame));
         leaderboard.show(m, leaderboardTab.selected());
         leaderboardWindow.setNote(m.topOverall.isEmpty() ? "" : m.completionKnown ? "" : "completion unknown");
 
@@ -2719,8 +2702,15 @@ class LiveView {
         // the fight slot carries your stat block where there is no fight to report
         livePage.setAutoHidden(fightWindow, passive);
         livePage.setAutoHidden(statsWindow, !passive);
-        hereWindow.setNote(rosterItems.isEmpty() ? "" : rosterItems.size()
-                + (rosterItems.size() == 1 ? " player" : " players"));
+        // Both figures, because they answer different questions and the gap between them is
+        // the interesting part: the first is how many Sonar can name, the second how many it
+        // has been told are in the area at all. A player arrives as an entity before their
+        // name stat does, and one without a name cannot be listed, so the roster trails the
+        // count while people are still walking into view.
+        int known = Math.max(rosterItems.size(), m.players);
+        hereWindow.setNote(rosterItems.isEmpty() ? ""
+                : known > rosterItems.size() ? rosterItems.size() + " of " + known + " here"
+                : rosterItems.size() + (rosterItems.size() == 1 ? " player" : " players"));
         // what the chosen player wears: the newest of what was seen on them and what their hits recorded
         LiveModel.Row worn = chosen;
         if (chosen != null) for (LiveModel.Row s : m.seen) if (s.id == chosen.id && !s.loadout[0].isEmpty()) worn = s;

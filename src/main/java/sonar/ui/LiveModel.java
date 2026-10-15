@@ -106,8 +106,6 @@ final class LiveModel {
     final List<CharSummary> chars = new ArrayList<>();
     /** Account-wide exaltation progress and proficiency, one entry per class the game knows about. */
     final List<ExaltSummary> exaltClasses = new ArrayList<>();
-    /** Where each character's fame would come from if it died now; empty until the character list loads. */
-    final List<FameBonus.Breakdown> fame = new ArrayList<>();
 
     /** One character on the account, for the Characters page. */
     static final class CharSummary {
@@ -743,30 +741,6 @@ final class LiveModel {
             s.petName = c.petName;
             s.petRarity = c.petRarity;
             m.chars.add(s);
-        }
-        // where each character's fame comes from; the counts behind it ride along with the character list
-        if (data.chars != null) {
-            for (sonar.game.RealmCharacter c : data.chars) {
-                FameBonus.Breakdown b = FameBonus.of(c);
-                if (!b.known) continue;
-                int[] max = sonar.game.enums.CharacterClass.getStats(c.classNum);
-                // maxing is judged on the stat itself against the ceiling this character actually
-                // has: the list's figures already carry whatever it is wearing, so the cached boost
-                // comes back off, and exaltation raises the ceiling it is measured against
-                int[] raw = {c.hp, c.mp, c.atk, c.def, c.spd, c.dex, c.vit, c.wis};
-                int[] cap = max == null ? null : max.clone();
-                for (CharSummary cs : m.chars) {
-                    if (cs.id != c.charId) continue;
-                    for (int i = 0; i < 8 && cap != null; i++) {
-                        if (cs.base(i) > 0) raw[i] = cs.base(i);
-                        if (cs.cap(i) > 0) cap[i] = cs.cap(i);
-                    }
-                    break;
-                }
-                FameBonus.addMaxedStats(b, raw, cap);
-                m.fame.add(b);
-            }
-            m.fame.sort((p, q) -> Long.compare(q.total(), p.total()));
         }
         // storage counts towards what the account holds, the same as anything carried
         for (VaultStack v : m.vault) m.own(v.itemId, v.count);

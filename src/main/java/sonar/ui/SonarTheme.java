@@ -338,8 +338,8 @@ public final class SonarTheme {
             // a sixteen-per-cent copy of the number directly against its own edge and took
             // the edge away: the figure read as blurred rather than lit. Starting at two and
             // fading outward leaves the edge to the solid draw below and still glows.
-            for (int r = 5; r >= 2; r--) {
-                g.setColor(alpha(c, 0.055 + (5 - r) * 0.025));
+            for (int r = 4; r >= 2; r--) {
+                g.setColor(alpha(c, 0.022 + (4 - r) * 0.012));
                 g.drawString(text, x - r, y);
                 g.drawString(text, x + r, y);
                 g.drawString(text, x, y - r);

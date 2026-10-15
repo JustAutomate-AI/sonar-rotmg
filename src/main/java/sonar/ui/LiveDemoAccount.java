@@ -18,7 +18,7 @@ import sonar.game.enums.CharacterClass;
  * <p>
  * Everything here is built the way the live path builds it. The characters are
  * real {@link RealmCharacter} objects, their fame is worked out by
- * {@link FameBonus#of}, their stat ceilings come from {@link CharacterClass},
+ * their stat ceilings come from {@link CharacterClass},
  * their gear comes from the game's own equipment rules and their skins from
  * skins.xml. Nothing is a figure typed in to look plausible, because a demo
  * built on invented numbers hides the faults a demo exists to show - and one
@@ -209,25 +209,9 @@ final class LiveDemoAccount {
             System.arraycopy(inventoryPool, 0, s.inventory, 0, 8);
             m.chars.add(s);
 
-            // the real derivation, not a number typed in: the same call the live path makes
-            FameBonus.Breakdown b = FameBonus.of(c);
-            if (b.known) {
-                int[] raw = {c.hp, c.mp, c.atk, c.def, c.spd, c.dex, c.vit, c.wis};
-                int[] ceiling = cap == null ? null : cap.clone();
-                for (int k = 0; k < 8 && ceiling != null; k++) {
-                    if (s.base(k) > 0) raw[k] = s.base(k);
-                    if (s.cap(k) > 0) ceiling[k] = s.cap(k);
-                }
-                FameBonus.addMaxedStats(b, raw, ceiling);
-                // the game reports this figure itself for a character it has seen played
-                if (best) b.reported = b.total() + 140;
-                m.fame.add(b);
-            }
-
             // everything worn counts towards what the account holds
             for (int id : kit) m.ownForDemo(id, 1);
         }
-        m.fame.sort((p, q) -> Long.compare(q.total(), p.total()));
 
         collections(m);
         parties();
