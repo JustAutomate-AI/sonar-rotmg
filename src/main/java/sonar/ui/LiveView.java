@@ -501,6 +501,8 @@ class LiveView {
 
     /** True while the breakdown card is opened out over the Instance page. */
     private boolean breakdownOpen;
+    // for screenshots: -Dsonar.shot.expand=1 opens the breakdown full width, where it has room
+    // for the INTO GUARD and GUARD HITS columns
     private final SonarButton breakdownToggle = new SonarButton("Expand", false, this::toggleBreakdown);
 
     /** The breakdown, with the row of enemies to pick between above it. */
@@ -716,6 +718,11 @@ class LiveView {
      * Writes the three shareable pictures to a folder, for looking at what they actually come
      * out like without having to finish a run first. Driven by {@code -Dsonar.shot.cards=<dir>}.
      */
+    /** For screenshots: opens the breakdown full width, where the guard columns have room. */
+    void expandBreakdownForShot() {
+        if (!breakdownOpen) toggleBreakdown();
+    }
+
     void writeExports(String dir) {
         LiveModel m = shown();
         PlayerLook.fill(m.whole.rows);
@@ -3037,9 +3044,11 @@ class LiveView {
             // only on a fight that has a guard to shoot, which is a handful of them; everywhere
             // else the line would read "-" for everyone forever and teach nobody anything
             if (m.whole.anyGuarded() || chosen.guardDamage > 0) {
-                f.add(new String[]{"Into the guard", chosen.guardDamage <= 0 ? "none"
-                        : SonarTheme.number(chosen.guardDamage) + "  ("
-                        + SonarTheme.number(chosen.guardHits) + (chosen.guardHits == 1 ? " hit)" : " hits)")});
+                boolean any = chosen.guardDamage > 0;
+                f.add(new String[]{"Into the guard", any
+                        ? SonarTheme.number(chosen.guardDamage) + "  ("
+                        + SonarTheme.number(chosen.guardHits) + (chosen.guardHits == 1 ? " hit)" : " hits)")
+                        : "none", any ? "guard" : ""});
             }
             f.add(new String[]{"Biggest hit", chosen.biggestHit <= 0 ? "-" : SonarTheme.number(chosen.biggestHit)});
             String[] slots = {"Weapon", "Ability", "Armor", "Ring"};

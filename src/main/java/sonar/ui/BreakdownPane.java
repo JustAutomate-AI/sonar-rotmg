@@ -403,7 +403,9 @@ class BreakdownPane extends Pane {
 
         g.setFont(SonarTheme.bold(12f));
         String figure = SonarTheme.number(r.damage);
-        if (r.guardDamage > 0) {
+        // the brackets are what the columns become when there is no room for them, so where
+        // the columns are showing these would be the same two numbers printed twice
+        if (r.guardDamage > 0 && l.guard <= 0) {
             // the guard's figure in brackets after the damage, where a reader already is
             // both figures, because the hit count is what other trackers call "guarded hits"
             // and it is the one people quote at each other afterwards
@@ -411,12 +413,16 @@ class BreakdownPane extends Pane {
                     + "  ·  " + SonarTheme.hits(r.guardHits) + ")";
             g.setFont(SonarTheme.bold(11f));
             int insideW = g.getFontMetrics().stringWidth(inside);
-            // a full bar reaches under these figures, so they take the paler red where they
-            // cross the glass - DANGER on the glass is red on red
-            Color ink = r.guardIncidental() ? SonarTheme.FAINT : SonarTheme.DANGER;
-            Color onGlassInk = r.guardIncidental() ? SonarTheme.MUTED : SonarTheme.GUARD_INK;
-            SonarTheme.across(g, inside, l.damage - insideW, mid + 4, guardStart, barEnd, clipTop, clipH,
-                    ink, onGlassInk, ink);
+            // Always red, never softened: damage into a guard is the thing this figure exists
+            // to report, and a stray hit is still a hit on the guard. What separates one shot
+            // from three hundred is the size of the number and the length of the red run on
+            // the bar, which is plenty - it does not need the colour as well.
+            //
+            // Outlined, because a full bar puts this line on the class colour and on the deep
+            // red within the same breath. A shadow carries it on most surfaces and loses it on
+            // the bright end of a gradient; an outline holds on all of them.
+            SonarTheme.acrossOutlined(g, inside, l.damage - insideW, mid + 4, guardStart, barEnd,
+                    clipTop, clipH, SonarTheme.DANGER, SonarTheme.GUARD_INK, SonarTheme.DANGER);
             g.setFont(SonarTheme.bold(12f));
             g.setColor(SonarTheme.TEXT);
             right(g, figure, l.damage - insideW, mid + 4);
@@ -433,8 +439,8 @@ class BreakdownPane extends Pane {
         cell(g, l.hits, mid, r.hits > 0 ? SonarTheme.number(r.hits) : "-", SonarTheme.MUTED);
         cell(g, l.biggest, mid, r.biggestHit > 0 ? SonarTheme.number(r.biggestHit) : "-", SonarTheme.MUTED);
         // damage put into a guard that was up: the number somebody is asked about afterwards,
-        // so it is coloured rather than left to be found among the greys
-        Color guardInk = r.guardDamage <= 0 || r.guardIncidental() ? SonarTheme.FAINT : SonarTheme.CORAL;
+        // so it carries the same red here as it does in the brackets
+        Color guardInk = r.guardDamage > 0 ? SonarTheme.DANGER : SonarTheme.FAINT;
         cell(g, l.guard, mid, r.guardDamage > 0 ? SonarTheme.number(r.guardDamage) : "-", guardInk);
         cell(g, l.guardHits, mid, r.guardHits > 0 ? SonarTheme.number(r.guardHits) : "-", guardInk);
         cell(g, l.taken, mid, r.damageTaken >= 0 ? SonarTheme.number(r.damageTaken) : "-",

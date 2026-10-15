@@ -125,7 +125,8 @@ class FactsPane extends Pane {
         FontMetrics labelFm = g.getFontMetrics(label), valueFm = g.getFontMetrics(value);
         for (String[] f : facts) {
             g.setFont(value);
-            g.setColor(SonarTheme.TEXT);
+            // a third element marks a row that carries its own colour; see LiveView's guard row
+            g.setColor(f.length > 2 && "guard".equals(f[2]) ? SonarTheme.DANGER : SonarTheme.TEXT);
             String v = SonarTheme.fit(f[1], valueFm, width / 2 + 30);
             int vw = valueFm.stringWidth(v);
             g.drawString(v, width - vw, y + 18);

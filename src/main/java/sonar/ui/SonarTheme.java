@@ -437,6 +437,29 @@ public final class SonarTheme {
      *
      * @param guardStart where the second colour begins; pass {@code barEnd} for none.
      */
+    public static void acrossOutlined(Graphics2D g, String text, float x, float y, double guardStart,
+                                      double barEnd, int top, int height, Color ink) {
+        acrossOutlined(g, text, x, y, guardStart, barEnd, top, height, ink, ink, ink);
+    }
+
+    /** {@link #across}, with each run outlined - see {@link #outlined}. */
+    public static void acrossOutlined(Graphics2D g, String text, float x, float y, double guardStart,
+                                      double barEnd, int top, int height,
+                                      Color onBar, Color onGuard, Color offBar) {
+        if (text == null || text.isEmpty()) return;
+        double[] from = {-10000, guardStart, barEnd};
+        double[] to = {guardStart, barEnd, 20000};
+        Color[] ink = {onBar, onGuard, offBar};
+        Shape old = g.getClip();
+        for (int zone = 0; zone < 3; zone++) {
+            if (to[zone] <= from[zone]) continue;
+            g.setClip(old);
+            g.clip(new java.awt.geom.Rectangle2D.Double(from[zone], top, to[zone] - from[zone], height));
+            outlined(g, text, x, y, ink[zone], OUTLINE);
+        }
+        g.setClip(old);
+    }
+
     public static void across(Graphics2D g, String text, float x, float y, double guardStart, double barEnd,
                               int top, int height, Color onBar, Color onGuard, Color offBar) {
         if (text == null || text.isEmpty()) return;
@@ -466,6 +489,30 @@ public final class SonarTheme {
     public static Color onGlass(Color surface) {
         return mix(surface, GUARD_GLASS, GUARD_GLASS.getAlpha() / 255.0);
     }
+
+    /**
+     * A line of text with a dark outline around it, so a colour chosen to mean something
+     * keeps meaning it wherever it lands.
+     * <p>
+     * A red figure has to read on the panel, on eight different class colours and on the deep
+     * red laid over a bar. A single drop shadow carries it on most of those and loses it on
+     * the bright end of a gradient. Eight offsets at one pixel is a real outline rather than a
+     * shadow, and at these sizes it costs nothing worth measuring.
+     */
+    public static void outlined(Graphics2D g, String text, float x, float y, Color fill, Color edge) {
+        if (text == null || text.isEmpty()) return;
+        g.setColor(edge);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx != 0 || dy != 0) g.drawString(text, x + dx, y + dy);
+            }
+        }
+        g.setColor(fill);
+        g.drawString(text, x, y);
+    }
+
+    /** The outline that goes under {@link #outlined} text by default. */
+    public static final Color OUTLINE = new Color(0, 0, 0, 165);
 
     public static Color mix(Color a, Color b, double t) {
         t = Math.max(0, Math.min(1, t));

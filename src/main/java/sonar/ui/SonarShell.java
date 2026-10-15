@@ -692,6 +692,7 @@ public class SonarShell extends JPanel {
         if (tab != null) {
             Timer pick = new Timer(Math.max(200, delay - 1500), e -> {
                 if (nav.containsKey(tab)) select(tab, false);
+                if (System.getProperty("sonar.shot.expand") != null) live.expandBreakdownForShot();
             });
             pick.setRepeats(false);
             pick.start();

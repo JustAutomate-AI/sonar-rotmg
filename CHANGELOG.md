@@ -2,6 +2,19 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.18.0
+
+**Guard damage is always red**
+- 2.17.0 drew a stray hit or two in grey, on the reasoning that it was not worth accusing anybody over. That was the wrong call: the figure exists to say damage went into the guard, and a stray hit is still a hit on the guard. Every guard figure is red now, in the breakdown, in the columns and on the player's own panel.
+- What separates one hit from three hundred and fifty is the size of the number and the length of the red run on the bar. That is plenty - it does not need the colour as well.
+
+**Outlined, so the red survives whatever is behind it**
+- The guard figures are drawn with a black outline. On the top of the board the bar runs full width, which puts that line on the class colour and on the deep red within the same breath, and a drop shadow carried it on most surfaces and lost it on the bright end of a gradient.
+- An outline holds on all of them. *(69k · 239 hits)* reads cleanly over tan, over oxblood and over the panel.
+
+**Small things**
+- Widen the breakdown and the guard figures stop being printed twice. The brackets after the damage are what the **INTO GUARD** and **GUARD HITS** columns become when there is no room for them, so the two no longer appear together.
+
 ## 2.17.0
 
 **Words stop opening gaps inside themselves**
