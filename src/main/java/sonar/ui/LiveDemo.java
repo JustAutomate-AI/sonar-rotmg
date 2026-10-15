@@ -242,7 +242,8 @@ final class LiveDemo {
             t.fightMs = t.lastHit - t.firstHit;
             for (int p = 0; p < PLAYERS.length; p++) {
                 if (e > 0 && p % (e + 1) != 0) continue;
-                t.rows.add(row(p, damage[e][p]));
+                // only the first enemy is Oryx himself, and his is the only guard in the run
+                t.rows.add(row(p, damage[e][p], e == 0));
                 t.total += damage[e][p];
                 sum[p] += damage[e][p];
             }
@@ -263,7 +264,7 @@ final class LiveDemo {
         m.whole.name = "Whole instance";
         m.whole.fightMs = elapsed;
         for (int p = 0; p < PLAYERS.length; p++) {
-            m.whole.rows.add(row(p, sum[p]));
+            m.whole.rows.add(row(p, sum[p], true));
             m.whole.total += sum[p];
         }
         m.whole.rows.sort((a, b) -> Long.compare(b.damage, a.damage));
@@ -397,7 +398,7 @@ final class LiveDemo {
         });
     }
 
-    private static LiveModel.Row row(int p, long damage) {
+    private static LiveModel.Row row(int p, long damage, boolean guardPhase) {
         LiveModel.Row r = new LiveModel.Row();
         r.id = p;
         r.name = PLAYERS[p][0];
@@ -459,6 +460,15 @@ final class LiveDemo {
         r.addHit(r.loadout[0], "weapon", damage - ability, Math.max(1, hits - abilityHits));
         r.addHit(r.loadout[1], "ability", ability, abilityHits);
         r.biggestHit = Math.max(1, (damage - ability) / Math.max(1, hits - abilityHits) * 3);
+        // three of the roster blast the guard, which is roughly how a real run goes: one
+        // person doing most of it, a couple more doing some. Without it the column and the
+        // badge have nothing to draw and no screenshot ever shows them.
+        int[] blasters = {1, 4, 6};
+        for (int i = 0; guardPhase && i < blasters.length; i++) {
+            if (p != blasters[i]) continue;
+            r.guardDamage = damage * (14 - i * 5) / 100;
+            r.guardHits = Math.max(1, hits * (14 - i * 5) / 100);
+        }
         verifyGear(r);
         verifyLook(r);
         return r;

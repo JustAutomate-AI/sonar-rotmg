@@ -605,6 +605,22 @@ public void genericDamageHit(
             gameData.hasGuardedPhaseEntity();
         damage.chancellorDammahDmg =
             objectType == CHANCELLOR_DAMMAH && !dammahCountered;
+        // Sonar: the one flag the interface reads. Oryx's guard and the King's reflectors are
+        // known by the animation the boss is playing; anything else counts when the boss is
+        // flatly untouchable, which is the same ask - stop shooting - without needing a list
+        // of every boss that does it. Dammah is left out on purpose: his flag above is true
+        // for every hit until he counters once, so it says nothing about a phase.
+        StatData condition = stat.get(StatType.CONDITION_STAT);
+        boolean untouchable =
+            condition != null &&
+            (condition.statValue &
+                (ConditionBits.INVULNERABLE.value() |
+                    ConditionBits.INVINCIBLE.value())) !=
+            0;
+        damage.sonarGuardPhase =
+            damage.oryx3GuardDmg ||
+            damage.walledGardenReflectors ||
+            untouchable;
     }
 
     public String name() {

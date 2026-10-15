@@ -2,6 +2,18 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.14.0
+
+**Who shot the guard**
+- Oryx's Sanctuary is built around a guard. Oryx raises it, and damage put into it does not hurt him - it fills the guard, and filling the guard is what pushes him into the next phase early, before the party is ready for it. The run wants that guard to come down on its own. Shooting it is the one thing everybody is asked not to do, and **blasting** is what it gets called when somebody does it anyway.
+- Sonar now counts it. Every hit that lands on a boss holding a guard up is recorded as it happens, from the boss's own state, and shown against the player who dealt it.
+- **On the damage breakdown**, a coral *69k GUARD* beside their name. Widen the window and it becomes a column of its own, **INTO GUARD**, sitting with the rest of the figures.
+- **On the pictures you share**, the fight's heading carries *109k INTO GUARD* and each line says what that player put in - so the picture posted after a run answers the question without anybody having to ask it.
+- **On a player's own panel**, the figure and the hit count: *Into the guard  ·  412,908 (1,204 hits)*.
+- None of it appears on a fight that has no guard, which is nearly all of them. A column of zeroes down every Shatters run teaches nobody anything.
+- Known by the boss's own animation for **Oryx 3** and the **Forgotten King's** reflector phase, and by the game's untouchable flag for anything else that raises one. It is read at the moment of the hit rather than worked out afterwards from gaps in a damage graph.
+- The old **GUARDED** column, which is what a player's own armour absorbed, is now called **ABSORBED**. One word cannot mean both.
+
 ## 2.13.0
 
 **The runs you have both been in**

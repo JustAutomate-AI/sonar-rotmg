@@ -365,6 +365,16 @@ final class LiveModel {
         /** Top 5 pumpers against JUST this fight - closest to (or past) their own estimated ceiling. See LeechAnalysis. */
         final ArrayList<Row> pumpers = new ArrayList<>();
 
+        /**
+         * True when anybody put damage into this fight's guard. Nearly every fight in the
+         * game has none, so the column that reports it only appears where it means something
+         * rather than standing empty everywhere else.
+         */
+        boolean anyGuarded() {
+            for (Row r : rows) if (r.guardDamage > 0) return true;
+            return false;
+        }
+
         /** Damage per second of one row over this target's time, or -1 without a row. */
         double dps(Row row) {
             return row == null ? -1 : row.damage / Math.max(1, fightMs / 1000.0);
@@ -443,6 +453,15 @@ final class LiveModel {
         }
         int hits;
         long biggestHit;
+        /**
+         * What this player put into the boss while its guard was up, and how many hits that
+         * took. See {@link sonar.backend.data.Damage#sonarGuardPhase}: in Oryx's Sanctuary
+         * damage into the guard fills it and pushes the fight into its next phase early,
+         * which is the one thing a run asks people not to do. Zero on every fight that has
+         * no such phase, which is nearly all of them.
+         */
+        long guardDamage;
+        int guardHits;
         /** Names of the weapon, ability, armor and ring last seen on the player; empty when unknown. */
         String[] loadout = {"", "", "", ""};
         /** Enchant names on those four items, separated by line breaks; empty when none or unknown. */
@@ -532,6 +551,8 @@ final class LiveModel {
             unchecked += other.unchecked;
             for (Item it : other.items.values()) addHit(it.name, it.kind, it.damage, it.hits);
             if (other.biggestHit > biggestHit) biggestHit = other.biggestHit;
+            guardDamage += other.guardDamage;
+            guardHits += other.guardHits;
             // keyed on the id as well as the name: an id alone is enough to draw the item, and
             // rows built without names were ending up with no gear at all
             for (int i = 0; i < 4; i++) {
@@ -573,6 +594,8 @@ final class LiveModel {
             }
             r.hits = Math.max(0, hits - (base == null ? 0 : base.hits));
             r.biggestHit = base == null || biggestHit > base.biggestHit ? biggestHit : 0;
+            r.guardDamage = Math.max(0, guardDamage - (base == null ? 0 : base.guardDamage));
+            r.guardHits = Math.max(0, guardHits - (base == null ? 0 : base.guardHits));
             return r;
         }
 
@@ -1110,6 +1133,11 @@ final class LiveModel {
                     r.unknown += d.damage;
                 }
                 else r.addHit(inv != null && inv[0] > 0 ? itemName(inv[0]) : "Unknown item", "weapon", d.damage, 1);
+                // the boss's own state at the moment of the hit, recorded by the packet layer
+                if (d.sonarGuardPhase) {
+                    r.guardDamage += d.damage;
+                    r.guardHits++;
+                }
                 if (inv != null) {
                     String[] codes = d.ownerEnchants;
                     for (int i = 0; i < 4 && i < inv.length; i++) {

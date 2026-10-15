@@ -468,6 +468,17 @@ public final class SonarTheme {
         return number(n);
     }
 
+    /**
+     * Shorter than {@link #compact}, for a figure that has to fit inside a badge beside a
+     * name. Abbreviates from ten thousand rather than a hundred thousand, because "69k" in
+     * a tag says what is needed and "68,996" pushes the tag over the damage figure.
+     */
+    public static String brief(long n) {
+        if (n >= 1_000_000) return String.format("%.1fM", n / 1_000_000.0);
+        if (n >= 10_000) return String.format("%.0fk", n / 1_000.0);
+        return number(n);
+    }
+
     public static String clock(long ms) {
         if (ms < 0) ms = 0;
         long s = ms / 1000;

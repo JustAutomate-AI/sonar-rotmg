@@ -24,8 +24,16 @@ class BreakdownPane extends Pane {
     /** Each column, with the width the table needs before it is worth showing. */
     private static final int NEED_PERCENT = 430, NEED_DPS = 520, NEED_HITS = 600, NEED_BIG = 690,
             NEED_TAKEN = 780, NEED_GUARDED = 870, NEED_BLOCKED = 960, NEED_GEAR = 1060, NEED_TRACKING = 1180;
+    /**
+     * The guard column appears only on a fight that has a guard phase, which is a handful of
+     * them, so it is allowed in at a narrower width than the columns that are always there.
+     * Where it does appear it is usually the column somebody opened the list to read.
+     */
+    private static final int NEED_GUARD = 640;
 
     private List<LiveModel.Row> rows = new ArrayList<>();
+    /** True when this fight had a guard phase somebody shot into: see {@link #NEED_GUARD}. */
+    private boolean anyGuard;
     private long total;
     private long enemyHealth;
     private long fightMs;
@@ -45,6 +53,7 @@ class BreakdownPane extends Pane {
         this.fightMs = t == null ? 0 : t.fightMs;
         this.targetName = t == null ? "" : t.name;
         this.completionKnown = completionKnown;
+        this.anyGuard = t != null && t.anyGuarded();
         revalidate();
         repaint();
     }
@@ -84,7 +93,7 @@ class BreakdownPane extends Pane {
 
     /** Right edge of each column, worked out once so the header and the rows agree. */
     private static final class Layout {
-        int damage, percent, dps, hits, biggest, taken, guarded, blocked, gear, tracking, nameEnd;
+        int damage, percent, dps, hits, biggest, guard, taken, guarded, blocked, gear, tracking, nameEnd;
     }
 
     private Layout layout(int width) {
@@ -109,6 +118,10 @@ class BreakdownPane extends Pane {
         if (width >= NEED_TAKEN) {
             l.taken = right;
             right -= 72;
+        }
+        if (anyGuard && width >= NEED_GUARD) {
+            l.guard = right;
+            right -= 76;
         }
         if (width >= NEED_BIG) {
             l.biggest = right;
@@ -198,8 +211,10 @@ class BreakdownPane extends Pane {
         if (l.dps > 0) right(g, "DPS", l.dps, y);
         if (l.hits > 0) right(g, "HITS", l.hits, y);
         if (l.biggest > 0) right(g, "BIGGEST", l.biggest, y);
+        if (l.guard > 0) right(g, "INTO GUARD", l.guard, y);
         if (l.taken > 0) right(g, "TAKEN", l.taken, y);
-        if (l.guarded > 0) right(g, "GUARDED", l.guarded, y);
+        // "absorbed" rather than "guarded", which now has to mean the boss's guard as well
+        if (l.guarded > 0) right(g, "ABSORBED", l.guarded, y);
         if (l.blocked > 0) right(g, "BLOCKED", l.blocked, y);
         if (l.gear > 0) g.drawString("GEAR", l.gear, y);
         if (l.tracking > 0) right(g, "TRACKING", l.tracking, y);
@@ -290,6 +305,47 @@ class BreakdownPane extends Pane {
         g.setClip(clip);
     }
 
+
+    /**
+     * What this player put into the boss's guard, beside their name.
+     * <p>
+     * Only when the window is too narrow for the column to be there, which is how the
+     * breakdown usually sits - docked, a few hundred pixels wide. The figure is the reason
+     * somebody opened this list on an Oryx 3 run, so it should not need the window widened
+     * to be seen. Where the column does fit, this would be the same number twice.
+     * <p>
+     * Drawn as the nexus tag is: a dark badge carrying the mark colour, which holds against
+     * every class colour the game has rather than guessing at one ink that might.
+     *
+     * @return where the next thing on the row may start.
+     */
+    private int paintGuardTag(Graphics2D g, LiveModel.Row r, int x, int mid, Layout l, double barEnd) {
+        if (r.guardDamage <= 0 || l.guard > 0) return x;
+        String tag = SonarTheme.brief(r.guardDamage) + " GUARD";
+        g.setFont(SonarTheme.bold(8.5f));
+        int tagW = g.getFontMetrics().stringWidth(tag) + 10;
+        g.setFont(SonarTheme.bold(12f));
+        int figureW = g.getFontMetrics().stringWidth(SonarTheme.number(r.damage));
+        if (l.damage - figureW - 16 - (x + tagW) < 0) return x;
+
+        Shape clip = g.getClip();
+        int top = mid - 7;
+        for (int side = 0; side < 2; side++) {
+            boolean onBar = side == 0;
+            g.setClip(clip);
+            g.clip(onBar
+                    ? new java.awt.geom.Rectangle2D.Double(-10000, top - 4, 10000 + barEnd, 22)
+                    : new java.awt.geom.Rectangle2D.Double(barEnd, top - 4, 20000, 22));
+            g.setColor(onBar ? new Color(0x15, 0x10, 0x1a, 170) : SonarTheme.alpha(SonarTheme.CORAL, 0.16));
+            g.fill(SonarTheme.round(x, top, tagW, 14, 4));
+            g.setFont(SonarTheme.bold(8.5f));
+            g.setColor(onBar ? SonarTheme.alpha(SonarTheme.CORAL, 0.95) : SonarTheme.CORAL);
+            g.drawString(tag, x + 5, mid + 3);
+        }
+        g.setClip(clip);
+        return x + tagW + 5;
+    }
+
     private void paintRow(Graphics2D g, int width, int top, int index, LiveModel.Row r, Layout l, long best) {
         boolean hovered = hoverY >= top && hoverY < top + ROW;
         boolean open = r.id == opened;
@@ -353,6 +409,7 @@ class BreakdownPane extends Pane {
                     barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.7), SonarTheme.FAINT);
             after += g.getFontMetrics().stringWidth(cls) + 7;
         }
+        after = paintGuardTag(g, r, after, mid, l, barEnd);
         paintLeftTag(g, r, after, mid, l, barEnd, barFace);
 
         g.setFont(SonarTheme.bold(12f));
@@ -366,6 +423,10 @@ class BreakdownPane extends Pane {
         cell(g, l.dps, mid, SonarTheme.number(Math.round(r.damage / seconds)), SonarTheme.MUTED);
         cell(g, l.hits, mid, r.hits > 0 ? SonarTheme.number(r.hits) : "-", SonarTheme.MUTED);
         cell(g, l.biggest, mid, r.biggestHit > 0 ? SonarTheme.number(r.biggestHit) : "-", SonarTheme.MUTED);
+        // damage put into a guard that was up: the number somebody is asked about afterwards,
+        // so it is coloured rather than left to be found among the greys
+        cell(g, l.guard, mid, r.guardDamage > 0 ? SonarTheme.number(r.guardDamage) : "-",
+                r.guardDamage > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
         cell(g, l.taken, mid, r.damageTaken >= 0 ? SonarTheme.number(r.damageTaken) : "-",
                 r.damageTaken > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
         cell(g, l.guarded, mid, r.guarded >= 0 ? SonarTheme.number(r.guarded) : "-",

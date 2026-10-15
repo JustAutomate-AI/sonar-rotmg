@@ -2481,6 +2481,35 @@ class LiveView {
         // nothing hit at all has no card to make
         report.accept("nothing hit at all makes no card", MvpCard.pick(new LiveModel()) == null);
 
+        // ---- damage put into a guard ----
+        // In Oryx's Sanctuary the fight is built around a guard that fills rather than hurts,
+        // and filling it pushes the phase early. The packet layer flags each hit at the moment
+        // it lands, from the boss's own state; everything here is what the interface does with
+        // that flag. A fight with no guard must stay silent about it rather than reading "0".
+        LiveModel.Target guarded = new LiveModel.Target();
+        LiveModel.Row blaster = new LiveModel.Row();
+        blaster.id = 1;
+        blaster.name = "A";
+        blaster.damage = 500000;
+        blaster.guardDamage = 120000;
+        blaster.guardHits = 340;
+        LiveModel.Row clean = new LiveModel.Row();
+        clean.id = 2;
+        clean.name = "B";
+        clean.damage = 400000;
+        guarded.rows.add(blaster);
+        guarded.rows.add(clean);
+        report.accept("a fight somebody shot the guard of says so", guarded.anyGuarded());
+        LiveModel.Target quiet = new LiveModel.Target();
+        quiet.rows.add(clean);
+        report.accept("a fight with no guard stays quiet about it", !quiet.anyGuarded());
+        LiveModel.Row summed = new LiveModel.Row();
+        summed.id = 1;
+        summed.merge(blaster);
+        summed.merge(blaster);
+        report.accept("guard damage adds up when fights are summed together",
+                summed.guardDamage == 240000 && summed.guardHits == 680);
+
         // ---- what a posted picture is worth zooming into ----
         // The picture is read by zooming in on it in a Discord, which is when a sprite drawn
         // at two and a half of its own pixels to the box pixel turns to mush. It is drawn at
@@ -2998,6 +3027,13 @@ class LiveView {
             f.add(new String[]{"Share of all damage", m.whole.total <= 0 ? "-" : String.format("%.1f%%", chosen.damage * 100.0 / m.whole.total)});
             f.add(new String[]{"Overall dps", rate(m.whole.dps(chosen))});
             f.add(new String[]{"Hits", SonarTheme.number(chosen.hits)});
+            // only on a fight that has a guard to shoot, which is a handful of them; everywhere
+            // else the line would read "-" for everyone forever and teach nobody anything
+            if (m.whole.anyGuarded() || chosen.guardDamage > 0) {
+                f.add(new String[]{"Into the guard", chosen.guardDamage <= 0 ? "none"
+                        : SonarTheme.number(chosen.guardDamage) + "  ("
+                        + SonarTheme.number(chosen.guardHits) + (chosen.guardHits == 1 ? " hit)" : " hits)")});
+            }
             f.add(new String[]{"Biggest hit", chosen.biggestHit <= 0 ? "-" : SonarTheme.number(chosen.biggestHit)});
             String[] slots = {"Weapon", "Ability", "Armor", "Ring"};
             for (int i = 0; i < 4; i++) {

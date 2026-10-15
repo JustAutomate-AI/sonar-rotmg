@@ -417,8 +417,16 @@ final class ResultsImage {
         String title = SonarTheme.fit(boss.name.isEmpty() ? "Unknown enemy" : boss.name,
                 g.getFontMetrics(), colW - textX - PAD - totalW - 16);
         g.drawString(title, textX, y + 18);
+        int tagX = textX + g.getFontMetrics().stringWidth(title) + 8;
         if (boss.finalBoss && !continued) {
-            drawTag(g, textX + g.getFontMetrics().stringWidth(title) + 8, y + 6, "FINAL", SonarTheme.GOLD);
+            tagX = drawTag(g, tagX, y + 6, "FINAL", SonarTheme.GOLD);
+        }
+        // a fight with a guard says so on its heading, carrying what went into it, so the
+        // reader knows what the coral figures down the rows are before reading one
+        long intoGuard = 0;
+        for (LiveModel.Row r : boss.rows) intoGuard += r.guardDamage;
+        if (intoGuard > 0 && !continued) {
+            drawTag(g, tagX, y + 6, SonarTheme.brief(intoGuard) + " INTO GUARD", SonarTheme.CORAL);
         }
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
@@ -531,10 +539,26 @@ final class ResultsImage {
         // as one on a Necromancer's violet - see inkOn. Deliberately anonymous; see paintRow().
         int nameX = px + BOSS_PORTRAIT + 7;
         double barEnd = trackX + barW;
+        // what they put into the guard, right after their name, where a reader looking for it
+        // finds it beside whoever it belongs to rather than in a column of its own
+        String guard = r.guardDamage > 0 ? SonarTheme.brief(r.guardDamage) + " guard" : "";
+        int guardW = guard.isEmpty() ? 0 : width(g, SonarTheme.bold(9.5f), guard) + 8;
         g.setFont(SonarTheme.bold(12f));
-        int maxNameW = Math.max(24, gearX - nameX - 8);
-        across(g, SonarTheme.fit(r.name, g.getFontMetrics(), maxNameW), nameX, y + BOSS_ROW_H / 2f + 4,
-                barEnd, y, dark);
+        int maxNameW = Math.max(24, gearX - nameX - 8 - guardW);
+        String shown = SonarTheme.fit(r.name, g.getFontMetrics(), maxNameW);
+        across(g, shown, nameX, y + BOSS_ROW_H / 2f + 4, barEnd, y, dark);
+        if (!guard.isEmpty()) {
+            // a dark badge carrying the coral, which is what 2.12.0 settled on for the nexus
+            // tag: one ink that reads on every class colour beats guessing per bar
+            int gw = g.getFontMetrics().stringWidth(shown);
+            g.setFont(SonarTheme.bold(9.5f));
+            float gx = nameX + gw + 8;
+            int pill = g.getFontMetrics().stringWidth(guard) + 10;
+            g.setColor(new Color(0x15, 0x10, 0x1a, 175));
+            g.fill(SonarTheme.round(gx - 5, y + (BOSS_ROW_H - 14) / 2.0, pill, 14, 5));
+            g.setColor(SonarTheme.CORAL);
+            g.drawString(guard, gx, y + BOSS_ROW_H / 2f + 3.5f);
+        }
 
         g.setFont(SonarTheme.bold(11.5f));
         across(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, barEnd, y, light);

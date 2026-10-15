@@ -255,6 +255,21 @@ public class Damage implements Serializable {
         return sonarRawDamage <= 0 ? 0 : Math.max(0, sonarRawDamage - damage);
     }
 
+    /**
+     * Sonar: true when this hit landed on a boss that was holding a guard up.
+     * <p>
+     * In Oryx's Sanctuary the fight is built around it. Oryx raises a guard, and damage put
+     * into it does not hurt him - it fills the guard, and filling the guard is what pushes
+     * him into the next phase early. The run wants that guard to come down on its own, so
+     * shooting it is the one thing a party asks you not to do, and "blasting" is what it
+     * gets called when somebody does it anyway. The same idea covers the Forgotten King's
+     * reflector phase, and any boss that is outright untouchable while it is happening.
+     * <p>
+     * It is recorded per hit, at the moment of the hit, from the boss's own state - not
+     * worked out afterwards from gaps in a damage graph.
+     */
+    public boolean sonarGuardPhase;
+
     /** Sonar: true when the hit connected but was turned away in full. */
     public boolean sonarBlocked() {
         return sonarRawDamage > 0 && damage <= 0;
