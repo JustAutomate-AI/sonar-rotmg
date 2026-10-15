@@ -113,11 +113,12 @@ if (-not $Wix) {
         if ($c -and (Test-Path (Join-Path $c 'candle.exe'))) { $Wix = $c; break }
     }
 }
-if (-not $Wix -or -not (Test-Path (Join-Path $Wix 'candle.exe'))) {
+$haveWix = $Wix -and (Test-Path (Join-Path $Wix 'candle.exe'))
+if (-not $haveWix) {
     Write-Warning "WiX not found - the .msi was skipped. The portable zip above is unaffected."
-    return
 }
 
+if ($haveWix) {
 Write-Host "Building the installer..." -ForegroundColor Cyan
 $env:PATH = "$Wix;$env:PATH"
 # A fixed id, which is what tells Windows one version replaces the last rather than
@@ -142,10 +143,13 @@ if ($built.FullName -ne $msi) { Move-Item $built.FullName $msi -Force }
 $msiSize = [Math]::Round((Get-Item $msi).Length / 1MB, 1)
 Write-Host "Created $msi ($msiSize MB)" -ForegroundColor Green
 Write-Host "  installs per user, so Windows asks for no administrator rights"
+}
 
-# Checksums, so anyone can confirm the file they downloaded is the file that was built.
+# Checksums, over whatever was actually built, so anyone can confirm the file they
+# downloaded is the file this script produced.
+$built = @($zip) + @(if ($haveWix) { $msi })
 $sums = Join-Path $dist "SHA256SUMS-$Version.txt"
-Get-FileHash $zip, $msi -Algorithm SHA256 |
+Get-FileHash $built -Algorithm SHA256 |
     ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
     Set-Content $sums -Encoding ascii
 Write-Host "Created $sums" -ForegroundColor Green
