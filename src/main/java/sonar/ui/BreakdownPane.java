@@ -408,13 +408,15 @@ class BreakdownPane extends Pane {
             // both figures, because the hit count is what other trackers call "guarded hits"
             // and it is the one people quote at each other afterwards
             String inside = "  (" + SonarTheme.brief(r.guardDamage)
-                    + "  ·  " + SonarTheme.brief(r.guardHits) + " hits)";
+                    + "  ·  " + SonarTheme.hits(r.guardHits) + ")";
             g.setFont(SonarTheme.bold(11f));
             int insideW = g.getFontMetrics().stringWidth(inside);
             // a full bar reaches under these figures, so they take the paler red where they
             // cross the glass - DANGER on the glass is red on red
+            Color ink = r.guardIncidental() ? SonarTheme.FAINT : SonarTheme.DANGER;
+            Color onGlassInk = r.guardIncidental() ? SonarTheme.MUTED : SonarTheme.GUARD_INK;
             SonarTheme.across(g, inside, l.damage - insideW, mid + 4, guardStart, barEnd, clipTop, clipH,
-                    SonarTheme.DANGER, SonarTheme.GUARD_INK, SonarTheme.DANGER);
+                    ink, onGlassInk, ink);
             g.setFont(SonarTheme.bold(12f));
             g.setColor(SonarTheme.TEXT);
             right(g, figure, l.damage - insideW, mid + 4);
@@ -432,10 +434,9 @@ class BreakdownPane extends Pane {
         cell(g, l.biggest, mid, r.biggestHit > 0 ? SonarTheme.number(r.biggestHit) : "-", SonarTheme.MUTED);
         // damage put into a guard that was up: the number somebody is asked about afterwards,
         // so it is coloured rather than left to be found among the greys
-        cell(g, l.guard, mid, r.guardDamage > 0 ? SonarTheme.number(r.guardDamage) : "-",
-                r.guardDamage > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
-        cell(g, l.guardHits, mid, r.guardHits > 0 ? SonarTheme.number(r.guardHits) : "-",
-                r.guardHits > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
+        Color guardInk = r.guardDamage <= 0 || r.guardIncidental() ? SonarTheme.FAINT : SonarTheme.CORAL;
+        cell(g, l.guard, mid, r.guardDamage > 0 ? SonarTheme.number(r.guardDamage) : "-", guardInk);
+        cell(g, l.guardHits, mid, r.guardHits > 0 ? SonarTheme.number(r.guardHits) : "-", guardInk);
         cell(g, l.taken, mid, r.damageTaken >= 0 ? SonarTheme.number(r.damageTaken) : "-",
                 r.damageTaken > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
         cell(g, l.guarded, mid, r.guarded >= 0 ? SonarTheme.number(r.guarded) : "-",

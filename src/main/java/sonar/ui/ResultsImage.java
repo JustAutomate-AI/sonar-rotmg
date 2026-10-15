@@ -430,7 +430,7 @@ final class ResultsImage {
         }
         if (intoGuard > 0 && !continued) {
             drawTag(g, tagX, y + 6, SonarTheme.brief(intoGuard) + " INTO GUARD · "
-                    + SonarTheme.brief(intoGuardHits) + " HITS", SonarTheme.CORAL);
+                    + SonarTheme.hits(intoGuardHits).toUpperCase(), SonarTheme.CORAL);
         }
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
@@ -565,9 +565,9 @@ final class ResultsImage {
         String shown = SonarTheme.fit(r.name, g.getFontMetrics(), room);
         int nameW = g.getFontMetrics().stringWidth(shown);
         String guard = "";
-        if (r.guardDamage > 0) {
+        if (r.guardDamage > 0 && !r.guardIncidental()) {
             String[] tries = {
-                    SonarTheme.brief(r.guardDamage) + " guard · " + SonarTheme.brief(r.guardHits) + " hits",
+                    SonarTheme.brief(r.guardDamage) + " guard · " + SonarTheme.hits(r.guardHits),
                     SonarTheme.brief(r.guardDamage) + " · " + SonarTheme.brief(r.guardHits),
                     SonarTheme.brief(r.guardDamage)};
             for (String option : tries) {

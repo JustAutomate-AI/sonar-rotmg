@@ -61,6 +61,26 @@ final class LiveDemo {
     private static final int[] HITS = {
             3887, 1814, 978, 1512, 1400, 1300, 1641, 1122, 821, 879,
             1053, 1092, 340, 567, 408, 518, 678, 390, 263, 439};
+    /**
+     * What share of each player's damage on Oryx went into his guard, as hundredths of a
+     * percent, and how an O3 run really looks.
+     * <p>
+     * Four people blast it to a degree worth saying out loud, led by a Knight at 28%, and one
+     * more clips it lightly. <b>Everyone else still shows one or two hits.</b> That is not
+     * noise in the data: a shot already in flight when the guard goes up lands on the guard,
+     * so even somebody watching for it and stopping dead ends a run with a hit or two on the
+     * board. A tracker that showed those the same way it shows a blaster would be accusing
+     * the whole party, so the figures go quiet below one percent and only the real ones carry
+     * the red.
+     */
+    private static final int[] GUARD_SHARE = {
+            900, 2800, 0, 200, 1700, 0, 600, 0, 0, 300,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    /** Shots in flight when the guard went up, for the people who were otherwise clean. */
+    private static final int[] GUARD_STRAY = {
+            0, 0, 2, 0, 0, 1, 0, 3, 1, 0,
+            2, 1, 1, 0, 2, 1, 0, 2, 1, 1};
+
     /** What each player took over the run, and what their armour absorbed on top of it. */
     private static final long[] TAKEN = {
             7648, 6227, 7109, 3946, 4814, 4625, 4113, 1903, 5144, 4262,
@@ -227,6 +247,8 @@ final class LiveDemo {
         m.potions.add(stack("Potion of Life", 6, -1, 0, "", false));
         m.potions.add(stack("Potion of Wisdom", 9, -1, 0, "", false));
         long[] sum = new long[PLAYERS.length];
+        long[] guardDmg = new long[PLAYERS.length];
+        int[] guardHit = new int[PLAYERS.length];
         for (int e = 0; e < ENEMIES.length; e++) {
             LiveModel.Target t = new LiveModel.Target();
             t.id = 100 + e;
@@ -242,8 +264,23 @@ final class LiveDemo {
             t.fightMs = t.lastHit - t.firstHit;
             for (int p = 0; p < PLAYERS.length; p++) {
                 if (e > 0 && p % (e + 1) != 0) continue;
-                // only the first enemy is Oryx himself, and his is the only guard in the run
-                t.rows.add(row(p, damage[e][p], e == 0));
+                // Only the first enemy is Oryx, and his is the only guard in the run - so the
+                // guard figures are worked out from what they did to him, and the same
+                // absolute figures follow them onto the whole-instance row. Taking a share of
+                // their run total there would have credited them guard damage on the trash.
+                if (e == 0) {
+                    // the hit count is the same share of the shots they landed on Oryx as the
+                    // damage is of what they dealt him: a guard-phase shot is an ordinary shot
+                    int shots = hitsOn(p, damage[e][p]);
+                    long perHit = Math.max(1, damage[e][p] / Math.max(1, shots));
+                    guardHit[p] = GUARD_SHARE[p] > 0
+                            ? Math.max(1, (int) Math.round(shots * GUARD_SHARE[p] / 10000.0))
+                            : GUARD_STRAY[p];
+                    guardDmg[p] = GUARD_SHARE[p] > 0
+                            ? damage[e][p] * GUARD_SHARE[p] / 10000
+                            : perHit * GUARD_STRAY[p];
+                }
+                t.rows.add(row(p, damage[e][p], e == 0 ? guardDmg[p] : 0, e == 0 ? guardHit[p] : 0));
                 t.total += damage[e][p];
                 sum[p] += damage[e][p];
             }
@@ -264,7 +301,7 @@ final class LiveDemo {
         m.whole.name = "Whole instance";
         m.whole.fightMs = elapsed;
         for (int p = 0; p < PLAYERS.length; p++) {
-            m.whole.rows.add(row(p, sum[p], true));
+            m.whole.rows.add(row(p, sum[p], guardDmg[p], guardHit[p]));
             m.whole.total += sum[p];
         }
         m.whole.rows.sort((a, b) -> Long.compare(b.damage, a.damage));
@@ -398,7 +435,13 @@ final class LiveDemo {
         });
     }
 
-    private static LiveModel.Row row(int p, long damage, boolean guardPhase) {
+    /** How many shots this player's damage on one enemy took, by the same rule {@link #row} uses. */
+    private static int hitsOn(int p, long damage) {
+        return Math.max(1, (int) Math.round(HITS[p]
+                * Math.max(0.05, Math.min(1, damage / (double) Math.max(1, FINAL_DAMAGE[p])))));
+    }
+
+    private static LiveModel.Row row(int p, long damage, long guardDamage, int guardHits) {
         LiveModel.Row r = new LiveModel.Row();
         r.id = p;
         r.name = PLAYERS[p][0];
@@ -463,19 +506,8 @@ final class LiveDemo {
         // three of the roster blast the guard, which is roughly how a real run goes: one
         // person doing most of it, a couple more doing some. Without it the column and the
         // badge have nothing to draw and no screenshot ever shows them.
-        // one who did almost nothing but shoot the guard, one who did a fair bit and one who
-        // caught a little of it, which is roughly the spread a real run produces - and the
-        // first of them is the case the red run has to survive, since it reaches under their
-        // name and their class
-        // the top of the board included on purpose: their bar is full width, so the red run
-        // lands under the figures that sit on the bar's right end - which is the case that
-        // has to be looked at rather than assumed
-        int[] blasters = {0, 1, 4, 6}, blastShare = {41, 78, 21, 6};
-        for (int i = 0; guardPhase && i < blasters.length; i++) {
-            if (p != blasters[i]) continue;
-            r.guardDamage = damage * blastShare[i] / 100;
-            r.guardHits = Math.max(1, hits * blastShare[i] / 100);
-        }
+        r.guardDamage = guardDamage;
+        r.guardHits = guardHits;
         verifyGear(r);
         verifyLook(r);
         return r;

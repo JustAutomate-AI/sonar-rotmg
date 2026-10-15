@@ -295,8 +295,13 @@ public final class SonarTheme {
     }
 
     private static String pickFont() {
+        String override = System.getProperty("sonar.font");
+        if (override != null && !override.isEmpty()) return override;
         String[] installed = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
-        for (String wanted : new String[]{"Segoe UI Variable Text", "Segoe UI", "Inter", "Helvetica Neue"}) {
+        // "Segoe UI Variable Text" used to lead this list. It is not installed on Windows 11
+        // under that family name, so it never matched and never did anything; the gaps words
+        // were opening inside themselves came from a rendering hint, not from the font.
+        for (String wanted : new String[]{"Segoe UI", "Inter", "Helvetica Neue"}) {
             for (String name : installed) {
                 if (name.equals(wanted)) return wanted;
             }
@@ -321,6 +326,15 @@ public final class SonarTheme {
         themeIndex();
         LafManager.install(new SonarLaf());
         UIManager.put("ToolTip.font", font(12.5f));
+        // Swing draws a label's text through its own helper, which takes these two hints from
+        // the look and feel's defaults rather than from the Graphics it is handed - so setting
+        // them on the Graphics, as every custom pane here does, has no effect on a JLabel.
+        // Without fractional metrics the engine rounds each glyph's advance to a whole pixel,
+        // and under the zoom transform the error piles up along a word until it lands as a
+        // space: "Usernam e2", "total dam age". Measured, not guessed: drawing the same string
+        // with the hint off and on, at zoom 1.0 and 1.5, reproduces and removes it exactly.
+        UIManager.put(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        UIManager.put(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
     }
 
     /**
@@ -520,6 +534,11 @@ public final class SonarTheme {
         if (n >= 1_000_000) return String.format("%.1fM", n / 1_000_000.0);
         if (n >= 10_000) return String.format("%.0fk", n / 1_000.0);
         return number(n);
+    }
+
+    /** A hit count with its own word, short enough for a badge: "1 hit", "350 hits", "1.2k hits". */
+    public static String hits(long n) {
+        return brief(n) + (n == 1 ? " hit" : " hits");
     }
 
     public static String clock(long ms) {

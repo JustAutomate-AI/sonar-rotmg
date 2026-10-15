@@ -2,6 +2,18 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.17.0
+
+**Words stop opening gaps inside themselves**
+- *Usernam e2*. *total dam age*. *20 dealt dam age*. Text all over Sonar had been splitting words at arbitrary points, and it has been doing it for a long time.
+- The cause, measured rather than guessed: Swing draws a label's text through its own helper, which takes the antialiasing and fractional-metrics hints from the look and feel rather than from the Graphics it is handed - so every custom pane setting them had no effect on a label. Without fractional metrics the engine rounds each glyph's advance to a whole pixel, and under the zoom transform that error piles up along a word until it lands as a space. Drawing the same string with the hint off and on, at zoom 1.0 and 1.5, reproduces and removes it exactly.
+- Both hints are now set in the look and feel's defaults, so every piece of text in the app is measured the way the panes always intended.
+
+**A stray guarded hit is not an accusation**
+- Almost everybody finishes an Oryx run with a hit or two on the guard, however carefully they played: a shot already in flight when the guard goes up lands on the guard. A tracker that drew those in red beside a name would be accusing the whole party of blasting.
+- So the figures go quiet below one percent of that player's damage. They are still reported exactly - *(626 · 2 hits)* - just in grey rather than red, and the shared pictures leave them off the rows entirely. Above that threshold nothing changes.
+- *1 hits* now reads *1 hit*.
+
 ## 2.16.0
 
 **The guard's red, settled**

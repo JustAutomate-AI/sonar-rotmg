@@ -470,6 +470,17 @@ final class LiveModel {
          * the guard tally is counted hit by hit, and a bar longer than itself is not a thing
          * to draw.
          */
+        /**
+         * True when the guard figures are a stray shot or two rather than something somebody
+         * did. A shot already in flight when the guard goes up lands on the guard, so almost
+         * every player ends an Oryx run with a hit or two on the board however carefully they
+         * played. Those are worth reporting exactly and worth not shouting about: drawn in
+         * red beside a name they would read as an accusation of the whole party.
+         */
+        boolean guardIncidental() {
+            return guardDamage > 0 && guardShare() < 0.01;
+        }
+
         double guardShare() {
             return damage <= 0 || guardDamage <= 0 ? 0 : Math.min(1, guardDamage / (double) damage);
         }
