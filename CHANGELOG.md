@@ -2,6 +2,36 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.7.0
+
+**Updating works again, and so do the character list and exaltation stats**
+- Every packaged build since 2.0.0 shipped a Java runtime trimmed of `jdk.crypto.ec`, which left it with no elliptic-curve provider: 17 cipher suites and not one of them ECDHE. GitHub accepts nothing else, so the update check died on "handshake_failure" every time, and said so in a dialog.
+- It was never only the updater. The same failure hit the game's own server, so the character list and the exaltation figures Sonar fetches after login had been failing silently on every install as well.
+- The module is back in the runtime. It costs 91 KB. A build made from source on an ordinary JDK was always fine, which is why this survived four releases.
+- An install from before this release cannot update itself to it, because updating is the broken part. Install this one over the top once and the updater works from here on.
+
+**The Live page shows what there is to show**
+- Standing in the Nexus, the vault, a guild hall, the pet yard, the quest room or a bazaar, the main window now lists the players around you - which fills the moment the sniffer starts. The damage list sat empty in those places until a dungeon began.
+- Step into the realm or any dungeon and it becomes the damage list again. Your character's stat block takes the place of the fight panel while there is no fight.
+
+**The Players page is about the player**
+- The damage bars run along the bottom, under the roster and the gear: clicking a bar picks that player, and the numbers sit beneath what explains them.
+- The right-hand column now holds the selected player and where their damage came from, together, instead of the per-item list sitting under a roster it had nothing to do with.
+
+**Friends, out of the page and into the header**
+- The party list was never about the instance you were standing in: it is kept between runs and is the same wherever you go, while every window around it described one dungeon. It is now a Friends button in the header, reachable from every page, carrying the count without being opened.
+
+**The Instance page is for looking back**
+- Rebuilt around reviewing a finished run: the list of runs down the left, then the summary of the one you picked, what was in it, and where the damage went.
+
+**Reading the bars**
+- The bars start after the names rather than under them. A name on a bar had to hold its own against a different colour on every row; on the backdrop it needs nothing but the theme's own text colour.
+- Enchant glows are a real glow now - blurred, fading out - rather than four rings a pixel apart, which read as a thick border. They are deepened rather than brightened so they stay darker than the class bar underneath instead of merging into it, and Divine is gold rather than orange.
+
+**Sharper figures**
+- The big numbers were drawn with subpixel anti-aliasing, which only lands true on the screen's own pixel grid - and every panel draws through the zoom. That left 251 colour-fringed pixels on a three-digit number at normal size and 338 when zoomed. They are drawn with grayscale anti-aliasing now, which is correct under a transform.
+- On the lit themes the bloom behind those numbers began one pixel from the glyph, putting a copy of the number against its own edge. It starts clear of it now, so the figure is lit rather than blurred.
+
 ## 2.6.0
 
 **What a Crucible or Blood Ritual is doing to a character, said plainly**

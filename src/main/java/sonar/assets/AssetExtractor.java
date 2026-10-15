@@ -359,7 +359,32 @@ public class AssetExtractor {
     private static void extractAssets(File file, String lastModifiedTime)
         throws IOException {
         new UnityExtractor().extract(file, ASSET_FOLDERS);
+        extractArcaneArt(file);
         PropertiesManager.setProperties("lastModifiedTime", lastModifiedTime);
+    }
+
+    /**
+     * Pulls the Arcane Style effect art, which lives in a different assets file from
+     * everything above. Nothing else depends on it, so a failure here is reported and
+     * stepped over rather than losing the whole extraction: characters simply draw
+     * without their styles, exactly as they did before this existed.
+     */
+    private static void extractArcaneArt(File resourcesAssets) {
+        if (!sonar.ui.ArcaneArt.enabled()) return;
+        try {
+            File shared = sonar.assets.resextractor.ArcaneExtractor.sharedAssets(resourcesAssets);
+            if (shared == null) {
+                System.out.println("Arcane Style art: sharedassets1.assets not found; skipped.");
+                return;
+            }
+            setDisplay("Extracting Arcane Style art");
+            int n = sonar.assets.resextractor.ArcaneExtractor
+                .extract(shared, sonar.DataDir.dir(sonar.assets.resextractor.ArcaneExtractor.DIR))
+                .size();
+            System.out.println("Arcane Style art: " + n + " effects extracted.");
+        } catch (Throwable t) {
+            System.out.println("Arcane Style art: not extracted (" + t + ")");
+        }
     }
 
     /**

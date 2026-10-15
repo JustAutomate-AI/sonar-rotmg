@@ -34,18 +34,47 @@ class LiveView {
     private final FloatWindow fameWindow;
     private java.util.function.Consumer<String> navigate = page -> {
     };
+
+    /** The friends list itself, for the header button that shows it. */
+    javax.swing.JComponent friendsList() {
+        return party;
+    }
+
+    /** How many friends are in this area, or empty when there are none. */
+    String friendsNote() {
+        return friendsNote;
+    }
+
+    /** Reads every friend's class and presence again, for the button that asks. */
+    void refreshFriends() {
+        refreshParty();
+    }
     // the Players page: pick a player, see which items their damage came from
     private final ListPane roster = new ListPane("No players yet", "Everyone seen in this instance is listed here", this::pickPlayer);
     private final ListPane itemList = new ListPane("No damage from this player yet", "Their items show here after their first hit", i -> {
     });
     private final FactsPane playerFacts = new FactsPane();
     private final java.util.ArrayList<String> rosterNames = new java.util.ArrayList<>();
-    private final FloatWindow rosterWindow, itemsWindow, playerWindow;
+    private final FloatWindow rosterWindow, playerWindow, playerDamageWindow, itemsWindow;
     /** Name of the player shown on the Players page; null shows the user. */
     private String selectedPlayer;
 
 
+    /**
+     * The Live page's other face: who is here, for the places where nothing will ever be
+     * hit. It shares the damage window's slot because exactly one of the two is ever up.
+     */
+    private final ListPane here = new ListPane("No players yet",
+            "Everyone the sniffer has seen in this area is listed here", this::pickPlayer);
+    private FloatWindow hereWindow;
+
     private final DamagePane damage = new DamagePane();
+    /**
+     * The same bars as the Live page, on the Players page, where the point is picking
+     * somebody: a bar is the quickest way to choose a player, and it puts the figures
+     * beside the gear and stats that explain them.
+     */
+    private final DamagePane playerDamage = new DamagePane();
     private final FactsPane fight = new FactsPane();
     private final FactsPane you = new FactsPane();
     private final FactsPane instance = new FactsPane();
@@ -106,9 +135,10 @@ class LiveView {
     /** How close counts as near, in tiles. A screen is about this wide, so it is "who can I see". */
     static final double NEAR_TILES = 22;
 
-    private final ListPane party = new ListPane("Your party is empty", "Click the person button on a player's bar or in the Players list to add them", this::pickPartyMember);
+    private final ListPane party = new ListPane("No friends yet", "Click the person button on a player's bar or in the Players list to add them", this::pickPartyMember);
     private final java.util.ArrayList<String> partyRows = new java.util.ArrayList<>();
-    private final FloatWindow partyWindow;
+    /** How many friends are in this area, for the label on the header button. */
+    private String friendsNote = "";
     private final GearPane gear = new GearPane();
     private final FloatWindow gearWindow;
     private final FloatWindow damageWindow, fightWindow, youWindow, instanceWindow, enemiesWindow, historyWindow, statsWindow, shattersWindow;
@@ -148,14 +178,20 @@ class LiveView {
 
     LiveView() {
         damageWindow = window(livePage, "damage", "Damage", damageBody(), damageHeader(), 0.006, 0.006, 0.655, 0.988, 360, 230);
+        hereWindow = window(livePage, "here", "Players here", here, null, 0.006, 0.006, 0.655, 0.988, 360, 230);
+        statsWindow = window(livePage, "stats", "Your stats", stats, null, 0.667, 0.482, 0.327, 0.512, 230, 132);
         youWindow = window(livePage, "you", "You", you, null, 0.667, 0.006, 0.327, 0.47, 220, 150);
         fightWindow = window(livePage, "fight", "Current fight", fight, null, 0.667, 0.482, 0.327, 0.512, 220, 150);
         // Instance page: the basics, at a glance - three columns, nothing stacked more than two deep
-        instanceWindow = window(instancePage, "instance", "Instance", instance, shareAccessory(), 0.006, 0.006, 0.324, 0.37, 220, 150);
-        statsWindow = window(instancePage, "stats", "Your stats", stats, null, 0.006, 0.382, 0.324, 0.612, 230, 132);
-        enemiesWindow = window(instancePage, "enemies", "Enemies", enemies, enemiesFilter, 0.338, 0.006, 0.324, 0.66, 220, 150);
+        // The Instance page is for looking back at a run rather than watching one. The list
+        // of runs is the spine of it, so it moves to the left where reading starts, and the
+        // three windows beside it answer, in order: what was this run, what was in it, and
+        // where did the damage go. Your character's own stat block went to the Live page,
+        // which is about you now rather than about a run that is over.
+        historyWindow = window(instancePage, "history", "Instances", history, historyAccessory(), 0.006, 0.006, 0.26, 0.988, 220, 150);
+        instanceWindow = window(instancePage, "instance", "Run summary", instance, shareAccessory(), 0.272, 0.006, 0.36, 0.49, 220, 150);
+        enemiesWindow = window(instancePage, "enemies", "Enemies", enemies, enemiesFilter, 0.272, 0.502, 0.36, 0.492, 220, 150);
         history.icons = true;
-        historyWindow = window(instancePage, "history", "Instances", history, historyAccessory(), 0.670, 0.006, 0.324, 0.988, 220, 150);
         // Analysis page: the deeper-dive tools (per-boss breakdown, leaderboard/classification, the Shatters radar beta) -
         // split out from Instance since the two pages together had grown to seven windows fighting for one grid
         bossSegmentsWindow = window(analysisPage, "bosssegments", "Boss segments", bossSegments, null, 0.006, 0.006, 0.46, 0.988, 240, 220);
@@ -169,17 +205,22 @@ class LiveView {
                 0.006, 0.006, 0.988, 0.988, 320, 240);
         // the breakdown sits under the enemies as a card, and opens over the page when it is wanted
         breakdownWindow = window(instancePage, "breakdown", "Damage breakdown", breakdownPane, breakdownAccessory(),
-                0.338, 0.674, 0.324, 0.32, 240, 110);
+                0.642, 0.006, 0.352, 0.988, 240, 150);
         fameWindow = window(famePage, "fame", "Fame", famePane, null, 0.006, 0.006, 0.988, 0.988, 300, 220);
         if (shattersEnabled) openShattersOverlay();
         party.onAction(this::removePartyMember);
         itemList.icons = true;
         roster.onAction(this::togglePartyFromRoster);
-        partyWindow = window(playersPage, "party", "Party", party, new SonarButton("Refresh", false, this::refreshParty), 0.006, 0.612, 0.27, 0.382, 220, 150);
         rosterWindow = window(playersPage, "roster", "Players", withScope(roster), null, 0.006, 0.006, 0.27, 0.60, 220, 150);
         gearWindow = window(playersPage, "gear", "Gear and stats", gear, null, 0.282, 0.006, 0.40, 0.60, 240, 150);
-        itemsWindow = window(playersPage, "items", "Damage by item", itemList, null, 0.282, 0.612, 0.40, 0.382, 240, 150);
-        playerWindow = window(playersPage, "player", "Player", playerFacts, null, 0.688, 0.006, 0.306, 0.988, 220, 150);
+        // the bars run the width of both columns above them, where the party and the
+        // per-item list used to sit
+        playerDamageWindow = window(playersPage, "playerdamage", "Damage", playerDamage, null, 0.006, 0.612, 0.676, 0.382, 360, 150);
+        // the right column belongs to whoever is selected: who they are, then where their
+        // damage came from. Both answer the same question and now sit together, which is
+        // where the per-item list belongs rather than under the roster it has nothing to do with
+        playerWindow = window(playersPage, "player", "Player", playerFacts, null, 0.688, 0.006, 0.306, 0.49, 220, 140);
+        itemsWindow = window(playersPage, "items", "Damage by item", itemList, null, 0.688, 0.502, 0.306, 0.492, 220, 140);
         vaultWindow = window(vaultPage, "vault", "Vault", vaultPane, vaultTab, 0.006, 0.006, 0.988, 0.988, 260, 200);
         charactersWindow = window(charactersPage, "characters", "Characters", charactersPane, null, 0.006, 0.006, 0.988, 0.988, 300, 220);
         exaltationWindow = window(exaltationPage, "exaltation", "Exaltation", exaltationPane, null, 0.006, 0.006, 0.988, 0.988, 300, 220);
@@ -765,7 +806,7 @@ class LiveView {
     private void refreshParty() {
         Party.seen(live);
         refresh();
-        partyWindow.setNote("refreshed  \u00b7  " + partyHere + " of " + Party.size() + " here");
+        friendsNote = partyHere + " of " + Party.size() + " here";
     }
 
     private int partyHere;
@@ -1100,7 +1141,20 @@ class LiveView {
         livePage.setClosed(fightWindow, true);
         int onLive = 0;
         for (FloatWindow w : livePage.windows()) onLive++;
-        report.accept("the Live page holds three windows", onLive == 3);
+        report.accept("the Live page holds its five windows", onLive == 5);
+        // the Live page swaps its main slot on this, so it is worth being sure which
+        // places count as having nothing to fight in
+        LiveModel where = new LiveModel();
+        where.instance = "Nexus";
+        boolean nexus = where.passive();
+        where.instance = "Vault";
+        boolean vault = where.passive();
+        where.instance = "Realm of the Mad God";
+        boolean realm = where.passive();
+        where.instance = "Lost Halls";
+        boolean halls = where.passive();
+        report.accept("the Nexus and the vault are places with nothing to fight", nexus && vault);
+        report.accept("the realm and a dungeon are not", !realm && !halls);
         report.accept("map ids are shown under the names the game uses", LiveModel.prettyMapName("{s.rotmg}").equals("Realm of the Mad God") && LiveModel.prettyMapName("{s.nexus}").equals("Nexus") && LiveModel.prettyMapName("Lost Halls").equals("Lost Halls"));
 
         java.util.List<Party.Member> savedParty = new ArrayList<>(Party.all());
@@ -1132,8 +1186,12 @@ class LiveView {
         audience.select(1, true);
         LiveModel.Target mine = partyOnly(m.whole);
         report.accept("the party list holds only the user and party members", mine.rows.size() == 2 && mine.total == mine.rows.get(0).damage + mine.rows.get(1).damage && mine.total < m.whole.total);
+        // the friends list hangs off the header button now rather than sitting in a window,
+        // so it has no size until it is shown; the click needs somewhere to land
+        party.setSize(320, 260);
+        party.doLayout();
         mouse(party, java.awt.event.MouseEvent.MOUSE_PRESSED, 30, 20, 0, 0);
-        report.accept("clicking a member's row in the Party window keeps them", Party.has(second.name));
+        report.accept("clicking a friend's row in the friends list keeps them", Party.has(second.name));
         mouse(party, java.awt.event.MouseEvent.MOUSE_PRESSED, party.getWidth() - 15, 20, 0, 0);
         report.accept("clicking the cross on a member in the Party window removes them", !Party.has(second.name));
         audience.select(0, true);
@@ -2353,6 +2411,8 @@ class LiveView {
         Object key = Arrays.asList(m.instanceKey, tab, partyView, oneFight ? picked.name : "",
                 tab == ENEMY && shownTarget != null ? shownTarget.id : 0);
         damage.show(key, hasRows ? shownTarget : null, emptyTitle, emptyHint);
+        playerDamage.totals(totals);
+        playerDamage.show(key, hasRows ? shownTarget : null, emptyTitle, emptyHint);
         String basis = oneFight ? SonarTheme.clock(picked.target.fightMs) + " fighting"
                 : tab == OVERALL ? SonarTheme.clock(m.whole.fightMs) + " elapsed"
                 : tab == BOSSES ? (m.bosses.id == 1 ? "1 boss" : m.bosses.id + " bosses") + "  \u00b7  " + SonarTheme.clock(m.bosses.fightMs) + " fighting"
@@ -2576,7 +2636,7 @@ class LiveView {
         }
         party.show(members, -1);
         partyHere = present;
-        partyWindow.setNote(Party.size() == 0 ? "" : present + " of " + Party.size() + " here");
+        friendsNote = Party.size() == 0 ? "" : present + " of " + Party.size() + " here";
 
         // the Players page: the roster, and the chosen player's damage by item
         ArrayList<ListPane.Item> rosterItems = new ArrayList<>();
@@ -2622,6 +2682,18 @@ class LiveView {
             }
         }
         roster.show(rosterItems, chosen == null ? -1 : seenRows.indexOf(chosen));
+        // the Live page shows the same people when there is nothing to fight. Standing in
+        // the Nexus with the sniffer just switched on, this fills immediately, which is the
+        // one thing on that screen that can; the damage list would sit empty until a dungeon.
+        here.show(rosterItems, chosen == null ? -1 : seenRows.indexOf(chosen));
+        boolean passive = m.passive();
+        livePage.setAutoHidden(damageWindow, passive);
+        livePage.setAutoHidden(hereWindow, !passive);
+        // the fight slot carries your stat block where there is no fight to report
+        livePage.setAutoHidden(fightWindow, passive);
+        livePage.setAutoHidden(statsWindow, !passive);
+        hereWindow.setNote(rosterItems.isEmpty() ? "" : rosterItems.size()
+                + (rosterItems.size() == 1 ? " player" : " players"));
         // what the chosen player wears: the newest of what was seen on them and what their hits recorded
         LiveModel.Row worn = chosen;
         if (chosen != null) for (LiveModel.Row s : m.seen) if (s.id == chosen.id && !s.loadout[0].isEmpty()) worn = s;
@@ -2635,7 +2707,6 @@ class LiveView {
         if (chosen == null) {
             playerFacts.showEmpty("No player selected", "Click a player's bar on the Live page");
             playerWindow.setNote("");
-            itemsWindow.setNote("");
         } else {
             for (LiveModel.Item it : chosen.itemsByDamage()) {
                 String detail = it.kind + "  \u00b7  " + SonarTheme.number(it.hits) + (it.hits == 1 ? " hit" : " hits")
@@ -2645,7 +2716,6 @@ class LiveView {
                                 : it.kind.equals("unknown") ? SonarTheme.MUTED : SonarTheme.classColor(chosen.cls, true)));
             }
             // the game only names the firing item for the user's own shots
-            itemsWindow.setNote(chosen.me ? "weapon and ability" : "ability shots, the rest by weapon held");
             ArrayList<String[]> f = new ArrayList<>();
             if (!chosen.cls.isEmpty()) f.add(new String[]{"Class", chosen.cls});
             f.add(new String[]{"Rank", chosen.damage <= 0 ? "-" : m.whole.rankOf(chosen) + " of " + m.whole.rows.size()});

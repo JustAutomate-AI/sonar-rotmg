@@ -114,7 +114,7 @@ public class SetupTool {
             System.out.println("FAIL assets: game install not found.");
             return EXIT_GAME_MISSING;
         }
-        if (AssetExtractor.extractHeadless(Version.VERSION)) {
+        if (AssetExtractor.extractHeadless(Version.ASSET_FORMAT)) {
             System.out.println("OK   assets: extracted.");
             return EXIT_OK;
         }

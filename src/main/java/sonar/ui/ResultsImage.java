@@ -458,9 +458,10 @@ final class ResultsImage {
             int id = i < r.gearIds.length ? r.gearIds[i] : -1;
             double gx = gearX + i * (BOSS_GEAR + BOSS_GEAR_GAP), gy = y + (BOSS_ROW_H - BOSS_GEAR) / 2.0;
             String enchants = i < r.enchants.length ? r.enchants[i] : "";
-            if (id > 0) Glyph.enchantGlow(g, enchants, gx, gy, BOSS_GEAR);
             g.setColor(new Color(0, 0, 0, 60));
             g.fill(SonarTheme.round(gx, gy, BOSS_GEAR, BOSS_GEAR, 4));
+            // after the plate, so the glow's ring lands on the tile's edge rather than under it
+            if (id > 0) Glyph.enchantGlow(g, Glyph.enchantTier(enchants), gx, gy, BOSS_GEAR, 4);
             if (id > 0) {
                 Glyph.item(g, id, gx + 1, gy + 1, BOSS_GEAR - 2);
                 Glyph.enchant(g, enchants, gx, gy, BOSS_GEAR);

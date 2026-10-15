@@ -413,9 +413,10 @@ final class MvpCard {
 
             g.setColor(SonarTheme.alpha(SonarTheme.RAISED, 0.55));
             g.fill(SonarTheme.round(cx - 8, cy - 8, COL + 8, (i < 2 ? rows[0] : rows[1]) - 4, 10));
-            Glyph.enchantGlow(g, enchants, cx, cy, TILE);
             g.setColor(new Color(0, 0, 0, 60));
             g.fill(SonarTheme.round(cx, cy, TILE, TILE, 8));
+            // after the plate, so the glow's ring lands on the tile's edge rather than under it
+            Glyph.enchantGlow(g, Glyph.enchantTier(enchants), cx, cy, TILE, 8);
             Glyph.item(g, id, cx + 3, cy + 3, TILE - 6);
 
             int tx = cx + TILE + 10;

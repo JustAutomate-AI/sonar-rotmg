@@ -287,7 +287,7 @@ class BreakdownPane extends Pane {
                 int id = i < r.gearIds.length ? r.gearIds[i] : -1;
                 if (id > 0) {
                     String enchants = i < r.enchants.length ? r.enchants[i] : "";
-                    Glyph.enchantGlow(g, enchants, gx, mid - GEAR / 2.0, GEAR);
+                    Glyph.enchantHalo(g, enchants, gx, mid - GEAR / 2.0, GEAR);
                     Glyph.item(g, id, gx, mid - GEAR / 2.0, GEAR);
                     Glyph.enchant(g, enchants, gx, mid - GEAR / 2.0, GEAR);
                 }

@@ -339,15 +339,24 @@ class GearPane extends Pane {
             boolean on = i == selected;
             boolean shiny = isShinyItem(row.gearIds[i]);
             boolean hovering = hoverX >= x && hoverX < x + tile && hoverY >= 0 && hoverY < tile;
+            int tier = shiny ? 0 : Glyph.enchantTier(row.enchants[i]);
             if (shiny) Glyph.glow(g, x, 0, tile, 12, SonarTheme.GOLD);
-            // an enchanted item glows in the colour of its rarity, the same wherever gear is drawn
-            else Glyph.enchantGlow(g, row.enchants[i], x, 0, tile);
             g.setColor(on ? SonarTheme.alpha(SonarTheme.accent(), 0.16) : new Color(255, 255, 255, 12));
             g.fill(SonarTheme.round(x, 0, tile, tile, 12));
-            g.setColor(on ? SonarTheme.accent() : shiny ? SonarTheme.alpha(SonarTheme.GOLD, 0.7) : SonarTheme.LINE_STRONG);
-            g.setStroke(new BasicStroke(on || shiny ? 1.4f : 1f));
-            g.draw(SonarTheme.round(x + 0.8, 0.8, tile - 1.6, tile - 1.6, 12));
-            g.setStroke(new BasicStroke(1f));
+            // The plate is drawn first and the glow over it, so the glow's own ring lands on
+            // the tile's edge and becomes the outline. An ordinary grey border is drawn only
+            // where there is no glow to take its place; drawing both put two edges round the
+            // tile and left the colour as the fainter one.
+            if (tier > 0) {
+                // an enchanted item glows in the colour of its rarity, the same wherever gear is drawn
+                Glyph.enchantGlow(g, tier, x, 0, tile, 12);
+            }
+            if (on || shiny || tier <= 0) {
+                g.setColor(on ? SonarTheme.accent() : shiny ? SonarTheme.alpha(SonarTheme.GOLD, 0.7) : SonarTheme.LINE_STRONG);
+                g.setStroke(new BasicStroke(on || shiny ? 1.4f : 1f));
+                g.draw(SonarTheme.round(x + 0.8, 0.8, tile - 1.6, tile - 1.6, 12));
+                g.setStroke(new BasicStroke(1f));
+            }
             int pad = Math.max(5, tile / 7);
             if (row.loadout[i].isEmpty() || !Glyph.item(g, row.loadout[i], x + pad, pad, tile - 2 * pad)) {
                 g.setColor(SonarTheme.FAINT);

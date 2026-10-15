@@ -8,11 +8,30 @@ sourceCompatibility = 1.8
 compileJava.options.encoding = 'UTF-8'
 targetCompatibility = 1.8
 
-// Stamped into Version.VERSION, which is used as part of the asset-extraction cache
-// key. Changing it makes every install re-extract the game's assets once, so it is
-// left alone unless the extracted format actually changes.
-project.version = 'v1.9.2'
 applicationName = 'Sonar'
+
+// Two different things were both called "version", and the names invited exactly one
+// mistake: reading the frozen asset key below as a stale app version. They are now
+// named for what they are.
+
+// The app's version. It lives in Updater.CURRENT because five scripts in tools/ read it
+// from there, and the release routine raises it. Gradle's own project.version follows it
+// so the build's metadata is not stale; nothing is stamped into the source from here.
+project.version = {
+    def src = file('src/main/java/sonar/ui/Updater.java')
+    def m = src.getText('UTF-8') =~ /CURRENT\s*=\s*"([0-9.]+)"/
+    if (!m) throw new GradleException("Could not read CURRENT from ${src}")
+    m[0][1]
+}()
+
+// The asset-extraction cache key, which is NOT the app version. It forms part of the key
+// deciding whether an install re-extracts the game's assets, so raising it makes every
+// install re-extract once. Raise it only when the extracted format changes - adding a new
+// kind of extracted asset counts, because checkUpdateAssets looks for ObjectID.list and
+// TileID.list and will not otherwise notice that something new is missing.
+// The value is historical: it is the app version from the days the two were one thing,
+// and it is kept verbatim so that renaming them re-extracts nobody's assets.
+ext.assetFormat = 'v1.9.2'
 
 repositories {
     mavenCentral()
@@ -46,10 +65,23 @@ task generateSources {
         srcFile.parentFile.mkdirs()
         srcFile.write("""package """ + applicationName.toLowerCase() + """.version;
 /**
- * Don't edit this class. It's a gradle class to grab version from the build.gradle
+ * Don't edit this class. Gradle writes it from build.gradle on every build.
  */
 public class Version {
+
+    /**
+     * The app's version, the one shown in the left rail and used for release names.
+     * Comes from Updater.CURRENT, which is where it is raised.
+     */
     public static final String VERSION = "$project.version";
+
+    /**
+     * The asset-extraction format, which is NOT the app's version and does not move
+     * with it. It forms part of the key deciding whether an install re-extracts the
+     * game's assets, so raising it costs every install one re-extraction. Raise it
+     * only when what gets extracted actually changes.
+     */
+    public static final String ASSET_FORMAT = "$project.ext.assetFormat";
 }
 
 """)

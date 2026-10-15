@@ -85,6 +85,14 @@ public class SonarShell extends JPanel {
         });
     }
     private final SonarButton windowsButton = new SonarButton("Windows", false, this::showWindowsMenu);
+    /**
+     * The friends list, which used to be a window on the Players page called Party.
+     * <p>
+     * It never belonged to a page: the list is kept between runs and is the same
+     * wherever you are, while every window on that page describes the instance you are
+     * standing in. Here it is reachable from all of them and costs no space.
+     */
+    private final SonarButton friendsButton = new SonarButton("Friends", false, this::showFriends);
     /** Reachable from every page, since the sound settings had nowhere to live before. */
     private final SonarButton settingsButton = new SonarButton("Settings", false, () -> select(SETTINGS, true));
     private final SettingsPane settingsPane = new SettingsPane();
@@ -323,6 +331,8 @@ public class SonarShell extends JPanel {
         bar.add(Box.createHorizontalStrut(12));
         bar.add(settingsButton);
         bar.add(Box.createHorizontalStrut(10));
+        bar.add(friendsButton);
+        bar.add(javax.swing.Box.createHorizontalStrut(14));
         bar.add(windowsButton);
         bar.add(Box.createHorizontalStrut(10));
         bar.add(resetButton);
@@ -444,6 +454,18 @@ public class SonarShell extends JPanel {
     }
 
     /** Lists every Live window with a tick, to close the ones not needed and bring closed ones back. */
+    private void showFriends() {
+        JPopupMenu menu = new JPopupMenu();
+        javax.swing.JComponent list = live.friendsList();
+        list.setPreferredSize(new Dimension(320, 260));
+        menu.add(list);
+        menu.addSeparator();
+        JMenuItem refresh = new JMenuItem("Refresh");
+        refresh.addActionListener(e -> live.refreshFriends());
+        menu.add(refresh);
+        menu.show(friendsButton, 0, friendsButton.getHeight() + 4);
+    }
+
     private void showWindowsMenu() {
         JPopupMenu menu = new JPopupMenu();
         Workspace page = pages.get(section);
@@ -457,6 +479,8 @@ public class SonarShell extends JPanel {
     }
 
     private void syncTopBar() {
+        String friends = live.friendsNote();
+        friendsButton.setText(friends.isEmpty() ? "Friends" : "Friends  ·  " + friends);
         back.setEnabled(live.canStep(-1));
         forward.setEnabled(live.canStep(1));
         back.setVisible(pages.containsKey(section));
@@ -474,7 +498,11 @@ public class SonarShell extends JPanel {
             title.setText(section);
             // the instance arrows work on every page, so every page has to show which one it is on -
             // without this, stepping through finished runs looked like it was doing nothing at all
-            String where = live.title().equals("Sniffer is off") ? "Sniffer is off" : "In " + live.title();
+            // the title is sometimes a sentence of its own ("Waiting for your next
+            // instance"), and "In Waiting for your next instance" is not English
+            String title = live.title();
+            String where = title.equals("Sniffer is off") || title.startsWith("Waiting")
+                    ? title : "In " + title;
             String at = live.position();
             subtitle.setText(live.isReviewing() && !at.isEmpty()
                     ? "Reviewing " + at + "  ·  " + where : where);

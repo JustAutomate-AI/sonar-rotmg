@@ -116,7 +116,7 @@ public class Sonar {
             // Extracted silently, not through AssetExtractor.checkForExtraction's own popup - a bare, unbranded
             // "Realm Shark Asset Extractor" window that could appear over the game mid-session. Extraction itself
             // is fast and purely local (no reason to ask first), so there is nothing meaningful lost by not asking.
-            AssetExtractor.extractHeadless(Version.VERSION);
+            AssetExtractor.extractHeadless(Version.ASSET_FORMAT);
             GameData data = new GameData();
             loadControllers(data);
             new AppWindow(data).create();

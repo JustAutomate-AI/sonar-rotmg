@@ -36,9 +36,15 @@ if (Test-Path $work) { Remove-Item $work -Recurse -Force -Confirm:$false }
 New-Item -ItemType Directory -Force (Join-Path $work 'in') | Out-Null
 Copy-Item $jar (Join-Path $work 'in\Sonar.jar')
 
-# Only three modules are actually used, which takes the runtime from ~130 MB to ~43 MB.
+# Trimming the runtime takes it from ~130 MB to ~43 MB. Only what is actually used is
+# kept, with one exception that is not obvious: jdk.crypto.ec.
+#
+# Nothing in Sonar names that module, so it was left out, and the runtime then had no
+# elliptic-curve provider at all - 17 cipher suites and not one of them ECDHE. GitHub
+# accepts nothing else, so every update check from a packaged build died on
+# "handshake_failure" while the same code run on an ordinary JDK was fine. It costs 91 KB.
 Write-Host "Building the Java runtime..." -ForegroundColor Cyan
-& $jlink --add-modules java.base,java.desktop,java.sql `
+& $jlink --add-modules java.base,java.desktop,java.sql,jdk.crypto.ec `
     --strip-debug --no-header-files --no-man-pages --compress=2 `
     --output (Join-Path $work 'runtime')
 if ($LASTEXITCODE -ne 0) { throw "jlink failed" }

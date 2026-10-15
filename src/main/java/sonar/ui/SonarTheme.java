@@ -314,7 +314,11 @@ public final class SonarTheme {
     public static Graphics2D quality(Graphics g) {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
+        // Grayscale rather than subpixel. LCD_HRGB only lands true when text is drawn
+        // straight onto the screen's own pixel grid, and every pane here draws through the
+        // zoom transform, which slides the glyphs off it. The red and blue fringes that
+        // produces are what made the big figures look blurred rather than sharp.
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
         g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         return g2;
@@ -330,8 +334,12 @@ public final class SonarTheme {
      */
     public static void glow(Graphics2D g, String text, float x, float y, Color c) {
         if (vivid()) {
-            g.setColor(alpha(c, 0.16));
-            for (int r = 3; r >= 1; r--) {
+            // The bloom begins clear of the glyph. It used to start one pixel out, which put
+            // a sixteen-per-cent copy of the number directly against its own edge and took
+            // the edge away: the figure read as blurred rather than lit. Starting at two and
+            // fading outward leaves the edge to the solid draw below and still glows.
+            for (int r = 5; r >= 2; r--) {
+                g.setColor(alpha(c, 0.055 + (5 - r) * 0.025));
                 g.drawString(text, x - r, y);
                 g.drawString(text, x + r, y);
                 g.drawString(text, x, y - r);

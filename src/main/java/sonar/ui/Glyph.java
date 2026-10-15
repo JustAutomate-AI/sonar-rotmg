@@ -305,17 +305,153 @@ final class Glyph {
      * @param tier the item's highest enchant rarity, 1 to 4; nothing is drawn for 0.
      */
     static void enchantGlow(Graphics2D g, int tier, double x, double y, int size) {
+        enchantGlow(g, tier, x, y, size, 6);
+    }
+
+    /**
+     * The glow for an enchanted item, drawn so that it reads as the tile's own edge.
+     * <p>
+     * It used to be rings floating outside the tile while the tile kept its ordinary
+     * grey border, so at a glance there were two separate edges and the colour was the
+     * fainter of them. Now the bloom ends in a solid ring sitting exactly on the border,
+     * and the tile is drawn without a grey one over the top: the glow becomes the
+     * outline rather than a halo behind it.
+     *
+     * @param radius the corner radius of the tile this sits on, so the ring follows
+     *               the same curve as the plate rather than cutting across it.
+     */
+    static void enchantGlow(Graphics2D g, int tier, double x, double y, int size, double radius) {
         if (tier <= 0) return;
-        Color glow = CalcPane.tierColor(tier);
-        // rings around the outside rather than a wash underneath: filled, the innermost covered
-        // the item's own plate and a gold enchant turned the whole tile gold
+        Color glow = vivid(CalcPane.tierColor(tier));
         Graphics2D g2 = (Graphics2D) g.create();
-        for (int ring = 3; ring >= 1; ring--) {
-            g2.setColor(new Color(glow.getRed(), glow.getGreen(), glow.getBlue(), 24 + (3 - ring) * 26));
-            g2.setStroke(new BasicStroke(1.6f));
-            g2.draw(SonarTheme.round(x - ring, y - ring, size + ring * 2, size + ring * 2, 6 + ring));
-        }
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        bloom(g2, glow, x, y, size, radius);
+        // and a quiet line on the edge itself, so the light has something to come off and
+        // the tile keeps a defined rim. Kept well below the bloom: at full strength this
+        // was the whole effect and it read as a border with a smudge round it.
+        g2.setColor(new Color(glow.getRed(), glow.getGreen(), glow.getBlue(), 150));
+        g2.setStroke(new BasicStroke(1.2f));
+        g2.draw(SonarTheme.round(x + 0.8, y + 0.8, size - 1.6, size - 1.6, radius));
         g2.dispose();
+    }
+
+    /**
+     * The bloom on its own, for gear drawn with no tile beneath it.
+     * <p>
+     * The breakdown table puts bare item pictures in a dense row. A solid ring there
+     * would draw a box around an icon that has no box, so these keep the soft halo and
+     * only gear sitting on a plate gets the ring.
+     */
+    static void enchantHalo(Graphics2D g, String enchants, double x, double y, int size) {
+        int tier = enchantTier(enchants);
+        if (tier <= 0) return;
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        bloom(g2, vivid(CalcPane.tierColor(tier)), x, y, size, 6);
+        g2.dispose();
+    }
+
+    /**
+     * Light spreading outward from the edge and fading into the background.
+     * <p>
+     * This was four rings drawn one pixel apart, which at a glance was not a glow at all
+     * but a thick band - four hard edges where there should be none. A glow has no edges,
+     * so it is made the way a glow actually is: the shape is drawn once into a small
+     * image of its own, blurred, and that is what gets painted. The falloff is smooth all
+     * the way out to nothing, and it reaches far enough from the tile to read as light
+     * rather than as another border.
+     */
+    private static void bloom(Graphics2D g, Color glow, double x, double y, int size, double radius) {
+        int spread = Math.max(6, Math.round(size * 0.34f));
+        java.awt.image.BufferedImage sprite = glowSprite(glow, size, radius, spread);
+        if (sprite == null) return;
+        g.drawImage(sprite, (int) Math.round(x) - spread, (int) Math.round(y) - spread, null);
+    }
+
+    private static final java.util.HashMap<String, Object> GLOWS = new java.util.HashMap<>();
+
+    /** One blurred glow, kept because blurring is far too slow to do inside a paint. */
+    private static synchronized java.awt.image.BufferedImage glowSprite(Color glow, int size,
+                                                                        double radius, int spread) {
+        String key = glow.getRGB() + ":" + size + ":" + radius + ":" + spread;
+        Object found = GLOWS.get(key);
+        if (found == null) {
+            found = Boolean.FALSE;
+            try {
+                int dim = size + spread * 2;
+                java.awt.image.BufferedImage src =
+                        new java.awt.image.BufferedImage(dim, dim, java.awt.image.BufferedImage.TYPE_INT_ARGB_PRE);
+                Graphics2D gg = SonarTheme.quality(src.createGraphics());
+                // the edge is what gives off the light, so that is what gets blurred - a
+                // filled shape would light the middle too and wash out the item on top
+                gg.setColor(glow);
+                gg.setStroke(new BasicStroke(Math.max(2f, size * 0.07f)));
+                gg.draw(SonarTheme.round(spread + 0.8, spread + 0.8, size - 1.6, size - 1.6, radius));
+                gg.dispose();
+                found = blur(blur(src, spread, true), spread, false);
+            } catch (Throwable e) {
+                // without it an enchanted item simply has no glow
+            }
+            if (GLOWS.size() > 160) GLOWS.clear();
+            GLOWS.put(key, found);
+        }
+        return found instanceof java.awt.image.BufferedImage ? (java.awt.image.BufferedImage) found : null;
+    }
+
+    /**
+     * One pass of a Gaussian blur, across or down. Two passes give the same result as a
+     * square kernel at a fraction of the work, which is why this is separable.
+     */
+    private static java.awt.image.BufferedImage blur(java.awt.image.BufferedImage src,
+                                                     int spread, boolean horizontal) {
+        int n = Math.max(1, spread) * 2 + 1;
+        float[] kernel = new float[n];
+        float sigma = Math.max(1f, spread / 2f), sum = 0;
+        for (int i = 0; i < n; i++) {
+            float d = i - spread;
+            kernel[i] = (float) Math.exp(-(d * d) / (2 * sigma * sigma));
+            sum += kernel[i];
+        }
+        for (int i = 0; i < n; i++) kernel[i] /= sum;
+        java.awt.image.Kernel k = horizontal
+                ? new java.awt.image.Kernel(n, 1, kernel)
+                : new java.awt.image.Kernel(1, n, kernel);
+        java.awt.image.ConvolveOp op = new java.awt.image.ConvolveOp(
+                k, java.awt.image.ConvolveOp.EDGE_ZERO_FILL, null);
+        return op.filter(src, null);
+    }
+
+    /**
+     * An enchant colour pushed toward its purest form for the glow.
+     * <p>
+     * The tier colours are chosen to sit quietly in a list of text, which left the glow
+     * looking washed out against a dark plate. Lifting the saturation and brightness
+     * gives the edge some carry without changing which colour it is - a blue enchant is
+     * still unmistakably the same blue, only lit.
+     */
+    private static Color vivid(Color c) {
+        float[] hsb = Color.RGBtoHSB(c.getRed(), c.getGreen(), c.getBlue(), null);
+        // grey, the no-enchant tier, has no hue to push and would only turn muddy
+        float saturation = hsb[1] < 0.12f ? hsb[1] : Math.min(1f, hsb[1] * 1.5f);
+        float hue = hsb[0] * 360f;
+        // Divine's gold sits at 39 degrees, which is amber rather than yellow, and
+        // saturating an amber only drives it further towards orange - at full strength it
+        // came out looking like fire instead of gold. Warm hues are carried up towards
+        // yellow to compensate; nothing else is near this band, so green, blue and violet
+        // keep the hue they were given.
+        if (hue > 25f && hue < 55f) hue = Math.min(50f, hue + 11f);
+        // Deepened rather than brightened. The damage list draws these over the
+        // class-coloured bars, which are themselves bright greens, blues and violets, and a
+        // bright enchant glow sat straight on top of a bar of the same family and vanished
+        // into it - worse, it read as part of the bar. Holding the saturation up but taking
+        // the brightness down keeps each tier obviously its own colour while staying darker
+        // than anything it is drawn over, so the two never merge.
+        return Color.getHSBColor(hue / 360f, saturation, hsb[2] * 0.72f);
+    }
+
+    /** The enchant tier on an item, 0 when it has none - the colour its tile should take. */
+    static int enchantTier(String enchants) {
+        return EnchantSprites.slots(enchants);
     }
 
     /**
@@ -519,6 +655,55 @@ final class Glyph {
         g2.drawImage((Image) found, (int) Math.round(x), (int) Math.round(y), size, size, null);
         g2.dispose();
         return true;
+    }
+
+    /**
+     * A character with their Arcane Style over them, when they wear one and its art has
+     * been extracted; otherwise exactly {@link #player}.
+     * <p>
+     * An effect is twice the character's size in game and spreads around them, so
+     * {@code bleed} says how much of that spread this may use. Pass {@code 0} anywhere the
+     * portrait sits on top of something whose colour carries meaning - the damage list's
+     * class-coloured bars above all - and the effect stays inside the portrait instead of
+     * tinting what is behind it.
+     *
+     * @param styleType the item id from the shader stat, or -1 for none.
+     * @param timeMs    how long the effect has been running, which picks the frame.
+     * @param bleed     how far past the portrait the effect may reach, 0 to 0.5.
+     */
+    static boolean playerStyled(Graphics2D g, int skin, int main, int accessory, int styleType,
+                                long timeMs, double x, double y, int size, double bleed) {
+        ArcaneStyle style = styleType > 0 ? ArcaneStyle.of(styleType) : null;
+        java.awt.image.BufferedImage look = style == null ? null : playerLook(skin, main, accessory);
+        if (look == null) return player(g, skin, main, accessory, x, y, size);
+        java.awt.image.BufferedImage styled = ArcaneArt.apply(look, style, timeMs);
+        if (styled == null) return player(g, skin, main, accessory, x, y, size);
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.drawImage(styled, (int) Math.round(x), (int) Math.round(y), size, size, null);
+        g2.dispose();
+        return true;
+    }
+
+    /** The drawn character, as {@link #player} caches it, for anything that must work on the pixels. */
+    static java.awt.image.BufferedImage playerLook(int skin, int main, int accessory) {
+        if (skin <= 0) return null;
+        main = dyeValue(main);
+        accessory = dyeValue(accessory);
+        String key = skin + ":" + main + ":" + accessory;
+        Object found = PLAYERS.get(key);
+        if (found == null) {
+            found = Boolean.FALSE;
+            try {
+                java.awt.image.BufferedImage img = playerImage(skin, main, accessory);
+                if (img != null) found = img;
+            } catch (Throwable e) {
+                // drawn the plain way instead
+            }
+            if (PLAYERS.size() > 600) PLAYERS.clear();
+            PLAYERS.put(key, found);
+        }
+        return found instanceof java.awt.image.BufferedImage ? (java.awt.image.BufferedImage) found : null;
     }
 
     private static java.util.HashMap<Integer, Integer> dyeItems;

@@ -21,7 +21,10 @@ class Workspace extends JPanel implements Scrollable {
     private static final Dimension SMALLEST = new Dimension(740, 500);
 
     /** Raised when the default arrangement changes, so positions saved for an older arrangement are not mixed into it. */
-    private static final String LAYOUT_VERSION = "11";
+    // 12: the Live page gained a roster and your stat block, the Players page traded
+// the party and per-item lists for the damage bars, and the Instance page was
+// rebuilt around reviewing a finished run.
+    private static final String LAYOUT_VERSION = "12";
 
     private final ArrayList<FloatWindow> windows = new ArrayList<>();
     private final boolean savedLayoutIsCurrent = LAYOUT_VERSION.equals(PropertiesManager.getProperty("sonar.layout"));
@@ -78,6 +81,21 @@ class Workspace extends JPanel implements Scrollable {
     }
 
     /** Removes a window from the layout or puts it back. The choice is remembered between sessions. */
+    /**
+     * Shows or hides a window without remembering the choice.
+     * <p>
+     * {@link #setClosed} writes the state to the settings, which is right when the user
+     * closed the window themselves and wrong when the app did it: the Live page swaps
+     * which window fills its main slot depending on where you are standing, and that
+     * must not come back later as "you closed the damage window".
+     */
+    void setAutoHidden(FloatWindow w, boolean hidden) {
+        if (w.isVisible() == !hidden) return;
+        w.setVisible(!hidden);
+        if (!hidden) bringToFront(w);
+        repaint();
+    }
+
     void setClosed(FloatWindow w, boolean closed) {
         w.setVisible(!closed);
         PropertiesManager.setProperties(closedKey(w), closed ? "T" : "F");

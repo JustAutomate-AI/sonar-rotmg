@@ -428,6 +428,8 @@ final class LiveModel {
         String crucibleId, ritualId;
         /** The game's values for the main and accessory dye or cloth, 0 for none. */
         int dyeMain, dyeAccessory;
+        /** The Arcane Style worn, as an item id; -1 for none, which is the usual case. */
+        int shader = -1;
         /** Totals, the part that comes from equipment, and exalt levels for the eight stats; null when the game does not send them for this player. */
         int[] statTotal, statBoost, exalt;
         /** Estimated damage ceiling with this player's own gear over the window being evaluated - a flat damage number, not a percentage of the boss's health, since that reads as "share of the boss's total HP" rather than "share of this player's own potential." -1 when not estimated for this row. See LeechAnalysis. */
@@ -514,6 +516,7 @@ final class LiveModel {
             if (skin <= 0) skin = other.skin;
             if (dyeMain == 0) dyeMain = other.dyeMain;
             if (dyeAccessory == 0) dyeAccessory = other.dyeAccessory;
+            if (shader <= 0) shader = other.shader;
             if (cls.isEmpty()) cls = other.cls;
         }
 
@@ -856,6 +859,7 @@ final class LiveModel {
                 r.skin = skin > 0 ? skin : p.objectType;
                 r.dyeMain = statValue(p, StatType.TEX1_STAT);
                 r.dyeAccessory = statValue(p, StatType.TEX2_STAT);
+                r.shader = statValue(p, StatType.SHADER_STAT);
                 if (p.stat.get(StatType.ATTACK_STAT) != null) {
                     r.statTotal = new int[8];
                     r.statBoost = new int[8];
@@ -1863,6 +1867,29 @@ final class LiveModel {
             if (tag.equals("BOSS")) full = true;
         }
         return mini && !full;
+    }
+
+    /**
+     * The places you wait in rather than fight in.
+     * <p>
+     * The same list the archiver uses to decide an instance is not worth logging, which
+     * is the right one: these are exactly the maps where no damage will ever be dealt.
+     * The Realm is deliberately not among them - there is plenty to fight there.
+     */
+    private static final java.util.Set<String> PASSIVE = new java.util.HashSet<>(java.util.Arrays.asList(
+            "nexus", "vault", "guild hall", "pet yard", "daily quest room",
+            "grand bazaar", "cloth bazaar", "bazaar", "tinkerer"));
+
+    /**
+     * True where there is nothing to fight, so nothing will ever fill a damage list.
+     * <p>
+     * What can be shown in such a place arrives at once: who is standing around, their
+     * classes and their gear. What cannot be shown is the entire point of the damage
+     * screen, which sits empty until something is hit.
+     */
+    boolean passive() {
+        String name = instance == null ? "" : instance.trim().toLowerCase();
+        return name.isEmpty() || PASSIVE.contains(name);
     }
 
     /** Turns internal map ids such as "{s.nexus}" into "Nexus". */
