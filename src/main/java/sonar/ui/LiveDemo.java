@@ -467,7 +467,10 @@ final class LiveDemo {
         // caught a little of it, which is roughly the spread a real run produces - and the
         // first of them is the case the red run has to survive, since it reaches under their
         // name and their class
-        int[] blasters = {1, 4, 6}, blastShare = {78, 21, 6};
+        // the top of the board included on purpose: their bar is full width, so the red run
+        // lands under the figures that sit on the bar's right end - which is the case that
+        // has to be looked at rather than assumed
+        int[] blasters = {0, 1, 4, 6}, blastShare = {41, 78, 21, 6};
         for (int i = 0; guardPhase && i < blasters.length; i++) {
             if (p != blasters[i]) continue;
             r.guardDamage = damage * blastShare[i] / 100;

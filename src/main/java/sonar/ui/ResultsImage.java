@@ -423,10 +423,14 @@ final class ResultsImage {
         }
         // a fight with a guard says so on its heading, carrying what went into it, so the
         // reader knows what the coral figures down the rows are before reading one
-        long intoGuard = 0;
-        for (LiveModel.Row r : boss.rows) intoGuard += r.guardDamage;
+        long intoGuard = 0, intoGuardHits = 0;
+        for (LiveModel.Row r : boss.rows) {
+            intoGuard += r.guardDamage;
+            intoGuardHits += r.guardHits;
+        }
         if (intoGuard > 0 && !continued) {
-            drawTag(g, tagX, y + 6, SonarTheme.brief(intoGuard) + " INTO GUARD", SonarTheme.CORAL);
+            drawTag(g, tagX, y + 6, SonarTheme.brief(intoGuard) + " INTO GUARD · "
+                    + SonarTheme.brief(intoGuardHits) + " HITS", SonarTheme.CORAL);
         }
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
@@ -490,7 +494,7 @@ final class ResultsImage {
         double guardW = r.guardShare() * barW;
         if (guardW > 0.5) {
             g.setPaint(null);
-            g.setColor(SonarTheme.alpha(SonarTheme.DANGER, 0.82));
+            g.setColor(SonarTheme.GUARD_GLASS);
             g.fill(new java.awt.geom.Rectangle2D.Double(trackX + barW - guardW, y, guardW, BOSS_ROW_H));
             g.setColor(new Color(0, 0, 0, 70));
             g.fill(new java.awt.geom.Rectangle2D.Double(trackX + barW - guardW, y, 1.2, BOSS_ROW_H));
@@ -548,13 +552,31 @@ final class ResultsImage {
         // as one on a Necromancer's violet - see inkOn. Deliberately anonymous; see paintRow().
         int nameX = px + BOSS_PORTRAIT + 7;
         double barEnd = trackX + barW;
-        // what they put into the guard, right after their name, where a reader looking for it
-        // finds it beside whoever it belongs to rather than in a column of its own
-        String guard = r.guardDamage > 0 ? SonarTheme.brief(r.guardDamage) + " guard" : "";
-        int guardTextW = guard.isEmpty() ? 0 : width(g, SonarTheme.bold(9.5f), guard) + 8;
+        // What they put into the guard, right after their name, where a reader looking for it
+        // finds it beside whoever it belongs to rather than in a column of its own.
+        //
+        // The name comes first, though. Carrying both figures makes this badge wide, and on a
+        // full bar it was taking enough of the row to leave "Us..." where a name should be -
+        // which is the one thing on the line nobody can do without. So the name is given the
+        // room it needs and the badge drops the hits, then the word, then itself, until what
+        // is left fits beside it.
+        int room = gearX - nameX - 8;
         g.setFont(SonarTheme.bold(12f));
-        int maxNameW = Math.max(24, gearX - nameX - 8 - guardTextW);
-        String shown = SonarTheme.fit(r.name, g.getFontMetrics(), maxNameW);
+        String shown = SonarTheme.fit(r.name, g.getFontMetrics(), room);
+        int nameW = g.getFontMetrics().stringWidth(shown);
+        String guard = "";
+        if (r.guardDamage > 0) {
+            String[] tries = {
+                    SonarTheme.brief(r.guardDamage) + " guard · " + SonarTheme.brief(r.guardHits) + " hits",
+                    SonarTheme.brief(r.guardDamage) + " · " + SonarTheme.brief(r.guardHits),
+                    SonarTheme.brief(r.guardDamage)};
+            for (String option : tries) {
+                if (width(g, SonarTheme.bold(9.5f), option) + 16 <= room - nameW) {
+                    guard = option;
+                    break;
+                }
+            }
+        }
         double guardStart = barEnd - guardW;
         across(g, shown, nameX, y + BOSS_ROW_H / 2f + 4, guardStart, barEnd, y, dark);
         if (!guard.isEmpty()) {
@@ -571,10 +593,10 @@ final class ResultsImage {
         }
 
         g.setFont(SonarTheme.bold(11.5f));
-        across(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, barEnd, y, light);
+        across(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, guardStart, barEnd, y, light);
         if (!pct.isEmpty()) {
             g.setFont(SonarTheme.bold(9.5f));
-            across(g, pct, dmgX - pctW + 3, y + BOSS_ROW_H / 2f + 3.5f, barEnd, y, light, 0.75);
+            across(g, pct, dmgX - pctW + 3, y + BOSS_ROW_H / 2f + 3.5f, guardStart, barEnd, y, light, 0.75);
         }
     }
 
@@ -619,7 +641,7 @@ final class ResultsImage {
         int top = rowY - 2, height = BOSS_ROW_H + 4;
         double[] from = {-10000, guardStart, barEnd};
         double[] to = {guardStart, barEnd, 20000};
-        Color[] behind = {bar, SonarTheme.mix(bar, SonarTheme.DANGER, 0.82), SonarTheme.SURFACE};
+        Color[] behind = {bar, SonarTheme.onGlass(bar), SonarTheme.SURFACE};
         Shape old = g.getClip();
         for (int zone = 0; zone < 3; zone++) {
             if (to[zone] <= from[zone]) continue;

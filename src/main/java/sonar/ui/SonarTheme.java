@@ -206,6 +206,16 @@ public final class SonarTheme {
     public static final Color GOLD = new Color(0xf5c56b);
     public static final Color VIOLET = new Color(0xa78bfa);
     public static final Color DANGER = new Color(0xff5c7a);
+    /**
+     * The red laid over the part of a damage bar that went into a boss's guard.
+     * <p>
+     * Tinted glass rather than paint: deep enough to read as a warning on every class colour,
+     * translucent enough that the class is still visible under it. Chosen by sample against
+     * real bars. DANGER was tried first and is wrong for this - it is already a bright
+     * pink-red, and over a Knight's blue at this strength it lands on a flat pink, which
+     * reads as a highlight rather than as a stain.
+     */
+    public static final Color GUARD_GLASS = new Color(0x8c, 0x0f, 0x1f, 195);
     /** The blue that marks an exaltation bonus, wherever one is shown apart from a base stat. */
     public static final Color EXALT = new Color(0x6aa8ff);
     /** The pair the Neon ground is built around: the figure, and the thing that names it. */
@@ -428,6 +438,19 @@ public final class SonarTheme {
             g.drawString(text, x, y);
         }
         g.setClip(old);
+    }
+
+    /**
+     * The red used for the guard's own figures where they cross the glass. A lighter shade of
+     * {@link #DANGER} rather than a different colour: DANGER is the right weight on the panel
+     * and disappears on the glass, which is the same family at much the same darkness, but a
+     * figure that changed colour entirely halfway along would read as two things.
+     */
+    public static final Color GUARD_INK = new Color(0xff, 0x93, 0xa6);
+
+    /** What a surface becomes under {@link #GUARD_GLASS}, for choosing ink to sit on it. */
+    public static Color onGlass(Color surface) {
+        return mix(surface, GUARD_GLASS, GUARD_GLASS.getAlpha() / 255.0);
     }
 
     public static Color mix(Color a, Color b, double t) {

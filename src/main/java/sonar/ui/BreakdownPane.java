@@ -29,7 +29,7 @@ class BreakdownPane extends Pane {
      * them, so it is allowed in at a narrower width than the columns that are always there.
      * Where it does appear it is usually the column somebody opened the list to read.
      */
-    private static final int NEED_GUARD = 640;
+    private static final int NEED_GUARD = 640, NEED_GUARD_HITS = 730;
 
     private List<LiveModel.Row> rows = new ArrayList<>();
     /** True when this fight had a guard phase somebody shot into: see {@link #NEED_GUARD}. */
@@ -93,7 +93,7 @@ class BreakdownPane extends Pane {
 
     /** Right edge of each column, worked out once so the header and the rows agree. */
     private static final class Layout {
-        int damage, percent, dps, hits, biggest, guard, taken, guarded, blocked, gear, tracking, nameEnd;
+        int damage, percent, dps, hits, biggest, guard, guardHits, taken, guarded, blocked, gear, tracking, nameEnd;
     }
 
     private Layout layout(int width) {
@@ -118,6 +118,10 @@ class BreakdownPane extends Pane {
         if (width >= NEED_TAKEN) {
             l.taken = right;
             right -= 72;
+        }
+        if (anyGuard && width >= NEED_GUARD_HITS) {
+            l.guardHits = right;
+            right -= 66;
         }
         if (anyGuard && width >= NEED_GUARD) {
             l.guard = right;
@@ -212,6 +216,7 @@ class BreakdownPane extends Pane {
         if (l.hits > 0) right(g, "HITS", l.hits, y);
         if (l.biggest > 0) right(g, "BIGGEST", l.biggest, y);
         if (l.guard > 0) right(g, "INTO GUARD", l.guard, y);
+        if (l.guardHits > 0) right(g, "GUARD HITS", l.guardHits, y);
         if (l.taken > 0) right(g, "TAKEN", l.taken, y);
         // "absorbed" rather than "guarded", which now has to mean the boss's guard as well
         if (l.guarded > 0) right(g, "ABSORBED", l.guarded, y);
@@ -306,46 +311,16 @@ class BreakdownPane extends Pane {
     }
 
 
+
+
     /**
-     * What this player put into the boss's guard, beside their name.
+     * The red laid over the part of a bar that went into the guard.
      * <p>
-     * Only when the window is too narrow for the column to be there, which is how the
-     * breakdown usually sits - docked, a few hundred pixels wide. The figure is the reason
-     * somebody opened this list on an Oryx 3 run, so it should not need the window widened
-     * to be seen. Where the column does fit, this would be the same number twice.
-     * <p>
-     * Drawn as the nexus tag is: a dark badge carrying the mark colour, which holds against
-     * every class colour the game has rather than guessing at one ink that might.
-     *
-     * @return where the next thing on the row may start.
+     * Tinted glass rather than paint: deep enough to read as a warning on every class
+     * colour, translucent enough that the class is still visible under it. Chosen by sample
+     * against real bars - a bright red over a Knight's blue comes out pink, which is the one
+     * thing it must not look like.
      */
-    private int paintGuardTag(Graphics2D g, LiveModel.Row r, int x, int mid, Layout l, double barEnd) {
-        if (r.guardDamage <= 0 || l.guard > 0) return x;
-        String tag = SonarTheme.brief(r.guardDamage) + " GUARD";
-        g.setFont(SonarTheme.bold(8.5f));
-        int tagW = g.getFontMetrics().stringWidth(tag) + 10;
-        g.setFont(SonarTheme.bold(12f));
-        int figureW = g.getFontMetrics().stringWidth(SonarTheme.number(r.damage));
-        if (l.damage - figureW - 16 - (x + tagW) < 0) return x;
-
-        Shape clip = g.getClip();
-        int top = mid - 7;
-        for (int side = 0; side < 2; side++) {
-            boolean onBar = side == 0;
-            g.setClip(clip);
-            g.clip(onBar
-                    ? new java.awt.geom.Rectangle2D.Double(-10000, top - 4, 10000 + barEnd, 22)
-                    : new java.awt.geom.Rectangle2D.Double(barEnd, top - 4, 20000, 22));
-            g.setColor(onBar ? new Color(0x15, 0x10, 0x1a, 170) : SonarTheme.alpha(SonarTheme.CORAL, 0.16));
-            g.fill(SonarTheme.round(x, top, tagW, 14, 4));
-            g.setFont(SonarTheme.bold(8.5f));
-            g.setColor(onBar ? SonarTheme.alpha(SonarTheme.CORAL, 0.95) : SonarTheme.CORAL);
-            g.drawString(tag, x + 5, mid + 3);
-        }
-        g.setClip(clip);
-        return x + tagW + 5;
-    }
-
     private void paintRow(Graphics2D g, int width, int top, int index, LiveModel.Row r, Layout l, long best) {
         boolean hovered = hoverY >= top && hoverY < top + ROW;
         boolean open = r.id == opened;
@@ -364,7 +339,7 @@ class BreakdownPane extends Pane {
         double guardW = r.guardShare() * barW;
         if (guardW > 0.5) {
             g.setPaint(null);
-            g.setColor(SonarTheme.alpha(SonarTheme.DANGER, 0.78));
+            g.setColor(SonarTheme.GUARD_GLASS);
             g.fill(new java.awt.geom.Rectangle2D.Double(PAD + barW - guardW, top + 2, guardW, ROW - 5));
             g.setColor(new Color(0, 0, 0, 70));
             g.fill(new java.awt.geom.Rectangle2D.Double(PAD + barW - guardW, top + 2, 1.2, ROW - 5));
@@ -396,7 +371,7 @@ class BreakdownPane extends Pane {
         int clipTop = top + 2, clipH = ROW - 5;
         Color barFace = SonarTheme.mix(SonarTheme.SURFACE, SonarTheme.classColor(r.cls, true), 0.55);
         Color onBar = SonarTheme.inkOn(barFace);
-        Color onGuard = SonarTheme.inkOn(SonarTheme.mix(barFace, SonarTheme.DANGER, 0.78));
+        Color onGuard = SonarTheme.inkOn(SonarTheme.onGlass(barFace));
 
         int mid = top + ROW / 2;
         g.setFont(SonarTheme.font(10f));
@@ -424,12 +399,29 @@ class BreakdownPane extends Pane {
                     SonarTheme.alpha(onBar, 0.7), SonarTheme.alpha(onGuard, 0.7), SonarTheme.FAINT);
             after += g.getFontMetrics().stringWidth(cls) + 7;
         }
-        after = paintGuardTag(g, r, after, mid, l, barEnd);
         paintLeftTag(g, r, after, mid, l, barEnd, barFace);
 
         g.setFont(SonarTheme.bold(12f));
-        g.setColor(SonarTheme.TEXT);
-        right(g, SonarTheme.number(r.damage), l.damage, mid + 4);
+        String figure = SonarTheme.number(r.damage);
+        if (r.guardDamage > 0) {
+            // the guard's figure in brackets after the damage, where a reader already is
+            // both figures, because the hit count is what other trackers call "guarded hits"
+            // and it is the one people quote at each other afterwards
+            String inside = "  (" + SonarTheme.brief(r.guardDamage)
+                    + "  ·  " + SonarTheme.brief(r.guardHits) + " hits)";
+            g.setFont(SonarTheme.bold(11f));
+            int insideW = g.getFontMetrics().stringWidth(inside);
+            // a full bar reaches under these figures, so they take the paler red where they
+            // cross the glass - DANGER on the glass is red on red
+            SonarTheme.across(g, inside, l.damage - insideW, mid + 4, guardStart, barEnd, clipTop, clipH,
+                    SonarTheme.DANGER, SonarTheme.GUARD_INK, SonarTheme.DANGER);
+            g.setFont(SonarTheme.bold(12f));
+            g.setColor(SonarTheme.TEXT);
+            right(g, figure, l.damage - insideW, mid + 4);
+        } else {
+            g.setColor(SonarTheme.TEXT);
+            right(g, figure, l.damage, mid + 4);
+        }
 
         g.setFont(SonarTheme.font(11f));
         double seconds = Math.max(1, fightMs / 1000.0);
@@ -442,6 +434,8 @@ class BreakdownPane extends Pane {
         // so it is coloured rather than left to be found among the greys
         cell(g, l.guard, mid, r.guardDamage > 0 ? SonarTheme.number(r.guardDamage) : "-",
                 r.guardDamage > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
+        cell(g, l.guardHits, mid, r.guardHits > 0 ? SonarTheme.number(r.guardHits) : "-",
+                r.guardHits > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
         cell(g, l.taken, mid, r.damageTaken >= 0 ? SonarTheme.number(r.damageTaken) : "-",
                 r.damageTaken > 0 ? SonarTheme.CORAL : SonarTheme.FAINT);
         cell(g, l.guarded, mid, r.guarded >= 0 ? SonarTheme.number(r.guarded) : "-",

@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.16.0
+
+**The guard's red, settled**
+- The red over a bar is now a **deep oxblood** rather than the bright pink 2.15.0 shipped. The red is laid *over* the class colour, so what you see is the two mixed - and Sonar's existing danger colour is already a pink-red, which over a Knight's blue came out flat pink. It reads as a stain now rather than a highlight.
+- The figures moved. Instead of a badge beside the name, the damage into the guard and the **guarded hit count** sit in brackets after the damage, in red: *492,834  (384k · 977 hits)*. They stay in one column that way, and the name strip is left to the nexus tag.
+- Widen the window and they become columns of their own, **INTO GUARD** and **GUARD HITS**.
+- **The top of the board is the case this had to survive.** Their bar is full width, so the red run lands under the figures that sit on the bar's right end. Those figures now take the ink that suits the red where they cross it, and go to full strength on a row that has a red run at all - the quiet greys that read fine on a class colour washed out on a deep red.
+- On a shared picture the name comes first: the badge drops the words, then the hit count, then itself, rather than squeezing a name down to *Us...*.
+
 ## 2.15.0
 
 **The guard, on the bar**

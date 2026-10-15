@@ -254,7 +254,7 @@ class DamagePane extends Pane {
             if (b.row.guardDamage > 0 && b.row.damage > 0) {
                 double guardWidth = barLength * b.row.guardShare();
                 g.clip(bar);
-                g.setColor(SonarTheme.alpha(SonarTheme.DANGER, 0.82));
+                g.setColor(SonarTheme.GUARD_GLASS);
                 g.fill(new java.awt.geom.Rectangle2D.Double(barEnd - guardWidth, y, guardWidth, ROW));
                 g.setColor(new Color(0, 0, 0, 70));
                 g.fill(new java.awt.geom.Rectangle2D.Double(barEnd - guardWidth, y, 1.2, ROW));
@@ -278,10 +278,15 @@ class DamagePane extends Pane {
 
             float base = (float) (y + (ROW - nameFm.getHeight()) / 2.0 + nameFm.getAscent());
             int right = width - 12;
+            // the figures live on the bar's right end, which is exactly where the guard's red
+            // run is, so on a row that has one they go to full strength rather than the quiet
+            // greys that read fine on a class colour and wash out on a deep red
+            boolean onGlass = b.row.guardDamage > 0;
             if (showShare) {
                 String share = total <= 0 ? "" : String.format("%.1f%%", b.row.damage * 100.0 / total);
                 g.setFont(small);
-                shadowText(g, share, right - smallFm.stringWidth(share), base, new Color(255, 255, 255, 200));
+                shadowText(g, share, right - smallFm.stringWidth(share), base,
+                        new Color(255, 255, 255, onGlass ? 255 : 200));
                 right -= 52;
             }
             String dps = SonarTheme.number(Math.round(b.shown.get() / seconds)) + " dps";
@@ -293,7 +298,8 @@ class DamagePane extends Pane {
             right -= numFm.stringWidth(main) + 14;
             if (showTotal) {
                 g.setFont(small);
-                shadowText(g, other, right - smallFm.stringWidth(other), base, new Color(255, 255, 255, 190));
+                shadowText(g, other, right - smallFm.stringWidth(other), base,
+                        new Color(255, 255, 255, onGlass ? 250 : 190));
                 right -= totals ? 70 : 58;
             }
 
