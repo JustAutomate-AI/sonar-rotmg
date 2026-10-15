@@ -239,11 +239,19 @@ class BreakdownPane extends Pane {
         Composite old = g.getComposite();
         g.setComposite(AlphaComposite.SrcOver.derive(left ? 0.45f : 1f));
 
+        // Everything on this row can begin on the bar and end past it, so each line is drawn
+        // in the ink that suits whatever is actually behind it. The bar is its class colour
+        // laid over the panel at just over half strength, which is the surface to read against.
+        double barEnd = PAD + barW;
+        int clipTop = top + 2, clipH = ROW - 5;
+        Color barFace = SonarTheme.mix(SonarTheme.SURFACE, SonarTheme.classColor(r.cls, true), 0.55);
+        Color onBar = SonarTheme.inkOn(barFace);
+
         int mid = top + ROW / 2;
         g.setFont(SonarTheme.font(10f));
-        g.setColor(SonarTheme.FAINT);
         String rank = String.valueOf(index + 1);
-        g.drawString(rank, PAD + 14 - g.getFontMetrics().stringWidth(rank), mid + 4);
+        SonarTheme.across(g, rank, PAD + 14 - g.getFontMetrics().stringWidth(rank), mid + 4,
+                barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.55), SonarTheme.FAINT);
 
         int x = PAD + 22;
         if (!Glyph.player(g, r.skin, r.dyeMain, r.dyeAccessory, x, mid - PORTRAIT / 2.0, PORTRAIT)) {
@@ -253,14 +261,14 @@ class BreakdownPane extends Pane {
         x += PORTRAIT + 7;
 
         g.setFont(SonarTheme.bold(12f));
-        g.setColor(SonarTheme.TEXT);
         String name = SonarTheme.fit(r.name.isEmpty() ? "Unknown" : r.name, g.getFontMetrics(), Math.max(40, l.nameEnd - x));
-        g.drawString(name, x, mid + 4);
+        SonarTheme.across(g, name, x, mid + 4, barEnd, clipTop, clipH, onBar, SonarTheme.TEXT);
         int after = x + g.getFontMetrics().stringWidth(name) + 7;
         if (!r.cls.isEmpty() && after < l.nameEnd - 20) {
             g.setFont(SonarTheme.font(10f));
-            g.setColor(SonarTheme.FAINT);
-            g.drawString(SonarTheme.fit(r.cls, g.getFontMetrics(), l.nameEnd - after), after, mid + 4);
+            // the class stays the quieter of the two, on the bar as well as off it
+            SonarTheme.across(g, SonarTheme.fit(r.cls, g.getFontMetrics(), l.nameEnd - after), after, mid + 4,
+                    barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.7), SonarTheme.FAINT);
         }
 
         g.setFont(SonarTheme.bold(12f));

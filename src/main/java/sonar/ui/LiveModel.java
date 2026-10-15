@@ -62,6 +62,11 @@ final class LiveModel {
     Target whole = new Target();
     /** Every boss and miniboss of the instance added together. */
     Target bosses = new Target();
+    /**
+     * Only the instance's own boss or bosses, with the minibosses left out - Oryx, not the
+     * Archbishop fought on the way to him. What a player means by "the boss of this dungeon".
+     */
+    Target mainBosses = new Target();
     /** Boss/miniboss segments reached so far this run, highest max HP first; same Target objects as in {@link #targets}. */
     final ArrayList<Target> stages = new ArrayList<>();
     /** Top 5 players by total damage dealt this instance, everyone included regardless of how they left. */
@@ -1181,6 +1186,7 @@ final class LiveModel {
         // the boss summary and the grouped fights are built from copies made before this ran, so
         // without filling them too their taken, guarded and blocked columns stay empty forever
         fillTaken(m.bosses, taken);
+        fillTaken(m.mainBosses, taken);
         for (Group g : m.groups) fillTaken(g.target, taken);
     }
 
@@ -1201,12 +1207,22 @@ final class LiveModel {
      * fighting bosses, so boss damage per second is not diluted by clearing rooms.
      */
     void sumBosses() {
-        bosses = new Target();
-        bosses.name = "Bosses";
+        bosses = sumBossesMatching("Bosses", false);
+        mainBosses = sumBossesMatching("Bosses", true);
+    }
+
+    /**
+     * Adds up the boss fights of the run into one target. With {@code mainOnly} the
+     * minibosses are left out, so the figure is the dungeon's own boss rather than
+     * everything the game happens to flag along the way.
+     */
+    private Target sumBossesMatching(String name, boolean mainOnly) {
+        Target bosses = new Target();
+        bosses.name = name;
         bosses.boss = true;
         HashMap<Integer, Row> sum = new HashMap<>();
         for (Target t : targets) {
-            if (!t.boss) continue;
+            if (!t.boss || (mainOnly && t.miniboss)) continue;
             bosses.fightMs += t.fightMs;
             bosses.id++; // doubles as the number of bosses
             // The size of a boss fight is the health it was actually seen to lose, not the one figure it
@@ -1231,6 +1247,7 @@ final class LiveModel {
         }
         bosses.rows.addAll(sum.values());
         bosses.rows.sort((a, b) -> Long.compare(b.damage, a.damage));
+        return bosses;
     }
 
     /** A miniboss the game does not officially flag still earns its own segment once its max HP clearly stands out from the trash around it. */

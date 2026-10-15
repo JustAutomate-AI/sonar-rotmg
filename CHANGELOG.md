@@ -2,6 +2,34 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.7.4
+
+**Every ping sound was playing the same file**
+- The enchant, dungeon, item, entity and realm-closing pings are meant to be told apart by ear. All five were falling back to the same default, so there was no hearing the difference between a white bag dropping and the realm closing.
+- The sounds they are set to are full paths - the Windows ones live in C:\Windows\Media - and those were being tacked onto Sonar's own folder, which produced a path to nowhere. A second fault on the same line opened the name it was given rather than the file it had just found, which broke custom sounds dropped into the data folder as well.
+- Both are fixed, so each ping plays what it is set to.
+
+**The Players page can show boss damage on its own**
+- The damage window there now has an Overall and Bosses switch of its own, starting on Overall. It no longer follows whatever the Live page happens to be looking at, because that page is read while picking through the roster.
+- Bosses means the dungeon's own boss. Minibosses are left out, so in Oryx's Sanctuary it is Oryx rather than Oryx plus the Archbishop plus the Treasurer.
+- It is worth switching to: someone who padded on trash drops down the list, and someone who turned up for the boss climbs it.
+
+**Names and ranks no longer vanish where the bar ends on the Instance page**
+- The same fault fixed on the shared image in 2.7.3 was still on screen. A class name that crossed the end of its bar was drawn all the way across in ink meant for the bar, so the part past it disappeared against the panel. Rank numbers were nearly invisible for the same reason.
+- Both are now drawn in the ink that suits what is actually behind them, and the method is shared with the image rather than written out a second time.
+
+**The leaderboard bar ran through the class name**
+- On the Analysis page the share indicator sat on the class label's baseline and cut through the tails of g, y and j. It now sits clear below them.
+
+**Characters wearing patterned cloth came out striped**
+- The pattern was being repeated once per screen pixel rather than once per pixel of the character, so it tiled five times too often and shredded the figure with thin vertical bars. Only the large portrait beside your gear showed it; in the small ones the striping was finer than a pixel.
+
+**A failed exalt lookup could stop the sniffer reading packets**
+- Exalt progress is fetched from the website rather than the game, so it can fail when nothing is wrong with the run - no connection, or their server down. That failure was being thrown onto the packet thread with nothing to catch it. It is now noted and stepped over, and the next time a token arrives it tries again.
+
+**The Shatters panel finishes its sentence**
+- Its "nothing found yet" line was longer than the panel and broke off mid-sentence.
+
 ## 2.7.3
 
 **Names on the shared image vanished where the bar ran out**

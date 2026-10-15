@@ -182,15 +182,16 @@ class LeaderboardPane extends Pane {
         if (!r.cls.isEmpty()) {
             g.setFont(SonarTheme.font(10f));
             g.setColor(SonarTheme.FAINT);
-            g.drawString(SonarTheme.fit(r.cls, g.getFontMetrics(), barW), nameX, y + ROW_H - 5);
+            // clear of the bar below: sat on it, the bar cut through the tails of g, y and j
+            g.drawString(SonarTheme.fit(r.cls, g.getFontMetrics(), barW), nameX, y + ROW_H - 8);
         }
 
         double frac = Math.max(0, Math.min(1, r.damage / (double) max));
         // a short underline-style indicator rather than a full bar, since the badge already carries rank
         g.setColor(new Color(255, 255, 255, 10));
-        g.fill(SonarTheme.round(nameX, y + ROW_H - 4, barW, 2, 1));
+        g.fill(SonarTheme.round(nameX, y + ROW_H - 3, barW, 2, 1));
         g.setColor(accent);
-        g.fill(SonarTheme.round(nameX, y + ROW_H - 4, barW * frac, 2, 1));
+        g.fill(SonarTheme.round(nameX, y + ROW_H - 3, barW * frac, 2, 1));
 
         if (withDetail && r.potentialDamage > 0) {
             String dmg = SonarTheme.compact(r.damage);

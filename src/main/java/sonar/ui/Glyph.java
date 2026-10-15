@@ -776,7 +776,10 @@ final class Glyph {
                     if (part >= 0 && dye[part] != 0) {
                         int shade = part == 0 ? red : green, colour;
                         // a dye is one colour; a cloth is a small pattern repeated over the part
-                        if (cloth[part] != null) colour = cloth[part].getRGB(px % cloth[part].getWidth(), py % cloth[part].getHeight());
+                        // the pattern repeats over the character's own pixels, so it is sampled in
+                        // sprite space; tiling it per output pixel instead made it repeat five times
+                        // too often and striped the character, which only showed at portrait size
+                        if (cloth[part] != null) colour = cloth[part].getRGB((px / scale) % cloth[part].getWidth(), (py / scale) % cloth[part].getHeight());
                         else colour = dye[part];
                         int r = ((colour >> 16) & 255) * shade / 255, gr = ((colour >> 8) & 255) * shade / 255, b = (colour & 255) * shade / 255;
                         argb = 0xff000000 | (r << 16) | (gr << 8) | b;

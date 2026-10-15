@@ -355,6 +355,40 @@ public final class SonarTheme {
         return new Color(c.getRed(), c.getGreen(), c.getBlue(), v);
     }
 
+    /** Ink that can be read on the given background: near-black on a light one, white on a dark one. */
+    public static Color inkOn(Color background) {
+        double luminance = (0.2126 * background.getRed() + 0.7152 * background.getGreen()
+                + 0.0722 * background.getBlue()) / 255.0;
+        return luminance > 0.55 ? new Color(0x15, 0x10, 0x1a) : Color.WHITE;
+    }
+
+    /**
+     * A line of text that begins on a class-coloured bar and may end past it.
+     * <p>
+     * Choosing the ink once, from whichever surface the text starts on, leaves the far
+     * half unreadable: ink picked for a bright bar vanishes against the dark panel the
+     * moment the bar runs out. Names shorter than their bar look fine, which is why this
+     * only ever showed on the players with the least damage.
+     * <p>
+     * So the line is drawn twice, clipped either side of where the bar ends, each half in
+     * the ink meant for what is actually behind it. When the text does not cross the end,
+     * one draw covers it and the other falls outside its clip.
+     */
+    public static void across(Graphics2D g, String text, float x, float y, double barEnd,
+                              int top, int height, Color onBar, Color offBar) {
+        if (text == null || text.isEmpty()) return;
+        Shape old = g.getClip();
+        for (int side = 0; side < 2; side++) {
+            g.setClip(old);
+            g.clip(side == 0
+                    ? new java.awt.geom.Rectangle2D.Double(-10000, top, 10000 + barEnd, height)
+                    : new java.awt.geom.Rectangle2D.Double(barEnd, top, 20000, height));
+            g.setColor(side == 0 ? onBar : offBar);
+            g.drawString(text, x, y);
+        }
+        g.setClip(old);
+    }
+
     public static Color mix(Color a, Color b, double t) {
         t = Math.max(0, Math.min(1, t));
         return new Color(

@@ -90,7 +90,8 @@ class LiveView {
 
     // Shatters Hardmode radar: a screen overlay drawn over the game's own minimap, marking the Stone
     // Idol, a Derelict Monument and the Source as ShattersRadar finds them among entities already tracked
-    private final ListPane shatters = new ListPane("Nothing found yet", "Beta: objectives show here with their direction and distance as soon as the game sends them, overlay or not", i -> {
+    // short enough to fit the panel at its usual width; the old line was cut off mid-sentence
+    private final ListPane shatters = new ListPane("Nothing found yet", "Beta: objectives and their direction show here as soon as the game sends them", i -> {
     });
     private boolean shattersEnabled = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.enabled"));
     private boolean shattersCalibrating;
@@ -104,6 +105,16 @@ class LiveView {
     // three separate damage views: the whole instance over elapsed time, one enemy at a time, and bosses only
     private final Segmented scope = new Segmented(new String[]{"Overall", "Enemy", "Bosses"}, savedTab(), i -> {
         sonar.util.PropertiesManager.setProperties("sonar.damage.tab", String.valueOf(i));
+        refresh();
+    });
+    // The Players page keeps its own, simpler switch. That page is about one player at a time,
+    // where the question is "how did they do overall" or "how did they do on the boss" - the
+    // per-enemy stepping of the Live page would only get in the way, so Bosses here means the
+    // instance's own boss rather than every flagged fight in it.
+    private static final int PLAYER_OVERALL = 0, PLAYER_BOSSES = 1;
+    private final Segmented playerScope = new Segmented(new String[]{"Overall", "Bosses"},
+            "1".equals(sonar.util.PropertiesManager.getProperty("sonar.players.damage.tab")) ? 1 : 0, i -> {
+        sonar.util.PropertiesManager.setProperties("sonar.players.damage.tab", String.valueOf(i));
         refresh();
     });
     // the measure shown on the bars and headlines: damage per second, or total damage dealt
@@ -211,7 +222,7 @@ class LiveView {
         gearWindow = window(playersPage, "gear", "Gear and stats", gear, null, 0.282, 0.006, 0.40, 0.60, 240, 150);
         // the bars run the width of both columns above them, where the party and the
         // per-item list used to sit
-        playerDamageWindow = window(playersPage, "playerdamage", "Damage", playerDamage, null, 0.006, 0.612, 0.676, 0.382, 360, 150);
+        playerDamageWindow = window(playersPage, "playerdamage", "Damage", playerDamage, playerScope, 0.006, 0.612, 0.676, 0.382, 360, 150);
         // the right column belongs to whoever is selected: who they are, then where their
         // damage came from. Both answer the same question and now sit together, which is
         // where the per-item list belongs rather than under the roster it has nothing to do with
@@ -2426,7 +2437,30 @@ class LiveView {
                 tab == ENEMY && shownTarget != null ? shownTarget.id : 0);
         damage.show(key, hasRows ? shownTarget : null, emptyTitle, emptyHint);
         playerDamage.totals(totals);
-        playerDamage.show(key, hasRows ? shownTarget : null, emptyTitle, emptyHint);
+        // The Players page answers for itself rather than following the Live page's switch: it is
+        // read while picking through the roster, so the fight the Live page happens to be locked
+        // onto is not what is wanted here.
+        boolean playerBosses = playerScope.selected() == PLAYER_BOSSES;
+        LiveModel.Target playerEveryone = playerBosses ? m.mainBosses : m.whole;
+        LiveModel.Target playerTarget = partyView ? partyOnly(playerEveryone) : playerEveryone;
+        boolean playerRows = m.tracked && playerTarget != null && !playerTarget.rows.isEmpty();
+        String playerEmptyTitle, playerEmptyHint;
+        if (!m.tracked) {
+            playerEmptyTitle = emptyTitle;
+            playerEmptyHint = emptyHint;
+        } else if (playerBosses) {
+            playerEmptyTitle = "No boss fought yet";
+            playerEmptyHint = "Boss damage shows here from the first hit on this instance's boss";
+        } else {
+            playerEmptyTitle = "No damage yet";
+            playerEmptyHint = "Bars appear as soon as someone lands a hit";
+        }
+        Object playerKey = Arrays.asList(m.instanceKey, "players", playerBosses, partyView);
+        playerDamage.show(playerKey, playerRows ? playerTarget : null, playerEmptyTitle, playerEmptyHint);
+        playerDamageWindow.setNote(!playerRows ? "" : SonarTheme.compact(playerTarget.total) + "  ·  "
+                + (playerBosses ? (playerTarget.id == 1 ? "1 boss" : playerTarget.id + " bosses") + "  ·  "
+                        + SonarTheme.clock(playerTarget.fightMs) + " fighting"
+                        : SonarTheme.clock(playerTarget.fightMs) + " elapsed"));
         String basis = oneFight ? SonarTheme.clock(picked.target.fightMs) + " fighting"
                 : tab == OVERALL ? SonarTheme.clock(m.whole.fightMs) + " elapsed"
                 : tab == BOSSES ? (m.bosses.id == 1 ? "1 boss" : m.bosses.id + " bosses") + "  \u00b7  " + SonarTheme.clock(m.bosses.fightMs) + " fighting"

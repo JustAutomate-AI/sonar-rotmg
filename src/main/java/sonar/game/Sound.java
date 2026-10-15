@@ -87,10 +87,14 @@ public class Sound {
 
     private static Clip loadSound(String file) {
         try {
-            File f = sonar.DataDir.file(file);
+            // A chosen ping sound is an absolute path - the Windows sounds live under
+            // C:\Windows\Media - so it is used as given. Only a bare name like
+            // "sound/party.wav" means the data folder, and failing that the copy in the jar.
+            File named = new File(file);
+            File f = named.isAbsolute() ? named : sonar.DataDir.file(file);
             InputStream audioInputStream;
-            if (f.exists()) {
-                audioInputStream = Files.newInputStream(Paths.get(file));
+            if (f.isFile()) {
+                audioInputStream = Files.newInputStream(f.toPath());
             } else {
                 audioInputStream = Sound.class.getResourceAsStream("/" + file);
             }

@@ -1143,7 +1143,13 @@ public class GameData {
             if (RealmCharacter.checkExaltNew(s)) {
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            // Exalt progress comes from the website, not the packet stream, so it is the one thing
+            // here that can fail for reasons that have nothing to do with the game: no connection,
+            // their server down. This used to be rethrown unchecked and took packet handling with
+            // it. The run matters more than the exalt numbers, so it is noted and left alone - and
+            // the flag goes back, so the next token that arrives tries again.
+            updatedExaltStats = false;
+            System.out.println("Could not fetch exalt stats: " + e.getMessage());
         }
     }
 
