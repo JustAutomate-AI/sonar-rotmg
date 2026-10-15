@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.8.1
+
+**The 2.8.0 installer could hang forever, and does not any more**
+- It created a shortcut on the Desktop. When Windows cannot write that shortcut it raises error 1909, and the installer then waits for an answer to an error dialog that never becomes answerable. The progress bar sits on "Creating shortcuts" and the only way out is Task Manager. Nothing is installed and nothing is cleaned up.
+- A name already taken on the Desktop is enough to trigger it, and so is a Desktop redirected somewhere else - which OneDrive does for a great many people by default. This was not a rare corner.
+- The installer no longer creates a desktop shortcut. The Start menu entry is written to a folder of its own and has never failed. Sonar still offers a desktop shortcut itself on first run, where refusing it is a message rather than a wedged installer.
+- The wizard is one page shorter as a result, and a clean install now takes about five seconds.
+- If 2.8.0 left you with a half-finished install: it registered nothing, so there is nothing in Add or Remove Programs to uninstall. Delete the folder it made, which is `%LOCALAPPDATA%\Sonar`, and run this installer.
+
+**How this got out:** the installer was tested with `/qn`, which installs without showing any of the wizard. That exercised the file copying and missed the dialog sequence entirely. It is tested through the actual wizard now.
+
 ## 2.8.0
 
 **There is a proper installer now**

@@ -106,6 +106,16 @@ Write-Host "  unpack it anywhere and run Sonar.exe - no Java needed"
 # signed, and until it is, not asking for admin is the difference between an install
 # that looks ordinary and one that looks alarming. The only prompt left in the whole
 # process belongs to Npcap, which is signed by the Nmap project.
+#
+# No desktop shortcut is created here, deliberately. Windows raises error 1909 if the
+# shortcut cannot be written - a name already taken on the Desktop will do it - and the
+# installer then blocks on an error dialog that, in this sequence, never becomes
+# answerable. It hangs, with the progress bar sitting on "Creating shortcuts" and no
+# way out but Task Manager. That is not a rare corner: a Desktop redirected by OneDrive
+# or a junction is extremely common, and 2.8.0 shipped with this fault. The Start menu
+# entry is written to a folder of its own and has never failed. Sonar offers a desktop
+# shortcut itself on first run (see FirstRun.java), where a refusal is just a message
+# rather than a wedged installer.
 if (-not $Wix) {
     foreach ($c in @("${env:ProgramFiles(x86)}\WiX Toolset v3.14in",
                      "${env:ProgramFiles(x86)}\WiX Toolset v3.11in",
@@ -132,7 +142,6 @@ $upgradeUuid = '9fc754e4-6e35-4968-923a-fb3a351bc9b0'
     --about-url 'https://github.com/JustAutomate-AI/sonar-rotmg' `
     --win-per-user-install --win-dir-chooser `
     --win-menu --win-menu-group 'Sonar' `
-    --win-shortcut --win-shortcut-prompt `
     --win-upgrade-uuid $upgradeUuid `
     --dest $dist
 if ($LASTEXITCODE -ne 0) { throw "jpackage could not build the installer" }
