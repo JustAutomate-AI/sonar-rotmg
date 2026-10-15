@@ -471,21 +471,53 @@ final class ResultsImage {
         // ink chosen against the bar underneath, so a name on a Paladin's yellow reads as well
         // as one on a Necromancer's violet - see inkOn. Deliberately anonymous; see paintRow().
         int nameX = px + BOSS_PORTRAIT + 7;
-        boolean onBar = nameX < trackX + barW;
-        Color ink = inkOn(onBar ? dark : SonarTheme.SURFACE);
-        Color halo = shadowFor(ink);
+        double barEnd = trackX + barW;
         g.setFont(SonarTheme.bold(12f));
         int maxNameW = Math.max(24, gearX - nameX - 8);
-        shadowed(g, SonarTheme.fit(r.name, g.getFontMetrics(), maxNameW), nameX, y + BOSS_ROW_H / 2f + 4, ink, halo);
+        across(g, SonarTheme.fit(r.name, g.getFontMetrics(), maxNameW), nameX, y + BOSS_ROW_H / 2f + 4,
+                barEnd, y, dark);
 
-        Color rightInk = inkOn(dmgX < trackX + barW ? light : SonarTheme.SURFACE);
-        Color rightHalo = shadowFor(rightInk);
         g.setFont(SonarTheme.bold(11.5f));
-        shadowed(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, rightInk, rightHalo);
+        across(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, barEnd, y, light);
         if (!pct.isEmpty()) {
             g.setFont(SonarTheme.bold(9.5f));
-            shadowed(g, pct, dmgX - pctW + 3, y + BOSS_ROW_H / 2f + 3.5f, SonarTheme.alpha(rightInk, 0.75), rightHalo);
+            across(g, pct, dmgX - pctW + 3, y + BOSS_ROW_H / 2f + 3.5f, barEnd, y, light, 0.75);
         }
+    }
+
+    private static void across(Graphics2D g, String text, float x, float y,
+                               double barEnd, int rowY, Color bar) {
+        across(g, text, x, y, barEnd, rowY, bar, 1);
+    }
+
+    /**
+     * A line of text that may begin on the class-coloured bar and end past it.
+     * <p>
+     * The ink used to be chosen once, from whichever surface the text began on. A name
+     * longer than the bar left under it was therefore drawn in ink picked for the bar all
+     * the way across, and the part hanging off the end - dark ink meant for a bright bar,
+     * now over the dark panel - disappeared. Short names were fine, which is why this only
+     * showed on the players with little damage and so the shortest bars.
+     * <p>
+     * So it is drawn twice, clipped either side of where the bar ends, each half in ink
+     * chosen for what is actually behind it. Where a name does not cross the end, one of
+     * the two draws covers everything and the other falls outside its clip.
+     */
+    private static void across(Graphics2D g, String text, float x, float y,
+                               double barEnd, int rowY, Color bar, double fade) {
+        if (text == null || text.isEmpty()) return;
+        int top = rowY - 2, height = BOSS_ROW_H + 4;
+        Shape old = g.getClip();
+        for (int side = 0; side < 2; side++) {
+            Color ink = inkOn(side == 0 ? bar : SonarTheme.SURFACE);
+            if (fade < 1) ink = SonarTheme.alpha(ink, fade);
+            g.setClip(old);
+            g.clip(side == 0
+                    ? new java.awt.geom.Rectangle2D.Double(-10000, top, 10000 + barEnd, height)
+                    : new java.awt.geom.Rectangle2D.Double(barEnd, top, 20000, height));
+            shadowed(g, text, x, y, ink, shadowFor(ink));
+        }
+        g.setClip(old);
     }
 
     /** Text with a soft shadow, so it stays readable wherever a class-coloured bar ends. */

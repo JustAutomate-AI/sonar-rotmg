@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.7.3
+
+**Names on the shared image vanished where the bar ran out**
+- A name was drawn in one ink, chosen from whichever surface its first letter sat on. A name that started on the class-coloured bar and ran off the end was therefore drawn all the way across in ink meant for the bar - dark ink over a bright colour - and the part hanging past it, now over the dark panel, disappeared.
+- It only showed on the players with the least damage, because theirs are the shortest bars, and only on names long enough to reach past them.
+- Each line is now drawn twice, clipped either side of where the bar ends, each half in ink chosen for what is actually behind it. The damage figures beside them had the same fault and the same fix.
+
 ## 2.7.2
 
 **The Fame tab is gone**
