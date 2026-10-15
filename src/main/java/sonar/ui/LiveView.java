@@ -23,6 +23,12 @@ class LiveView {
     private final CollectionPane collectionPane = new CollectionPane();
     private final FloatWindow collectionWindow;
     private final BreakdownPane breakdownPane = new BreakdownPane();
+    /**
+     * The enemy picker above the breakdown. This window shows the whole roster against one
+     * fight, which is what makes it the place to ask "how did everybody do on the Queen" -
+     * the shared image answers that for bosses only, and only in numbers.
+     */
+    private final EnemyStrip breakdownEnemies = new EnemyStrip();
     private final FloatWindow breakdownWindow;
     private final PartyFinderPane partyFinderPane = new PartyFinderPane();
     private final FloatWindow partyFinderWindow;
@@ -229,8 +235,9 @@ class LiveView {
         partyFinderWindow = window(partyFinderPage, "partyfinder", "Party finder", partyFinderPane, null,
                 0.006, 0.006, 0.988, 0.988, 320, 240);
         // the breakdown sits under the enemies as a card, and opens over the page when it is wanted
-        breakdownWindow = window(instancePage, "breakdown", "Damage breakdown", breakdownPane, breakdownAccessory(),
+        breakdownWindow = window(instancePage, "breakdown", "Damage breakdown", breakdownBody(), breakdownAccessory(),
                 0.642, 0.006, 0.352, 0.988, 240, 150);
+        breakdownEnemies.onPick(this::refresh);
         if (shattersEnabled) openShattersOverlay();
         party.onAction(this::removePartyMember);
         itemList.icons = true;
@@ -458,6 +465,16 @@ class LiveView {
     /** True while the breakdown card is opened out over the Instance page. */
     private boolean breakdownOpen;
     private final SonarButton breakdownToggle = new SonarButton("Expand", false, this::toggleBreakdown);
+
+    /** The breakdown, with the row of enemies to pick between above it. */
+    private javax.swing.JComponent breakdownBody() {
+        javax.swing.JPanel body = new javax.swing.JPanel(new java.awt.BorderLayout());
+        body.setOpaque(false);
+        breakdownEnemies.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 8, 0));
+        body.add(breakdownEnemies, java.awt.BorderLayout.NORTH);
+        body.add(breakdownPane, java.awt.BorderLayout.CENTER);
+        return body;
+    }
 
     private javax.swing.JComponent breakdownAccessory() {
         return breakdownToggle;
@@ -1113,6 +1130,25 @@ class LiveView {
         report.accept("clicking an enemy locks the damage window onto it", m.targets.size() > 1 && lockedEnemy != null && lockedEnemy == m.targets.get(1).id);
         mouse(enemies, java.awt.event.MouseEvent.MOUSE_PRESSED, 30, 20, 0, 0);
         report.accept("clicking Follow the fight releases the lock", lockedEnemy == null);
+
+        // the row of enemies above the breakdown: the point of it is reaching one fight's
+        // roster without reading a list of names, so these check the order and the picking
+        breakdownEnemies.setSize(360, 70);
+        breakdownEnemies.doLayout();
+        breakdownEnemies.show(m);
+        LiveModel.Group stripAll = breakdownEnemies.picked();
+        report.accept("the row of enemies leads with the whole instance",
+                stripAll != null && stripAll.kind.equals("overall"));
+        mouse(breakdownEnemies, java.awt.event.MouseEvent.MOUSE_PRESSED, 60, 22, 0, 0);
+        LiveModel.Group stripTop = breakdownEnemies.picked();
+        report.accept("the fight beside it is the one with the most health",
+                stripTop != null && !stripTop.kind.equals("overall") && stripTop.target.maxHp > 0);
+        report.accept("picking a fight shows the whole roster against that fight",
+                stripTop != null && !stripTop.target.rows.isEmpty()
+                        && stripTop.target.total <= m.whole.total);
+        mouse(breakdownEnemies, java.awt.event.MouseEvent.MOUSE_PRESSED, 20, 22, 0, 0);
+        report.accept("picking the first tile again puts the whole instance back",
+                breakdownEnemies.picked() != null && breakdownEnemies.picked().kind.equals("overall"));
 
         mouse(history, java.awt.event.MouseEvent.MOUSE_PRESSED, 30, 70, 0, 0);
         report.accept("clicking a finished instance opens it for review", isReviewing());
@@ -2609,8 +2645,15 @@ class LiveView {
         enemies.show(list, selectedEnemy);
         enemiesWindow.setNote(m.targets.isEmpty() ? "" : filter == ENEMIES_ALL ? m.targets.size() + " this instance" : shownTargets.size() + " of " + m.targets.size());
 
-        // the breakdown follows whatever the damage window is showing, so the two always agree
-        breakdownPane.show(shownTarget, m.completionKnown);
+        // The breakdown is driven by its own row of enemies rather than by the Live page, which
+        // is the point of it: pick the Queen here and the whole roster is shown against her,
+        // with everything the breakdown knows about each player, not just the boss totals a
+        // shared image carries.
+        breakdownEnemies.show(m);
+        LiveModel.Group pickedFight = breakdownEnemies.picked();
+        LiveModel.Target breakdownTarget = pickedFight == null || pickedFight.kind.equals("overall")
+                ? m.whole : pickedFight.target;
+        breakdownPane.show(m.tracked ? breakdownTarget : null, m.completionKnown);
         breakdownWindow.setNote(breakdownPane.note());
 
         bossSegments.show(m);

@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.9.0
+
+**Pick a fight by its picture**
+- The Damage breakdown now has a row of the run's enemies above it, each drawn as its own sprite, biggest health first. Click one and the whole roster is shown against that fight: who dealt what, how much of its health the party accounted for, and everything the breakdown already knew about each player.
+- This is for the fights whose names are no use. The Shatters calls its fourth largest fight `Shatters A22` - a hundred thousand health, bigger than anything but the three named bosses - and every player who has run it knows her on sight as the Queen and by no other name. Among a hundred and sixty enemies that name finds nothing; the picture finds her at once.
+- A gold dot marks a fight the game itself stages, so a boss is picked out from an add. A wave of ordinary enemies has no single face and gets a mark of its own. The caption underneath names whatever the pointer is over.
+- Sharing a run as an image gives the boss numbers and only the boss numbers. This gives the same question a full answer, for any enemy, without leaving the page.
+- The breakdown used to follow whatever the Live page was showing. It answers for itself now.
+
+**Four more self-test assertions** cover the new row: what it leads with, that the biggest fight sits beside it, that picking one shows the roster against it, and that picking back returns the whole instance. 221 in total.
+
 ## 2.8.3
 
 **The dungeon-call ping now hears guild chat**
