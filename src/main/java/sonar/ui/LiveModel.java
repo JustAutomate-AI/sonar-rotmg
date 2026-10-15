@@ -428,6 +428,15 @@ final class LiveModel {
          */
         boolean died;
 
+        /**
+         * Their health as a percentage the moment they went, or -1 if it was never seen. A
+         * board that says somebody nexused says nothing about whether that was reasonable;
+         * leaving at four percent is a different story from leaving at full health.
+         */
+        int leftHpPercent = -1;
+        /** The boss's health as a percentage at that moment, or -1 when there was no boss. */
+        int leftBossPercent = -1;
+
         /** True when this player is known to have gone before the run ended, however they went. */
         boolean left() {
             return leftAtMs >= 0;
@@ -929,7 +938,7 @@ final class LiveModel {
             int[] raw = sonar.game.RealmCharacter.exalts.get((int) me.objectType);
             for (int i = 0; i < 8; i++) m.exaltProgress[i] = raw == null ? 0 : Math.max(0, Math.min(EXALT_PROGRESS_CAP, raw[EXALT_ORDER[i]]));
         }
-        buildLeaderboards(m, m.seen, data.playerDroppedAt(), data.getTimePcFirst(), deadIds(data));
+        buildLeaderboards(m, m.seen, data.playerDroppedAt(), data.getTimePcFirst(), deadIds(data), data.leftAt());
         HashMap<Integer, Row> seenById = new HashMap<>();
         for (Row r : m.seen) seenById.put(r.id, r);
         LeechAnalysis.refine(m, seenById);
@@ -951,7 +960,7 @@ final class LiveModel {
                 extraRoster.add(r);
             }
         }
-        buildLeaderboards(m, extraRoster, d.playerDroppedAt, d.dungeonStartTime, deadIds(d.deathNotifications));
+        buildLeaderboards(m, extraRoster, d.playerDroppedAt, d.dungeonStartTime, deadIds(d.deathNotifications), null);
         LeechAnalysis.refine(m, Map.of());
         return m;
     }
@@ -1683,7 +1692,8 @@ final class LiveModel {
     }
 
     private static void buildLeaderboards(LiveModel m, Collection<Row> extraRoster, Map<Integer, Long> droppedAt,
-                                          long startTimePc, java.util.Set<Integer> deadIds) {
+                                          long startTimePc, java.util.Set<Integer> deadIds,
+                                          Map<Integer, sonar.backend.data.GameData.LeftAt> leftAt) {
         LinkedHashMap<Integer, Row> roster = new LinkedHashMap<>();
         for (Row r : m.whole.rows) roster.put(r.id, r);
         for (Row r : extraRoster) roster.putIfAbsent(r.id, r);
@@ -1705,6 +1715,11 @@ final class LiveModel {
             // to finishing. The time is measured from the first thing anybody hit.
             r.leftAtMs = left == null ? -1 : Math.max(0, left - startTimePc);
             r.died = deadIds != null && deadIds.contains(r.id);
+            sonar.backend.data.GameData.LeftAt at = leftAt == null ? null : leftAt.get(r.id);
+            if (at != null) {
+                r.leftHpPercent = at.hpPercent();
+                r.leftBossPercent = at.bossPercent();
+            }
         }
 
         ArrayList<Row> byDamageDesc = new ArrayList<>(roster.values());

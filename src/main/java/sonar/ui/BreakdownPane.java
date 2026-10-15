@@ -224,12 +224,30 @@ class BreakdownPane extends Pane {
         // during the victory lap did the run, and tagging them would be noise.
         if (!r.left() || r.completed) return;
         String tag = r.died ? "DIED" : "NEXUS";
-        String when = SonarTheme.clock(r.leftAtMs);
+        // The time, then what was true as they went. Health first because it is the part that
+        // says whether leaving was sensible; the boss's health second because it says how close
+        // the run was. Both are dropped rather than crowded out when the row is narrow.
+        String time = SonarTheme.clock(r.leftAtMs);
+        String hp = r.leftHpPercent >= 0 ? "  ·  " + r.leftHpPercent + "% hp" : "";
+        String boss = r.leftBossPercent >= 0 ? "  ·  boss " + r.leftBossPercent + "%" : "";
+
         g.setFont(SonarTheme.bold(8.5f));
         int tagW = g.getFontMetrics().stringWidth(tag) + 10;
+        // The damage figure is drawn right-aligned at l.damage, so the room available ends well
+        // left of that. Measuring against l.damage itself is what let the detail run underneath
+        // it. Pieces are dropped from the end until what is left fits, rather than all or none:
+        // the health is the part worth keeping when only one of them can be shown.
+        // measured in the font it is actually drawn in - bold 12, not the 9 this detail uses,
+        // which is what let the longest detail still touch the figure
+        g.setFont(SonarTheme.bold(12f));
+        int figureW = g.getFontMetrics().stringWidth(SonarTheme.number(r.damage));
         g.setFont(SonarTheme.font(9f));
-        int whenW = g.getFontMetrics().stringWidth(when) + 4;
-        if (x + tagW + whenW > l.damage - 10) return; // no room without crowding the figure
+        int room = l.damage - figureW - 16 - (x + tagW + 4);
+        String when = time + hp + boss;
+        if (g.getFontMetrics().stringWidth(when) > room) when = time + hp;
+        if (g.getFontMetrics().stringWidth(when) > room) when = time;
+        if (g.getFontMetrics().stringWidth(when) > room) when = "";
+        if (room < 0) return;
 
         Color mark = r.died ? SonarTheme.CORAL : SonarTheme.GOLD;
         g.setColor(SonarTheme.alpha(mark, 0.16));

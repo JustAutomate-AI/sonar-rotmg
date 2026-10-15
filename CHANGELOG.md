@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.12.0
+
+**What was true when somebody left**
+- The NEXUS tag now carries their health as they went, and the boss's health at that moment: *NEXUS 02:30 · 86% hp · boss 71%*.
+- Saying somebody nexused says nothing about whether that was reasonable. Leaving on four percent with the boss nearly dead is a different story from leaving at full health with most of the fight left, and only one of those is worth anybody's annoyance. Sonar cannot know **why** somebody left - that would mean predicting shots about to land - but it can say what was true when they did.
+- The boss's figure is whatever largest thing the party had been hitting was still standing, which in a dungeon is the fight they were in the middle of. It says how close the run was to being over.
+- A narrow window drops the boss first and the time last, keeping the health, which is the part worth having when only one fits.
+
 ## 2.11.0
 
 **Who nexused is written beside their name**

@@ -226,10 +226,16 @@ final class LiveDemo {
         // like: one nexused partway, one died. A real run almost always has at least one.
         for (LiveModel.Row r : m.whole.rows) {
             if ("Username9".equals(r.name)) {
+                // left in good health with most of the boss still up: the case worth noticing
                 r.leftAtMs = Math.max(1, elapsed * 2 / 5);
+                r.leftHpPercent = 86;
+                r.leftBossPercent = 71;
                 r.completed = false;
             } else if ("Username14".equals(r.name)) {
+                // died on four percent with the boss nearly down: nobody's fault
                 r.leftAtMs = Math.max(1, elapsed * 3 / 4);
+                r.leftHpPercent = 4;
+                r.leftBossPercent = 9;
                 r.died = true;
                 r.completed = false;
             }

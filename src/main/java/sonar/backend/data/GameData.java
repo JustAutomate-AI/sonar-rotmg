@@ -68,6 +68,39 @@ public class GameData {
     protected final HashMap<Integer, Entity> dropList = new HashMap<>();
     /** Sonar: dungeon-absolute time each player left this instance (nexused, died or disconnected - the game sends no reason); present players have no entry. */
     private final HashMap<Integer, Long> playerDroppedAt = new HashMap<>();
+    /** What was true the moment each player disappeared, for {@link #leftAt()}. */
+    private final HashMap<Integer, LeftAt> leftAt = new HashMap<>();
+
+    /**
+     * A snapshot taken as a player vanishes: their own health, and the state of the biggest
+     * thing still standing that the party had been hitting.
+     * <p>
+     * Why it is worth keeping: a board that says somebody nexused says nothing about whether
+     * that was sensible. Leaving at four percent health with the boss at eighty is a different
+     * story from leaving at full health with the boss nearly dead, and the second one is the
+     * only one anybody should be annoyed about. Sonar cannot know why somebody left - that
+     * would mean predicting shots about to land - but it can say what was true when they did.
+     */
+    public static final class LeftAt {
+        public int hp, maxHp;
+        public int bossHp, bossMaxHp;
+        public String bossName = "";
+
+        /** Their health as a percentage, or -1 when it was never seen. */
+        public int hpPercent() {
+            return maxHp <= 0 ? -1 : (int) Math.round(Math.max(0, Math.min(hp, maxHp)) * 100.0 / maxHp);
+        }
+
+        /** The boss's health as a percentage, or -1 when there was no boss or it was unknown. */
+        public int bossPercent() {
+            return bossMaxHp <= 0 ? -1 : (int) Math.round(Math.max(0, Math.min(bossHp, bossMaxHp)) * 100.0 / bossMaxHp);
+        }
+    }
+
+    /** What was true as each player left, by their entity id. */
+    public Map<Integer, LeftAt> leftAt() {
+        return leftAt;
+    }
     private ArrayList<Packet> dpsPacketLog = new ArrayList<>();
     private boolean petyard;
     private RealmCharacterStats currentCharacterStats;
@@ -292,7 +325,10 @@ public class GameData {
                 sonar.ui.DamageAudit.dropped(e);
             }
 
-            if (playerListUpdated.containsKey(dropId)) playerDroppedAt.put(dropId, timePc);
+            if (playerListUpdated.containsKey(dropId)) {
+                playerDroppedAt.put(dropId, timePc);
+                if (e != null) leftAt.put(dropId, snapshot(e));
+            }
             playerListUpdated.remove(dropId);
         }
     }
@@ -331,6 +367,7 @@ public class GameData {
             // the drop was recorded and never taken back. A player who returns plainly did not
             // nexus, so the record goes - only a drop with no return means they are gone.
             playerDroppedAt.remove(id);
+            leftAt.remove(id);
             if (id == worldPlayerId) {
                 player = entity;
                 entity.setUser(charId);
@@ -946,6 +983,7 @@ public class GameData {
         playerListUpdated.clear();
         dropList.clear();
         playerDroppedAt.clear();
+        leftAt.clear();
 
         lootBags.clear();
 
@@ -1209,6 +1247,27 @@ public class GameData {
     }
 
     /** Sonar: dungeon-absolute time each player left this instance; present players have no entry. */
+    /**
+     * The player's own health as they went, plus the largest enemy still standing that had
+     * been hit - which in a dungeon is the boss they were in the middle of.
+     */
+    private LeftAt snapshot(Entity player) {
+        LeftAt at = new LeftAt();
+        at.hp = player.hp();
+        at.maxHp = player.maxHp();
+        Entity biggest = null;
+        for (Entity enemy : entityHitList.values()) {
+            if (enemy == null || enemy.hp() <= 0) continue;
+            if (biggest == null || enemy.maxHp() > biggest.maxHp()) biggest = enemy;
+        }
+        if (biggest != null) {
+            at.bossHp = biggest.hp();
+            at.bossMaxHp = biggest.maxHp();
+            at.bossName = biggest.name() == null ? "" : biggest.name();
+        }
+        return at;
+    }
+
     public Map<Integer, Long> playerDroppedAt() {
         return playerDroppedAt;
     }
