@@ -51,3 +51,12 @@ sonar.properties
 # Asset research: extracted game art, kept locally for reference only.
 # Not Sonar's to redistribute, and not shipped in any release.
 /research/
+
+# What running Sonar from the workshop folder leaves behind. players.json and
+# history/ hold real usernames from real runs and must never reach the repository.
+/Sonar.jar
+/java-path.txt
+/players.json
+/audit/
+/history/
+/run/

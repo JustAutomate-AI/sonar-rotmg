@@ -22,6 +22,22 @@ class LiveView {
     /** What each dungeon drops against what the account already holds. */
     private final CollectionPane collectionPane = new CollectionPane();
     private final FloatWindow collectionWindow;
+    /**
+     * The runs you and the selected player have both been in - the Instances list, filtered
+     * to one person. Deliberately the same rows, the same portal pictures and the same
+     * wording: it answers the same question, so learning to read it twice would be a waste.
+     * The Instances window itself is untouched.
+     */
+    private final ListPane sharedList = new ListPane("No runs together yet",
+            "Runs you were both in appear here, for as long as they are kept", this::pickShared);
+    private java.util.List<PlayerHistory.Appearance> sharedRuns = new ArrayList<>();
+    private final java.awt.CardLayout playerSwap = new java.awt.CardLayout();
+    private final javax.swing.JPanel playerCards = new javax.swing.JPanel(playerSwap);
+    private static final int PLAYER_PROFILE = 0, PLAYER_SHARED = 1;
+    // for screenshots: -Dsonar.shot.playertab=1 opens on Shared
+    private final Segmented playerTab = new Segmented(new String[]{"Player", "Shared"},
+            Integer.getInteger("sonar.shot.playertab", 0), i -> refresh());
+
     private final BreakdownPane breakdownPane = new BreakdownPane();
     /**
      * The enemy picker above the breakdown. This window shows the whole roster against one
@@ -60,7 +76,9 @@ class LiveView {
     private final java.util.ArrayList<String> rosterNames = new java.util.ArrayList<>();
     private final FloatWindow rosterWindow, playerWindow, playerDamageWindow, itemsWindow;
     /** Name of the player shown on the Players page; null shows the user. */
-    private String selectedPlayer;
+    // for screenshots: -Dsonar.shot.player=<name> starts with that player picked, exactly as
+    // clicking their bar would, so every panel that follows the selection agrees
+    private String selectedPlayer = System.getProperty("sonar.shot.player");
 
 
     /**
@@ -90,7 +108,7 @@ class LiveView {
     // browsing a past day (up to InstanceHistory.KEEP_DAYS back) swaps the Instances list to that day's saved instances
     private LocalDate historyDate = LocalDate.now();
     private List<LiveModel.Past> historyPasts = new ArrayList<>();
-    private final javax.swing.JLabel historyDateLabel = new javax.swing.JLabel("Today");
+    private final javax.swing.JLabel historyDateLabel = SonarTheme.label("Today");
     private final SonarShell.ArrowButton historyBack = new SonarShell.ArrowButton(-1, "Previous day", () -> historyStep(-1));
     private final SonarShell.ArrowButton historyForward = new SonarShell.ArrowButton(1, "Next day", () -> historyStep(1));
 
@@ -250,7 +268,8 @@ class LiveView {
         // the right column belongs to whoever is selected: who they are, then where their
         // damage came from. Both answer the same question and now sit together, which is
         // where the per-item list belongs rather than under the roster it has nothing to do with
-        playerWindow = window(playersPage, "player", "Player", playerFacts, null, 0.688, 0.006, 0.306, 0.49, 220, 140);
+        playerWindow = window(playersPage, "player", "Player", playerBody(), playerTab, 0.688, 0.006, 0.306, 0.49, 220, 140);
+        sharedList.icons = true;
         itemsWindow = window(playersPage, "items", "Damage by item", itemList, null, 0.688, 0.502, 0.306, 0.492, 220, 140);
         vaultWindow = window(vaultPage, "vault", "Vault", vaultPane, vaultTab, 0.006, 0.006, 0.988, 0.988, 260, 200);
         charactersWindow = window(charactersPage, "characters", "Characters", charactersPane, null, 0.006, 0.006, 0.988, 0.988, 300, 220);
@@ -336,6 +355,18 @@ class LiveView {
 
     /** The roster list with its All / Near me tab above it. */
     /** The Players page's own damage switches: what is counted, how it is measured, and whose. */
+    /**
+     * The Player window holds two views of the same person: who they are, and where you have
+     * run into them before. One switch, one window - the page has no room for a second, and
+     * the two answer the same question from different ends.
+     */
+    private javax.swing.JComponent playerBody() {
+        playerCards.setOpaque(false);
+        playerCards.add(playerFacts, "profile");
+        playerCards.add(sharedList, "shared");
+        return playerCards;
+    }
+
     private javax.swing.JComponent playerDamageHeader() {
         javax.swing.Box row = javax.swing.Box.createHorizontalBox();
         row.add(playerMetric);
@@ -552,6 +583,33 @@ class LiveView {
         }
         playerFacts.visits(visits.isEmpty() ? "" : "ALSO SEEN IN", visits);
         playerFacts.onVisitClick = key -> openVisit(name, (PlayerHistory.Appearance) key);
+
+        // the same lookup, drawn as the Instances list draws a run, with how it ended for each
+        // of you added to the line that already carries the damage
+        sharedRuns = seenIn;
+        ArrayList<ListPane.Item> shared = new ArrayList<>();
+        for (PlayerHistory.Appearance a : seenIn) {
+            String detail = instanceDetail(a.durationMs, a.partyTotal, a.myDamage, a.joined);
+            String theirs = a.theirs == null ? "" : a.theirs.word();
+            String mineWord = a.mine == null ? "" : a.mine.word();
+            if (!theirs.isEmpty()) detail += "  ·  they " + theirs.toLowerCase();
+            if (!mineWord.isEmpty()) detail += "  ·  you " + mineWord.toLowerCase();
+            // The portal picture is looked up here rather than left to the map the live model
+            // fills in, which only knows the dungeons visited since Sonar started - a run from
+            // three weeks ago would otherwise be the one row with no picture.
+            int portal = sonar.game.ParseDungeon.getPortalId(a.instance);
+            ListPane.Item row = new ListPane.Item(a.instance, detail, agoText(a.day), -1,
+                    a.joined ? SonarTheme.GOLD : SonarTheme.accent());
+            if (portal > 0) row.sprite(portal);
+            shared.add(row);
+        }
+        sharedList.show(shared, -1);
+        boolean onShared = playerTab.selected() == PLAYER_SHARED;
+        playerSwap.show(playerCards, onShared ? "shared" : "profile");
+        if (onShared) {
+            playerWindow.setNote(seenIn.isEmpty() ? "none yet"
+                    : seenIn.size() + (seenIn.size() == 1 ? " run together" : " runs together"));
+        }
     }
 
     /** Opens a saved run and picks out the player who led you to it. */
@@ -651,6 +709,26 @@ class LiveView {
         } catch (Exception e) {
             e.printStackTrace();
             flashShareButton(shareButton, "All", "Couldn't export");
+        }
+    }
+
+    /**
+     * Writes the three shareable pictures to a folder, for looking at what they actually come
+     * out like without having to finish a run first. Driven by {@code -Dsonar.shot.cards=<dir>}.
+     */
+    void writeExports(String dir) {
+        LiveModel m = shown();
+        PlayerLook.fill(m.whole.rows);
+        for (LiveModel.Target t : m.targets) PlayerLook.fill(t.rows);
+        for (LiveModel.Group g : m.groups) PlayerLook.fill(g.target.rows);
+        try {
+            new java.io.File(dir).mkdirs();
+            javax.imageio.ImageIO.write(ResultsImage.render(m), "png", new java.io.File(dir, "results.png"));
+            javax.imageio.ImageIO.write(ResultsImage.renderByBoss(m), "png", new java.io.File(dir, "by-boss.png"));
+            MvpCard.Pick pick = MvpCard.pick(m);
+            if (pick != null) javax.imageio.ImageIO.write(MvpCard.render(m, pick), "png", new java.io.File(dir, "mvp.png"));
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -1290,6 +1368,26 @@ class LiveView {
         mouse(damage, java.awt.event.MouseEvent.MOUSE_PRESSED, 42, rowY, 0, 0);
         mouse(damage, java.awt.event.MouseEvent.MOUSE_PRESSED, 200, rowY, 0, 0);
         report.accept("clicking a bar opens that player's details", second.name.equals(selectedPlayer));
+
+        // the Shared tab is the Instances list filtered to one person, so the two must agree
+        // on what a run says as well as on which runs there are
+        playerTab.select(PLAYER_SHARED, true);
+        livePage.validate();
+        report.accept("the Shared tab shows the runs you were both in, and only those",
+                sharedRuns.size() == PlayerHistory.of(second.name).size() && playerCards.getComponent(PLAYER_SHARED).isVisible());
+        LiveModel.Past sample = new LiveModel.Past();
+        sample.name = "The Shatters";
+        sample.durationMs = 421000;
+        sample.total = 4880000;
+        sample.mine = 195000;
+        report.accept("a shared run is worded exactly as the Instances list words it",
+                pastItem(sample).detail.equals(instanceDetail(sample.durationMs, sample.total, sample.mine, sample.joined)));
+        sample.joined = true;
+        report.accept("a run Sonar joined late still says so on both",
+                pastItem(sample).detail.startsWith("Started late"));
+        playerTab.select(PLAYER_PROFILE, true);
+        livePage.validate();
+        report.accept("switching back shows the player's profile again", playerCards.getComponent(PLAYER_PROFILE).isVisible());
         long itemSum = 0;
         for (LiveModel.Item it : second.items.values()) itemSum += it.damage;
         report.accept("a player's items add up to their damage", !second.items.isEmpty() && itemSum == second.damage);
@@ -2266,6 +2364,22 @@ class LiveView {
         return ResultsImage.renderByBoss(m);
     }
 
+
+    /**
+     * Renders a card for a player whose fight is missing, which throws partway, and reports
+     * what the export flag was left at. A leak here would have the live interface quietly
+     * drawing its sprites the way a posted picture does until the next restart.
+     */
+    private static int exportFlagAfterFailure() {
+        try {
+            MvpCard.Pick broken = MvpCard.brokenPickForTest();
+            MvpCard.render(new LiveModel(), broken);
+        } catch (RuntimeException expected) {
+            // that is the point of it
+        }
+        return Glyph.exportScale;
+    }
+
     private static boolean samePixels(java.awt.image.BufferedImage a, java.awt.image.BufferedImage b) {
         if (a.getWidth() != b.getWidth() || a.getHeight() != b.getHeight()) return false;
         for (int y = 0; y < a.getHeight(); y++) {
@@ -2366,6 +2480,16 @@ class LiveView {
 
         // nothing hit at all has no card to make
         report.accept("nothing hit at all makes no card", MvpCard.pick(new LiveModel()) == null);
+
+        // ---- what a posted picture is worth zooming into ----
+        // The picture is read by zooming in on it in a Discord, which is when a sprite drawn
+        // at two and a half of its own pixels to the box pixel turns to mush. It is drawn at
+        // export resolution instead, and the flag that says so must never outlive the render.
+        java.awt.image.BufferedImage posted = ResultsImage.render(mvpRun);
+        report.accept("a shareable picture is drawn at export resolution",
+                ResultsImage.MAX_SCALE > 1 && posted.getWidth() == 680 * ResultsImage.MAX_SCALE);
+        report.accept("making one leaves the live interface drawing as it did", Glyph.exportScale == 0);
+        report.accept("so does one that fails", exportFlagAfterFailure() == 0);
 
         report.accept("the void dressing is drawn quieter than what you are hunting",
                 ShattersRadar.tier(0xb6b1) == ShattersRadar.VOID
@@ -2854,6 +2978,10 @@ class LiveView {
         if (chosen == null) {
             playerFacts.showEmpty("No player selected", "Click a player's bar on the Live page");
             playerWindow.setNote("");
+            // the Shared tab belongs to whoever is picked, so with nobody picked it empties
+            // rather than keeping the last person's runs under a blank heading
+            sharedRuns = new ArrayList<>();
+            sharedList.show(new ArrayList<>(), -1);
         } else {
             for (LiveModel.Item it : chosen.itemsByDamage()) {
                 String detail = it.kind + "  \u00b7  " + SonarTheme.number(it.hits) + (it.hits == 1 ? " hit" : " hits")
@@ -2918,10 +3046,31 @@ class LiveView {
      * a complete run or quietly averaged in with them.
      */
     private ListPane.Item pastItem(LiveModel.Past p) {
-        String detail = SonarTheme.clock(p.durationMs) + "  ·  party " + SonarTheme.compact(p.total)
-                + (p.mine > 0 ? "  ·  you " + SonarTheme.compact(p.mine) : "");
-        if (p.joined) detail = "Started late  ·  " + detail;
-        return new ListPane.Item(p.name, detail, "", -1, p.joined ? SonarTheme.GOLD : SonarTheme.accent());
+        return new ListPane.Item(p.name, instanceDetail(p.durationMs, p.total, p.mine, p.joined), "", -1,
+                p.joined ? SonarTheme.GOLD : SonarTheme.accent());
+    }
+
+    /**
+     * The line under a run's name, shared by the Instances list and the filtered copy of it on
+     * a player's Shared tab - written once so the two cannot drift into saying the same thing
+     * two different ways.
+     */
+    private String instanceDetail(long durationMs, long partyTotal, long mine, boolean joined) {
+        String detail = SonarTheme.clock(durationMs) + "  ·  party " + SonarTheme.compact(partyTotal)
+                + (mine > 0 ? "  ·  you " + SonarTheme.compact(mine) : "");
+        return joined ? "Started late  ·  " + detail : detail;
+    }
+
+    /** "today", "yesterday", or how many days back, for the Shared tab's right-hand column. */
+    private static String agoText(java.time.LocalDate day) {
+        long days = java.time.temporal.ChronoUnit.DAYS.between(day, java.time.LocalDate.now());
+        return days == 0 ? "today" : days == 1 ? "yesterday" : days + "d ago";
+    }
+
+    /** Opens the shared run that was clicked, with the player who led you there picked out. */
+    private void pickShared(int index) {
+        if (index < 0 || index >= sharedRuns.size()) return;
+        openVisit(selectedPlayer, sharedRuns.get(index));
     }
 
     /**

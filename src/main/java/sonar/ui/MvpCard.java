@@ -37,6 +37,11 @@ final class MvpCard {
         boolean overall;
     }
 
+    /** A pick with nothing behind it, so the self-test can watch a render fail partway. */
+    static Pick brokenPickForTest() {
+        return new Pick();
+    }
+
     /**
      * The final boss if the run had one, else the biggest boss fought, else everything.
      *
@@ -99,26 +104,33 @@ final class MvpCard {
         // picture is made rather than given a fixed four lines to live in
         int[] rows = loadoutRows(r);
         int height = PAD + 50 + (PORTRAIT + 20) + 92 + 22 + rows[0] + rows[1] + 10 + 32 + PAD;
-        BufferedImage img = new BufferedImage(W, height, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = SonarTheme.quality(img.createGraphics());
-        g.setColor(SonarTheme.BG);
-        g.fillRect(0, 0, W, height);
+        // drawn at export resolution: this is the picture people post, and the loadout on it
+        // is the part they zoom in on
+        try {
+            ResultsImage.Sheet sheet = new ResultsImage.Sheet(W, height);
+            Graphics2D g = sheet.g;
+            g.setColor(SonarTheme.BG);
+            g.fillRect(0, 0, W, height);
 
-        int y = PAD;
-        // the icons claim the right of the heading row, so the fight name is told how
-        // little room it has left rather than being painted underneath them
-        List<LiveModel.Target> bosses = pick.overall ? java.util.Collections.emptyList() : mainBosses(m);
-        int reserved = bosses.size() < 2 ? 0
-                : bosses.size() * RANK_ICON + (bosses.size() - 1) * RANK_GAP + 18;
-        y = paintHeading(g, pick, y, reserved, bosses.size() >= 2, m.joined);
-        paintBossRanks(g, bosses, pick, PAD);
-        y = paintPlayer(g, r, y);
-        y = paintNumbers(g, m, pick, y);
-        paintLoadout(g, r, y, rows);
-        paintFooter(g, m, height);
+            int y = PAD;
+            // the icons claim the right of the heading row, so the fight name is told how
+            // little room it has left rather than being painted underneath them
+            List<LiveModel.Target> bosses = pick.overall ? java.util.Collections.emptyList() : mainBosses(m);
+            int reserved = bosses.size() < 2 ? 0
+                    : bosses.size() * RANK_ICON + (bosses.size() - 1) * RANK_GAP + 18;
+            y = paintHeading(g, pick, y, reserved, bosses.size() >= 2, m.joined);
+            paintBossRanks(g, bosses, pick, PAD);
+            y = paintPlayer(g, r, y);
+            y = paintNumbers(g, m, pick, y);
+            paintLoadout(g, r, y, rows);
+            paintFooter(g, m, height);
 
-        g.dispose();
-        return img;
+            return sheet.done();
+        } finally {
+            // a render that threw must not leave the live interface drawing
+            // its sprites the way a posted picture does
+            Glyph.exportScale = 0;
+        }
     }
 
     /** The star, and which fight this is the top of. */

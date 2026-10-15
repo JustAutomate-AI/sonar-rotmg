@@ -37,8 +37,8 @@ public class SonarShell extends JPanel {
     private final FadeHost host = new FadeHost();
     private final CardLayout cards = new CardLayout();
     private final LinkedHashMap<String, NavItem> nav = new LinkedHashMap<>();
-    private final JLabel title = new JLabel(" ");
-    private final JLabel subtitle = new JLabel(" ");
+    private final JLabel title = SonarTheme.label(" ");
+    private final JLabel subtitle = SonarTheme.label(" ");
     private final StatusPill pill = new StatusPill();
     private final StatusPill vaultPill = new StatusPill();
     private final SonarButton snifferButton = new SonarButton("Start sniffer", true, Sniffer::toggleSniffer);
@@ -237,7 +237,7 @@ public class SonarShell extends JPanel {
             }
         });
 
-        JLabel brand = new JLabel("Sonar");
+        JLabel brand = SonarTheme.label("Sonar");
         brand.setFont(SonarTheme.bold(17f));
         brand.setForeground(SonarTheme.TEXT);
         brand.setIconTextGap(10);
@@ -278,7 +278,7 @@ public class SonarShell extends JPanel {
         scroll.getVerticalScrollBar().setUnitIncrement(24);
         rail.add(scroll, BorderLayout.CENTER);
 
-        JLabel version = new JLabel("Sonar " + Updater.current());
+        JLabel version = SonarTheme.label("Sonar " + Updater.current());
         version.setFont(SonarTheme.font(11f));
         version.setForeground(SonarTheme.FAINT);
         version.setToolTipText("What has changed in the last few releases");
@@ -671,6 +671,8 @@ public class SonarShell extends JPanel {
         String tab = System.getProperty("sonar.shot.tab");
         Timer t = new Timer(delay, e -> {
             if (System.getProperty("sonar.selftest") != null) live.selfTest();
+            String cards = System.getProperty("sonar.shot.cards");
+            if (cards != null) live.writeExports(cards);
             JRootPane root = SwingUtilities.getRootPane(this);
             double scale = root.getGraphicsConfiguration().getDefaultTransform().getScaleX();
             BufferedImage img = new BufferedImage((int) (root.getWidth() * scale), (int) (root.getHeight() * scale), BufferedImage.TYPE_INT_RGB);

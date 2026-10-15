@@ -45,12 +45,12 @@ public final class SonarDialog {
         };
         body.setBorder(BorderFactory.createEmptyBorder(26, 28, 20, 28));
 
-        JLabel heading = new JLabel(title);
+        JLabel heading = SonarTheme.label(title);
         heading.setFont(SonarTheme.bold(17f));
         heading.setForeground(SonarTheme.TEXT);
         heading.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
-        JLabel text = new JLabel("<html><body style='width:330px'>" + escape(message) + "</body></html>");
+        JLabel text = SonarTheme.label("<html><body style='width:330px'>" + escape(message) + "</body></html>");
         text.setFont(SonarTheme.font(12.5f));
         text.setForeground(SonarTheme.MUTED);
 
@@ -120,10 +120,10 @@ public final class SonarDialog {
         body.setOpaque(false);
         body.setBorder(BorderFactory.createEmptyBorder(26, 28, 20, 28));
 
-        JLabel heading = new JLabel(title);
+        JLabel heading = SonarTheme.label(title);
         heading.setFont(SonarTheme.bold(17f));
         heading.setForeground(SonarTheme.TEXT);
-        JLabel sub = new JLabel(subtitle);
+        JLabel sub = SonarTheme.label(subtitle);
         sub.setFont(SonarTheme.font(12f));
         sub.setForeground(SonarTheme.FAINT);
         sub.setBorder(BorderFactory.createEmptyBorder(2, 0, 12, 0));

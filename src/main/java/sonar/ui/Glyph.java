@@ -178,6 +178,49 @@ final class Glyph {
     }
 
     /** Draws the game's own picture of an item by id. Returns false when there is none, so the caller can leave no gap. */
+
+    /**
+     * Non-zero while a shareable picture is being drawn, holding how many real pixels that
+     * picture is getting for each one its layout works in. Set by {@link ResultsImage.Sheet}
+     * and cleared when the picture is finished; the render is single-threaded.
+     * <p>
+     * The game's art is pixel art, eight or sixteen pixels square for an item, and a run's
+     * picture asks for it in a box of some unrelated size - twenty pixels, fifteen on the
+     * per-boss page. Two and a half source pixels to the box pixel means some rows of the
+     * sprite come out two pixels tall and some three, which is the mush you see when you
+     * zoom in on a posted picture looking for what somebody was wearing. At export resolution
+     * there is room to fix that: the sprite is drawn at a whole multiple of its own pixels,
+     * centred in the box it was given, so every row comes out the same height and the enchant
+     * gem in the corner stays a gem.
+     */
+    static int exportScale;
+
+    /**
+     * Paints one of the game's pictures into a square box, never smoothed, and on whole
+     * source pixels when there is the resolution for it. See {@link #exportScale}.
+     */
+    private static void blit(Graphics2D g, Image img, double x, double y, int size) {
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        int w = img.getWidth(null), h = img.getHeight(null);
+        int box = (int) Math.round(size * (double) exportScale);
+        int mult = exportScale > 1 && w > 0 && h > 0 ? box / Math.max(w, h) : 0;
+        if (mult < 1) {
+            // either an ordinary draw, or a box too small to hold even one whole copy of the
+            // sprite, where shrinking it smoothly is the lesser evil
+            g.drawImage(img, (int) Math.round(x), (int) Math.round(y), size, size, null);
+            return;
+        }
+        // straight onto the real pixel grid: setTransform leaves the clip where it is, so
+        // this draws in the same place, only on whole pixels
+        java.awt.geom.AffineTransform was = g.getTransform();
+        int dw = w * mult, dh = h * mult;
+        java.awt.geom.Point2D at = was.transform(new java.awt.geom.Point2D.Double(x, y), null);
+        g.setTransform(new java.awt.geom.AffineTransform());
+        g.drawImage(img, (int) Math.round(at.getX() + (box - dw) / 2.0),
+                (int) Math.round(at.getY() + (box - dh) / 2.0), dw, dh, null);
+        g.setTransform(was);
+    }
+
     static boolean item(Graphics2D g, int id, double x, double y, int size) {
         return draw(g, itemIcon(id), x, y, size);
     }
@@ -288,8 +331,7 @@ final class Glyph {
         // a shade over a third of the item, which is the proportion the game itself draws
         int wide = Math.max(5, (int) Math.round(size * 0.38));
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g2.drawImage(gem, (int) Math.round(x + size - wide), (int) Math.round(y + size - wide), wide, wide, null);
+        blit(g2, gem, x + size - wide, y + size - wide, wide);
         g2.dispose();
     }
 
@@ -495,13 +537,18 @@ final class Glyph {
     /** Paints one item picture centred in a square, pixel-crisp rather than smoothed. */
     private static boolean draw(Graphics2D g, Image img, double x, double y, int size) {
         if (img == null) return false;
+        Graphics2D g2 = (Graphics2D) g.create();
+        if (exportScale > 1) {
+            blit(g2, img, x, y, size);
+            g2.dispose();
+            return true;
+        }
         int w = img.getWidth(null), h = img.getHeight(null);
         double scale = Math.min(size / (double) w, size / (double) h);
         int dw = (int) Math.round(w * scale), dh = (int) Math.round(h * scale);
-        Object was = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g.drawImage(img, (int) Math.round(x + (size - dw) / 2.0), (int) Math.round(y + (size - dh) / 2.0), dw, dh, null);
-        if (was != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, was);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.drawImage(img, (int) Math.round(x + (size - dw) / 2.0), (int) Math.round(y + (size - dh) / 2.0), dw, dh, null);
+        g2.dispose();
         return true;
     }
 
@@ -647,8 +694,7 @@ final class Glyph {
         }
         if (!(found instanceof Image)) return object(g, skin, x, y, size);
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g2.drawImage((Image) found, (int) Math.round(x), (int) Math.round(y), size, size, null);
+        blit(g2, (Image) found, x, y, size);
         g2.dispose();
         return true;
     }
@@ -675,8 +721,7 @@ final class Glyph {
         java.awt.image.BufferedImage styled = ArcaneArt.apply(look, style, timeMs);
         if (styled == null) return player(g, skin, main, accessory, x, y, size);
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g2.drawImage(styled, (int) Math.round(x), (int) Math.round(y), size, size, null);
+        blit(g2, styled, x, y, size);
         g2.dispose();
         return true;
     }
@@ -856,8 +901,7 @@ final class Glyph {
         }
         if (!(icon instanceof Image)) return false;
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g2.drawImage((Image) icon, (int) Math.round(x), (int) Math.round(y), size, size, null);
+        blit(g2, (Image) icon, x, y, size);
         g2.dispose();
         return true;
     }
@@ -893,9 +937,8 @@ final class Glyph {
         if (!(found instanceof Image)) return false;
         Image img = (Image) found;
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         if (alpha < 1f) g2.setComposite(AlphaComposite.SrcOver.derive(alpha));
-        g2.drawImage(img, (int) Math.round(x), (int) Math.round(y), size, size, null);
+        blit(g2, img, x, y, size);
         g2.dispose();
         return true;
     }

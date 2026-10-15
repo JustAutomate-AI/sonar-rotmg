@@ -313,6 +313,25 @@ public final class SonarTheme {
         UIManager.put("ToolTip.font", font(12.5f));
     }
 
+    /**
+     * A label that paints under the same hints as everything else here.
+     * <p>
+     * A plain {@link javax.swing.JLabel} is drawn by Swing's own look and feel, which rounds
+     * each glyph's advance to a whole pixel. At the fractional sizes this interface uses -
+     * 11.5pt for a window's note, for instance - that rounding accumulates until it lands as
+     * a visible gap inside a word: <i>20 dealt dam age</i>, <i>Usernam e1</i>. Every custom
+     * pane already avoids it by asking for fractional metrics; a label has no paint of its
+     * own to ask in, so it asks here.
+     */
+    public static javax.swing.JLabel label(String text) {
+        return new javax.swing.JLabel(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(quality(g));
+            }
+        };
+    }
+
     public static Graphics2D quality(Graphics g) {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);

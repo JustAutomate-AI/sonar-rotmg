@@ -19,7 +19,7 @@ class FloatWindow extends JPanel {
 
     final String id;
     private final String title;
-    private final JLabel note = new JLabel();
+    private final JLabel note = SonarTheme.label("");
     private final Motion motion = new Motion(this);
     private final Motion.Value focus = motion.value(0, 14);
     private final Motion.Value lift = motion.value(0, 18);
@@ -48,7 +48,7 @@ class FloatWindow extends JPanel {
         header.setLayout(new BoxLayout(header, BoxLayout.X_AXIS));
         header.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 12));
         header.setPreferredSize(new Dimension(10, HEADER));
-        JLabel name = new JLabel(title.toUpperCase());
+        JLabel name = SonarTheme.label(title.toUpperCase());
         name.setFont(SonarTheme.bold(11f).deriveFont(java.util.Collections.singletonMap(java.awt.font.TextAttribute.TRACKING, 0.09f)));
         name.setForeground(SonarTheme.MUTED);
         note.setFont(SonarTheme.font(11.5f));

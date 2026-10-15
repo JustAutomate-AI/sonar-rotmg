@@ -1,5 +1,7 @@
 # Sonar
 
+> **Sonar requires [Npcap](https://npcap.com/) to work.** It is the free Windows driver that lets a program read network traffic, and no packet sniffer on Windows works without it. Its licence forbids anyone bundling it, so it is a separate install — the Sonar installer checks for it and points you at it, but you can get it out of the way [first](#install).
+
 **A damage tracker for Realm of the Mad God that tells you what actually happened in the run.**
 
 Who did the damage. To which boss. With what gear. How much of it was you.
@@ -31,6 +33,12 @@ Click anyone's bar and the page fills in: their class and skin, every piece of g
 
 The damage window here has its own Overall and Bosses switch, so you can ask "how did they do overall" and "how did they do on the boss" without leaving the roster.
 
+### And the runs you have both been in
+
+![The Shared tab, listing the runs you and the selected player were both in](docs/screenshots/shared.png)
+
+The same window's **Shared** tab is the Instances list filtered to one person: every run the two of you were in together, newest first, with how it ended **for each of you** — *they nexus*, *you died*. Click one and it opens with them already picked out.
+
 ## Review a run after it ends
 
 ![The Instance page reviewing a finished run](docs/screenshots/instance.png)
@@ -48,6 +56,8 @@ Boss segments laid out in proportion to how long each fight took, top contributo
 <img src="docs/screenshots/mvpcard.png" alt="A shareable MVP card for a finished boss fight" width="560">
 
 One click copies a finished run straight to your clipboard as an image, ready to paste into Discord — the full roster, or a card for whoever led the final boss, with their loadout. Built for the way these runs actually get organised, where somebody always asks where they stood.
+
+Drawn at **three times the resolution**, because a picture posted in a Discord gets read by zooming in on it — and the game's own art is drawn at a whole multiple of its own pixels, so an item is still an item and an enchant gem is still a gem when you do.
 
 ## The Shatters, solved
 
@@ -94,7 +104,7 @@ Plus a **Collection**, a **Party finder** listing, and **Daily Quests** as cards
 
 Download **`Sonar-<version>-setup.msi`** from the [latest release](https://github.com/JustAutomate-AI/sonar-rotmg/releases/latest) and run it. It installs for your user only — **Windows does not ask for administrator rights at any point** — and appears in Add or Remove Programs like any other application.
 
-The one thing Sonar cannot bring with it is **Npcap**, the driver that lets any program read network traffic; its licence forbids redistribution. Sonar tells you if it is missing and points you at [npcap.com](https://npcap.com/). Npcap's own installer does ask for administrator rights, because it installs a driver — it is signed by the Nmap project. Everything except the sniffer works without it.
+**Npcap is the prerequisite**, as above. Sonar cannot bring it with it, because its licence forbids redistribution, so install it from [npcap.com](https://npcap.com/) — Sonar also tells you if it is missing and points you there. Npcap's own installer *does* ask for administrator rights, because it installs a driver; it is signed by the Nmap project, the people behind Nmap and Wireshark's Windows capture. Everything except the sniffer works without it, but the sniffer is the point.
 
 A portable `Sonar-<version>-windows.zip` is also published if you would rather not install anything: unpack it anywhere and run `Sonar.exe`.
 

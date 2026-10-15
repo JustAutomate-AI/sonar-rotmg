@@ -2,6 +2,24 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.13.0
+
+**The runs you have both been in**
+- Click a player and their window now has a second tab: **Shared**, every run you and they were both in, newest first.
+- It is the Instances list, filtered to one person. The same portal pictures, the same wording, the same time and party total and your own damage - because it answers the same question about the same runs, and learning to read the same list twice would be a waste of your attention. The Instances page itself is unchanged.
+- Each row also says how it ended **for each of you**: *they nexus* / *you died*. That is the part a general list cannot tell you, and it is usually the reason you went looking.
+- Clicking a run opens it with that player already picked out, so you land on them rather than hunting down the roster.
+- Runs are kept for thirty days now rather than fourteen, matching the instance history, so the two lists cannot disagree about what happened.
+
+**A posted picture worth zooming into**
+- The pictures you copy to share a run - the roster, the per-boss page and the MVP card - are now drawn at three times the resolution.
+- The reason is how they get read. A picture posted in a Discord is shown shrunk and looked at by zooming in, and that is exactly when somebody wants to see what they were wearing. At one to one, an item is an eight-pixel sprite stretched into a twenty-pixel box: two and a half source pixels to the box pixel, so some rows of the sprite come out two pixels tall and some three. Zoom in and it is mush.
+- So the layout is unchanged and the drawing is not: text and panels are shapes and simply come out sharper, and the game's own art is now drawn at a **whole multiple of its own pixels**, centred in the space it was given. Every row of a sprite is the same height, and the enchant gem in the corner stays a gem.
+- A very large run steps down from three times rather than producing a file too big to post.
+
+**Small things**
+- A window's heading no longer opens a gap inside a word - *20 dealt dam age*, *Usernam e1*. Swing draws a plain label by rounding each letter's width to a whole pixel, and at the sizes used here that rounding piles up until it lands as a space. Headings are now drawn the way every other piece of text in Sonar already was.
+
 ## 2.12.0
 
 **What was true when somebody left**

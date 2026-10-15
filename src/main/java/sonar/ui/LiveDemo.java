@@ -140,6 +140,50 @@ final class LiveDemo {
         timer.start();
     }
 
+    /**
+     * A month of runs with a handful of the roster, so the Shared tab has something to show
+     * without a real history behind it. The point of that tab is the comparison, so these
+     * cover the cases worth seeing: both finished, they left and you did not, you died.
+     */
+    private static void seedShared() {
+        java.util.Map<String, java.util.List<PlayerHistory.Appearance>> seeded = new java.util.HashMap<>();
+        Object[][] runs = {
+                // who, days ago, instance, their damage, their outcome, your damage, your outcome,
+                // how long it ran, the party's total, whether Sonar joined it late
+                {"Username1", 1, "Oryx's Sanctuary", 1_149_325L, "nexus", 227_983L, "", 376_000L, 6_177_523L, false},
+                {"Username1", 3, "The Shatters", 610_255L, "", 195_440L, "died", 421_000L, 4_880_110L, false},
+                {"Username1", 8, "Lost Halls", 340_249L, "", 410_118L, "", 302_000L, 3_914_742L, true},
+                {"Username1", 19, "Oryx's Sanctuary", 884_010L, "", 251_907L, "", 358_000L, 5_602_388L, false},
+                {"Username2", 2, "The Shatters", 491_841L, "died", 228_043L, "", 455_000L, 5_118_904L, false},
+                {"Username2", 11, "Lost Halls", 288_204L, "", 331_596L, "nexus", 288_000L, 3_402_551L, false},
+        };
+        for (Object[] r : runs) {
+            String who = (String) r[0];
+            java.time.LocalDate day = java.time.LocalDate.now().minusDays((Integer) r[1]);
+            long started = System.currentTimeMillis() - (Integer) r[1] * 86_400_000L;
+            seeded.computeIfAbsent(who.toLowerCase(), k -> new java.util.ArrayList<>())
+                    .add(new PlayerHistory.Appearance(day, 0, (String) r[2], started, (Long) r[3],
+                            "Samurai", demoOutcome((String) r[4], 150_000),
+                            demoOutcome((String) r[6], 282_000), (Long) r[5],
+                            (Long) r[7], (Long) r[8], Boolean.TRUE.equals(r[9])));
+        }
+        for (java.util.List<PlayerHistory.Appearance> list : seeded.values()) {
+            list.sort((a, b) -> Long.compare(b.startedAt, a.startedAt));
+        }
+        PlayerHistory.seedForDemo(seeded);
+    }
+
+    private static PlayerHistory.Outcome demoOutcome(String kind, long atMs) {
+        LiveModel.Row r = new LiveModel.Row();
+        if (!kind.isEmpty()) {
+            r.completed = false;
+            r.leftAtMs = atMs;
+            r.leftHpPercent = "died".equals(kind) ? 4 : 86;
+            r.died = "died".equals(kind);
+        }
+        return new PlayerHistory.Outcome(r);
+    }
+
     private static LiveModel model(Object key, String name, long[][] damage, long elapsed, double bossHealth) {
         LiveModel m = new LiveModel();
         m.instanceKey = key;
@@ -161,6 +205,7 @@ final class LiveDemo {
         System.arraycopy(boost, 0, m.statBoost, 0, 8);
         System.arraycopy(exalt, 0, m.exaltProgress, 0, 8);
         addExaltation(m);
+        seedShared();
         LiveDemoAccount.fill(m);
         m.vaultKnown = true;
         LiveModel.ITEM_IDS.put("Royal Cloak", 0xa00);

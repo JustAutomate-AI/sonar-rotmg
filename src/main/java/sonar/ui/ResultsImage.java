@@ -56,6 +56,55 @@ final class ResultsImage {
     }
 
     /**
+     * How many real pixels the picture gets for each one the layout works in.
+     * <p>
+     * The page is laid out at a comfortable reading size and then drawn larger, which costs
+     * nothing in the writing of it: the text and the panels are shapes, so they come out
+     * genuinely sharper rather than enlarged, and the game's own pictures are drawn at a whole
+     * multiple of their real pixels (see {@link Glyph#exportScale}). The reason is Discord.
+     * A picture posted there is shown shrunk and read by zooming in, and at one-to-one an
+     * eight-pixel item sprite with an enchant gem in its corner turns to mush the moment
+     * anybody does that - which is exactly when it matters, because the question being asked
+     * is "what was I wearing".
+     */
+    static final int MAX_SCALE =
+            Math.max(1, Math.min(4, Integer.getInteger("sonar.export.scale", 3)));
+
+    /**
+     * A ceiling on the finished picture. A sixty-player run spread over seven columns is
+     * already big before it is tripled, and a file too large to post is worse than a slightly
+     * softer one. Twenty megapixels keeps a normal run at the full three and steps the very
+     * large ones down rather than refusing them.
+     */
+    private static final int PIXEL_BUDGET = 20_000_000;
+
+    /** The picture and the pen that draws it, both already at export resolution. */
+    static final class Sheet {
+        final BufferedImage image;
+        final Graphics2D g;
+        final int scale;
+
+        Sheet(int w, int h) {
+            int s = MAX_SCALE;
+            while (s > 1 && (long) w * s * h * s > PIXEL_BUDGET) s--;
+            scale = s;
+            image = new BufferedImage(w * s, h * s, BufferedImage.TYPE_INT_RGB);
+            g = SonarTheme.quality(image.createGraphics());
+            g.scale(s, s);
+            // everything below this line works in layout pixels and knows nothing about the scale
+            Glyph.exportScale = s;
+        }
+
+        /** Hands back the finished picture and puts the sprite drawing back as it was. */
+        BufferedImage done() {
+            g.dispose();
+            Glyph.exportScale = 0;
+            return image;
+        }
+    }
+
+
+    /**
      * The fights worth posting: the bosses and lesser bosses of the run, each
      * carrying the adds that spawned during it.
      * <p>
@@ -127,38 +176,43 @@ final class ResultsImage {
         int height = PAD + headerH + 20 + 22 + listH + 20 + footerH + PAD;
 
         pageW = W;
-        BufferedImage img = new BufferedImage(W, height, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = SonarTheme.quality(img.createGraphics());
-        g.setColor(SonarTheme.BG);
-        g.fillRect(0, 0, W, height);
+        try {
+            Sheet sheet = new Sheet(W, height);
+            Graphics2D g = sheet.g;
+            g.setColor(SonarTheme.BG);
+            g.fillRect(0, 0, W, height);
 
-        int y = paintHeader(g, m, PAD, m.whole.total, "PARTY DAMAGE");
-        y += 20;
+            int y = paintHeader(g, m, PAD, m.whole.total, "PARTY DAMAGE");
+            y += 20;
 
-        g.setFont(SonarTheme.bold(11f));
-        g.setColor(SonarTheme.FAINT);
-        String listLabel = roster.isEmpty() ? "NO DAMAGE DEALT" : "DAMAGE BY PLAYER  ·  " + roster.size() + (roster.size() == 1 ? " PLAYER" : " PLAYERS");
-        g.drawString(listLabel, PAD, y + 10);
-        y += 22;
+            g.setFont(SonarTheme.bold(11f));
+            g.setColor(SonarTheme.FAINT);
+            String listLabel = roster.isEmpty() ? "NO DAMAGE DEALT" : "DAMAGE BY PLAYER  ·  " + roster.size() + (roster.size() == 1 ? " PLAYER" : " PLAYERS");
+            g.drawString(listLabel, PAD, y + 10);
+            y += 22;
 
-        if (roster.isEmpty()) {
-            g.setFont(SonarTheme.font(12.5f));
-            g.setColor(SonarTheme.MUTED);
-            g.drawString("Nobody had dealt damage yet when this was generated.", PAD, y + 24);
-            y += 60;
-        } else {
-            double seconds = Math.max(1, m.whole.fightMs / 1000.0);
-            for (int i = 0; i < roster.size(); i++) {
-                paintRow(g, m, roster.get(i), i + 1, seconds, y, perBossLeecherIds, perBossPumperIds);
-                y += ROW_H + ROW_GAP;
+            if (roster.isEmpty()) {
+                g.setFont(SonarTheme.font(12.5f));
+                g.setColor(SonarTheme.MUTED);
+                g.drawString("Nobody had dealt damage yet when this was generated.", PAD, y + 24);
+                y += 60;
+            } else {
+                double seconds = Math.max(1, m.whole.fightMs / 1000.0);
+                for (int i = 0; i < roster.size(); i++) {
+                    paintRow(g, m, roster.get(i), i + 1, seconds, y, perBossLeecherIds, perBossPumperIds);
+                    y += ROW_H + ROW_GAP;
+                }
             }
+
+            y += 20;
+            paintFooter(g, m, y, classified);
+
+            return sheet.done();
+        } finally {
+            // a render that threw must not leave the live interface drawing
+            // its sprites the way a posted picture does
+            Glyph.exportScale = 0;
         }
-
-        y += 20;
-        paintFooter(g, m, y, classified);
-
-        g.dispose();
-        return img;
     }
 
     private static boolean containsId(List<LiveModel.Row> rows, int id) {
@@ -231,49 +285,54 @@ final class ResultsImage {
         int width = columns * COL_W + (columns - 1) * COL_GAP;
         int height = around + tallestFound;
 
-        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = SonarTheme.quality(img.createGraphics());
-        g.setColor(SonarTheme.BG);
-        g.fillRect(0, 0, width, height);
+        try {
+            Sheet sheet = new Sheet(width, height);
+            Graphics2D g = sheet.g;
+            g.setColor(SonarTheme.BG);
+            g.fillRect(0, 0, width, height);
 
-        pageW = width;
-        long shownTotal = 0;
-        for (LiveModel.Target t : fights) shownTotal += t.total;
-        int y = paintHeader(g, m, PAD, shownTotal, "BOSS DAMAGE");
-        y += 20;
+            pageW = width;
+            long shownTotal = 0;
+            for (LiveModel.Target t : fights) shownTotal += t.total;
+            int y = paintHeader(g, m, PAD, shownTotal, "BOSS DAMAGE");
+            y += 20;
 
-        if (fights.isEmpty()) {
-            g.setFont(SonarTheme.font(12.5f));
-            g.setColor(SonarTheme.MUTED);
-            g.drawString("Nothing has been fought in here yet.", PAD, y + 24);
-            y += 60;
-        } else {
-            // say so when these are the biggest fights rather than the game's own bosses, so the
-            // reader is not left thinking Sonar called a pack of trash a boss
-            if (!known) {
-                g.setFont(SonarTheme.font(11.5f));
-                g.setColor(SonarTheme.FAINT);
-                g.drawString("No boss was identified in this run - showing the biggest fights instead.", PAD, y + 13);
-                y += captionH;
+            if (fights.isEmpty()) {
+                g.setFont(SonarTheme.font(12.5f));
+                g.setColor(SonarTheme.MUTED);
+                g.drawString("Nothing has been fought in here yet.", PAD, y + 24);
+                y += 60;
+            } else {
+                // say so when these are the biggest fights rather than the game's own bosses, so the
+                // reader is not left thinking Sonar called a pack of trash a boss
+                if (!known) {
+                    g.setFont(SonarTheme.font(11.5f));
+                    g.setColor(SonarTheme.FAINT);
+                    g.drawString("No boss was identified in this run - showing the biggest fights instead.", PAD, y + 13);
+                    y += captionH;
+                }
+                int[] measured = new int[2];
+                for (Piece p : flow(rows, columns, columnHeight, measured)) {
+                    Graphics2D column = (Graphics2D) g.create();
+                    column.translate(p.column * (COL_W + COL_GAP), y);
+                    paintBossSection(column, fights.get(p.fight), p.y, perBossLeecherIds.get(p.fight),
+                            perBossPumperIds.get(p.fight), p.from, p.to, p.continued);
+                    column.dispose();
+                }
+                y += tallestFound;
             }
-            int[] measured = new int[2];
-            for (Piece p : flow(rows, columns, columnHeight, measured)) {
-                Graphics2D column = (Graphics2D) g.create();
-                column.translate(p.column * (COL_W + COL_GAP), y);
-                paintBossSection(column, fights.get(p.fight), p.y, perBossLeecherIds.get(p.fight),
-                        perBossPumperIds.get(p.fight), p.from, p.to, p.continued);
-                column.dispose();
-            }
-            y += tallestFound;
+
+            y += 20;
+            pageW = width;
+            paintFooter(g, m, y, classified);
+            colW = COL_W;
+
+            return sheet.done();
+        } finally {
+            // a render that threw must not leave the live interface drawing
+            // its sprites the way a posted picture does
+            Glyph.exportScale = 0;
         }
-
-        y += 20;
-        pageW = width;
-        paintFooter(g, m, y, classified);
-        colW = COL_W;
-
-        g.dispose();
-        return img;
     }
 
     /** One run of a fight's rows sitting in one column. */
