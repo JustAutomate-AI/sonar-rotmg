@@ -29,10 +29,14 @@ public final class DataDir {
         }
         String path = set.trim();
         // the packaged launcher passes the token rather than a path it cannot expand itself
-        if (path.equalsIgnoreCase("%LOCALAPPDATA%")) {
-            String local = System.getenv("LOCALAPPDATA");
-            if (local == null || local.isEmpty()) return new File("").getAbsoluteFile();
-            path = new File(local, "Sonar").getPath();
+        // The installed build asks for one of these rather than a path it cannot expand
+        // itself. %APPDATA% is what the Windows installer passes: the program it installs
+        // is removed wholesale when a new version replaces it, so nothing that belongs to
+        // the user can be kept beside it.
+        if (path.equalsIgnoreCase("%LOCALAPPDATA%") || path.equalsIgnoreCase("%APPDATA%")) {
+            String folder = System.getenv(path.substring(1, path.length() - 1).toUpperCase());
+            if (folder == null || folder.isEmpty()) return new File("").getAbsoluteFile();
+            path = new File(folder, "Sonar").getPath();
         }
         File dir = new File(path);
         if (!dir.isDirectory() && !dir.mkdirs()) {

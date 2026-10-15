@@ -2,6 +2,19 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.8.2
+
+**Updating an installed copy would have deleted your settings**
+- The 2.8.1 installer put Sonar's data - settings, roster, characters, exaltation and every saved run - inside the folder it installs to. Windows removes that whole folder when a version is replaced, because a major upgrade is an uninstall followed by an install. Updating through the installer would therefore have taken all of it with it.
+- Measured rather than assumed: a 2.8.1 install with those files written into it lost every one of them on uninstall.
+- An installed copy now keeps its data in `%APPDATA%\Sonar`, where Windows has always meant settings to live, while the program stays in `%LOCALAPPDATA%\Sonar`. The installer owns one folder and never touches the other. Verified by installing, writing data, uninstalling, and finding the data still there.
+- **The portable zip is unchanged** and still keeps everything in one folder beside `Sonar.exe`, which is the whole point of a portable copy.
+- If you installed 2.8.1 today, nothing is lost yet - its data is in the install folder. Copy anything you want to keep out of `%LOCALAPPDATA%\Sonar` before installing this, because installing over it removes that folder.
+
+**Check for updates now hands an installed copy to the installer**
+- It downloaded the portable zip and unpacked it over whatever it found, including over an install Windows is keeping records of. Add or Remove Programs would then describe a version that was no longer on disk, and a later repair or uninstall would work from records matching nothing.
+- An installed copy now downloads the installer and lets Windows do the upgrade, which is what the fixed upgrade code in 2.8.0 was for. A portable copy updates exactly as it always has.
+
 ## 2.8.1
 
 **The 2.8.0 installer could hang forever, and does not any more**

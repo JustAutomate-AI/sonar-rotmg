@@ -131,10 +131,43 @@ if (-not $haveWix) {
 if ($haveWix) {
 Write-Host "Building the installer..." -ForegroundColor Cyan
 $env:PATH = "$Wix;$env:PATH"
+
+# The installer gets its own app image, because it has to point Sonar's data somewhere
+# else. An MSI uninstall removes its whole install folder, and a major upgrade is an
+# uninstall followed by an install - so with settings, roster, characters and run history
+# sitting beside the program, as the portable copy quite reasonably keeps them, updating
+# through the installer would delete the lot. Measured, not assumed: a 2.8.1 install with
+# files written into it lost every one of them on uninstall.
+#
+# So the installed build keeps its data in %APPDATA%\Sonar - Roaming, where Windows has
+# always meant settings to live - while the program stays in %LOCALAPPDATA%\Sonar. The
+# installer owns one of those folders and never touches the other. The portable zip is
+# untouched and still keeps everything together, which is the whole point of a portable copy.
+Write-Host "  (a second app image, so installed data lives outside the install folder)"
+$msiWork = Join-Path $work 'msi'
+New-Item -ItemType Directory -Force $msiWork | Out-Null
+& $jpackage --type app-image --name Sonar `
+    --input (Join-Path $work 'in') `
+    --main-jar Sonar.jar --main-class sonar.Sonar `
+    --runtime-image (Join-Path $work 'runtime') `
+    --dest $msiWork `
+    --icon (Join-Path $root 'tools\launcher\sonar.ico') `
+    --app-version $Version --vendor 'JustAutomate-AI' `
+    --description 'Damage tracker for Realm of the Mad God' `
+    --copyright 'MIT - see LICENSE.md' `
+    --java-options '-Dsonar.data=%APPDATA%'
+if ($LASTEXITCODE -ne 0) { throw "jpackage could not build the installer's app image" }
+
+$msiStage = Join-Path $msiWork 'Sonar'
+Copy-Item (Join-Path $root 'LICENSE.md') $msiStage
+Copy-Item (Join-Path $PSScriptRoot 'release\INSTRUCTIONS-packaged.txt') (Join-Path $msiStage 'INSTRUCTIONS.txt')
+# How the updater knows not to unpack a zip over an install Windows is keeping records of.
+Set-Content (Join-Path $msiStage 'installed-by-msi') "This copy was put here by Sonar's installer. Do not delete it." -Encoding ascii
+
 # A fixed id, which is what tells Windows one version replaces the last rather than
 # installing beside it. It must never change.
 $upgradeUuid = '9fc754e4-6e35-4968-923a-fb3a351bc9b0'
-& $jpackage --type msi --app-image $stage --name Sonar `
+& $jpackage --type msi --app-image $msiStage --name Sonar `
     --app-version $Version --vendor 'JustAutomate-AI' `
     --description 'Damage tracker for Realm of the Mad God' `
     --copyright 'MIT - see LICENSE.md' `

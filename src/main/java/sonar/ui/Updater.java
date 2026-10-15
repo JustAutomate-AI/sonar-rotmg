@@ -34,7 +34,7 @@ import java.util.zip.ZipInputStream;
 final class Updater {
 
     /** Version of this build. Raise it for each release; tools/make-release.ps1 reads it for the zip name. */
-    static final String CURRENT = "2.8.1";
+    static final String CURRENT = "2.8.2";
 
     private static final String REPOSITORY = "https://github.com/JustAutomate-AI/sonar-rotmg";
     private static final String LATEST = REPOSITORY + "/releases/latest";
@@ -160,6 +160,34 @@ final class Updater {
                 deleteAll(new File(work, "staged"));
                 work.mkdirs();
                 String version = clean(tag);
+
+                // An install the Windows installer put here is upgraded by the installer, not by
+                // unpacking a zip over it. Doing it the other way leaves Add or Remove Programs
+                // describing a version that is no longer on disk, and a later repair or uninstall
+                // then works from records that no longer match anything.
+                if (installedByInstaller(root)) {
+                    File msi = new File(work, "Sonar-" + version + "-setup.msi");
+                    download(REPOSITORY + "/releases/download/" + tag + "/Sonar-" + version + "-setup.msi", msi, status);
+                    SwingUtilities.invokeLater(() -> status.accept("Opening the installer…"));
+                    log("handing " + tag + " to the Windows installer");
+                    // Sonar has to be gone before its own files can be replaced, so the installer
+                    // is started and this copy closes behind it. Settings, characters and history
+                    // are not in the install folder for an installed copy, so the upgrade cannot
+                    // take them with it.
+                    new ProcessBuilder("msiexec.exe", "/i", msi.getPath()).start();
+                    SwingUtilities.invokeLater(() -> {
+                        busy = false;
+                        status.accept("Installer opened");
+                        JOptionPane.showMessageDialog(parent,
+                                "Sonar will close so the installer can replace it."
+                                        + System.lineSeparator() + System.lineSeparator()
+                                        + "Your settings, characters and run history are kept.",
+                                "Sonar update", JOptionPane.INFORMATION_MESSAGE);
+                        System.exit(0);
+                    });
+                    return;
+                }
+
                 File zip = new File(work, "Sonar-" + version + ".zip");
                 download(REPOSITORY + "/releases/download/" + tag + "/Sonar-" + version + "-windows.zip", zip, status);
                 SwingUtilities.invokeLater(() -> status.accept("Installing…"));
@@ -311,6 +339,15 @@ final class Updater {
     }
 
     /** Whether a folder is the one the application was installed into. */
+    /**
+     * Whether this copy was put here by the Windows installer rather than unpacked from
+     * the portable zip. The installer writes this marker beside the program; the zip has
+     * no such file, so a portable copy keeps updating itself the way it always has.
+     */
+    private static boolean installedByInstaller(File root) {
+        return root != null && new File(root, "installed-by-msi").isFile();
+    }
+
     private static boolean looksLikeInstall(File dir) {
         if (dir == null || !dir.isDirectory()) return false;
         return new File(dir, "Sonar.exe").isFile()
