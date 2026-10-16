@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.27.1
+
+**One notation down the whole column**
+
+- The bars abbreviated above a hundred thousand and not below it, which put **`242k dpm` three rows above `96,818 dpm`** - the same column in two notations, read down, with the eye asked to convert between them. Both numbers on a bar are now **written out in full**, so a column of rates compares at a glance and so does the column of totals beside it.
+- Written-out figures take more room, so the second number gives way a little sooner as the window narrows, and the space it leaves is now measured rather than assumed from a constant that was written for abbreviated text.
+
 ## 2.27.0
 
 **The live page counts per minute**

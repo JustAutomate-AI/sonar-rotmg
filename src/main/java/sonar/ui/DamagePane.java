@@ -203,7 +203,9 @@ class DamagePane extends Pane {
         // columns give way one by one as the window narrows, so text never overlaps
         boolean showShare = width >= 300;
         boolean showClass = width >= 400;
-        boolean showTotal = width >= 480;
+        // written-out figures need more room than the abbreviated ones did, so the second
+        // number gives way a little sooner rather than crowding the name beside it
+        boolean showTotal = width >= 520;
         gearHits.clear();
         // the effect ticker runs only while a style is actually on screen
         boolean anyStyle = false;
@@ -277,10 +279,15 @@ class DamagePane extends Pane {
             // per minute, not per second: the bars are read at a glance while something is being
             // fought, and a per-second figure changes under the eye with every shot that lands.
             // The player page keeps the per-second number, where one person is read closely.
-            String dpm = SonarTheme.compact(Math.round(b.shown.get() / seconds * 60)) + " dpm";
+            //
+            // Written out in full rather than abbreviated. This column is read down, one player
+            // against the next, and an abbreviation that only starts above a hundred thousand
+            // gives "242k" three rows above "96,818" - the same column in two different
+            // notations, which is exactly where the eye needs it to be in one.
+            String dpm = SonarTheme.number(Math.round(b.shown.get() / seconds * 60)) + " dpm";
             String dealt = SonarTheme.number(Math.round(b.shown.get()));
             // the chosen measure is the main number; the other one follows when there is room
-            String main = totals ? dealt : dpm, other = totals ? dpm : SonarTheme.compact(Math.round(b.shown.get()));
+            String main = totals ? dealt : dpm, other = totals ? dpm : SonarTheme.number(Math.round(b.shown.get()));
             g.setFont(numberFont);
             shadowText(g, main, right - numFm.stringWidth(main), base, Color.WHITE);
             right -= numFm.stringWidth(main) + 14;
@@ -288,7 +295,9 @@ class DamagePane extends Pane {
                 g.setFont(small);
                 shadowText(g, other, right - smallFm.stringWidth(other), base,
                         new Color(255, 255, 255, 190));
-                right -= totals ? 70 : 58;
+                // measured rather than a fixed step: these strings are now written out in full,
+                // so how much room they take is no longer something a constant can know
+                right -= smallFm.stringWidth(other) + 14;
             }
 
             boolean member = !b.row.me && Party.has(b.row.name);
