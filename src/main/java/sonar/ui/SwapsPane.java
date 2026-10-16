@@ -131,7 +131,12 @@ class SwapsPane extends Pane {
         g.setFont(SonarTheme.font(9.5f));
         g.setColor(SonarTheme.FAINT);
         String on = enchants == null || enchants.isEmpty() ? "no enchants" : enchants.replace("\n", "  ·  ");
-        g.drawString(SonarTheme.fit(on, g.getFontMetrics(), room + TILE), textX, top + 33);
+        // Four enchants are wider than the item name above them, so the line was given the
+        // tile's width as well - which on the outgoing side runs it under the arrow, and a
+        // name ending in "Defense Bonus III->" reads as part of the swap. Only the incoming
+        // side has empty space to its right, so only it gets the extra.
+        g.drawString(SonarTheme.fit(on, g.getFontMetrics(), outgoing ? room - 6 : room + TILE),
+                textX, top + 33);
         return textX + room;
     }
 }

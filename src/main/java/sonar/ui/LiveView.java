@@ -1758,6 +1758,23 @@ class LiveView {
                         new int[][]{{sword, 0, robe, ring}, {sword, bow, robe, ring}},
                         new String[][]{{bare, bare, bare, bare}, {bare, bare, bare, bare}}).isEmpty());
 
+        // Both ends of a swap have to be something the player could actually hold. The demo
+        // took the other end from another player's kit, which handed a Wizard a katana - and
+        // one wrong item tells a reader the whole screen is invented.
+        boolean legal = true, worthShowing = true;
+        for (String cls : LiveDemo.demoClasses()) {
+            int classId = sonar.game.enums.CharacterClass.idByName(cls);
+            if (classId < 0) continue;
+            int[] wornKit = LiveDemo.kitFor(cls), swapped = LiveDemo.altFor(cls);
+            for (int slot = 0; slot < 4; slot++) {
+                if (wornKit[slot] > 0) legal &= sonar.game.enums.CharacterClass.fits(classId, slot, wornKit[slot]);
+                if (swapped[slot] > 0) legal &= sonar.game.enums.CharacterClass.fits(classId, slot, swapped[slot]);
+            }
+            worthShowing &= wornKit[0] > 0 && swapped[0] > 0 && wornKit[0] != swapped[0];
+        }
+        report.accept("both ends of every demo swap are items that class can actually hold", legal);
+        report.accept("and the two ends differ, or the swap would show nothing", worthShowing);
+
         report.accept("readings out of order are put back in order before being compared",
                 LiveModel.swapsForTest(new long[]{3000, 1000},
                         new int[][]{{bow, bow, robe, ring}, {sword, bow, robe, ring}},

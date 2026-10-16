@@ -60,3 +60,6 @@ sonar.properties
 /audit/
 /history/
 /run/
+
+# runtime data written by a local run, never part of a build
+characters.json

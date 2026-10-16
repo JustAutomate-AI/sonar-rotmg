@@ -2,6 +2,19 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.24.1
+
+**The demo stops putting a katana on a Wizard**
+
+- The demo built the other end of each swap by borrowing **another player's kit**, so a Wizard was shown swapping into *Kusanagi* - a katana, which is a Samurai weapon and which no Wizard can equip. One wrong item tells a reader the whole screen is invented.
+- Sonar already had the right rule and the swap code was not using it. `kitFor` picks the highest-tier item a class is *allowed*, by the game's own `SlotType` match - its comment even records that a hand-written kit once gave a Samurai a dagger. The other end of a swap now comes from `altFor`, the next-best item by that same rule, so **both ends are always legal for whoever made the swap**.
+- Two self-test assertions hold it across all twenty classes in the demo roster: both ends of every demo swap are items that class can actually hold, and the two ends differ, or the swap would show nothing.
+
+**Enchants stop running under the arrow**
+
+- Four enchants are wider than the item name above them, so that line had been given the item tile's width as well. On the outgoing side that ran it under the arrow, and a row reading `Defense Bonus III->` looked like part of the swap.
+- Only the incoming side has empty space to its right, so only it keeps the extra.
+
 ## 2.24.0
 
 **Swap outs: what a player changed, and when**

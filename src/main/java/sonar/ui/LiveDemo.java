@@ -423,7 +423,7 @@ final class LiveDemo {
         int[] kit = kitFor(PLAYERS[p][1]);
         java.util.ArrayList<LiveModel.Swap> out = new java.util.ArrayList<>();
         long base = System.currentTimeMillis() - 230_000L;
-        int[] other = kitFor(PLAYERS[(p + 5) % PLAYERS.length][1]);
+        int[] other = altFor(PLAYERS[p][1]);
 
         if (other[0] > 0 && other[0] != kit[0]) {
             out.add(swap(base + 42_000L + p * 900L, 0, kit[0], other[0],
@@ -486,6 +486,45 @@ final class LiveDemo {
                 }
             }
             return kit;
+        });
+    }
+
+    /** The classes the demo roster plays, so the self-test can check every kit against its class. */
+    static java.util.List<String> demoClasses() {
+        java.util.ArrayList<String> out = new java.util.ArrayList<>();
+        for (String[] p : PLAYERS) out.add(p[1]);
+        return out;
+    }
+
+    private static final java.util.HashMap<String, int[]> ALTS = new java.util.HashMap<>();
+
+    /**
+     * The same four slots, one item down - what this class swaps to.
+     * <p>
+     * A swap is only a swap if the player could hold both ends of it. The demo used to take
+     * the other side from another player's kit, which put a <b>katana on a Wizard</b>: not a
+     * swap anybody has ever made, and the kind of detail that tells a reader the whole screen
+     * is invented. This picks the next-best item the class is actually allowed, by the same
+     * rule {@link #kitFor} uses, so both ends of every demo swap are legal for whoever made it.
+     */
+    static int[] altFor(String cls) {
+        return ALTS.computeIfAbsent(cls, name -> {
+            int[] alt = {-1, -1, -1, -1};
+            int classId = sonar.game.enums.CharacterClass.idByName(name);
+            if (classId < 0) return alt;
+            java.util.ArrayList<sonar.game.ParseEquipment.Equipment> items =
+                    sonar.game.ParseEquipment.getParseItems();
+            items.sort((a, b) -> Integer.compare(b.tier, a.tier));
+            for (int slot = 0; slot < 4; slot++) {
+                int seen = 0;
+                for (sonar.game.ParseEquipment.Equipment e : items) {
+                    if (sonar.game.enums.CharacterClass.fits(classId, slot, e.id) && ++seen == 2) {
+                        alt[slot] = e.id;
+                        break;
+                    }
+                }
+            }
+            return alt;
         });
     }
 
