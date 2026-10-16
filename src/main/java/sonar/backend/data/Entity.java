@@ -605,22 +605,24 @@ public void genericDamageHit(
             gameData.hasGuardedPhaseEntity();
         damage.chancellorDammahDmg =
             objectType == CHANCELLOR_DAMMAH && !dammahCountered;
-        // Sonar: the one flag the interface reads. Oryx's guard and the King's reflectors are
-        // known by the animation the boss is playing; anything else counts when the boss is
-        // flatly untouchable, which is the same ask - stop shooting - without needing a list
-        // of every boss that does it. Dammah is left out on purpose: his flag above is true
-        // for every hit until he counters once, so it says nothing about a phase.
-        StatData condition = stat.get(StatType.CONDITION_STAT);
-        boolean untouchable =
-            condition != null &&
-            (condition.statValue &
-                (ConditionBits.INVULNERABLE.value() |
-                    ConditionBits.INVINCIBLE.value())) !=
-            0;
+        // Sonar: the one flag the interface reads. Only the two guards Sonar can actually
+        // name - Oryx's, by the animation he plays, and the Forgotten King's reflectors.
+        //
+        // It used to count any enemy flagged INVULNERABLE or INVINCIBLE as well, on the
+        // reasoning that being untouchable is the same ask - stop shooting - without needing
+        // a list of every boss that does it. That was wrong, and wrong loudly: ordinary
+        // enemies raise those bits all the time, for spawn-in and for scripted beats of no
+        // consequence, so a plain dungeon of thirty-five mobs handed every player in it
+        // dozens of guarded hits. A figure that fires everywhere says nothing anywhere, and
+        // this one is quoted at people afterwards.
+        //
+        // Dammah is left out for his own reason: his flag above is true for every hit until
+        // he counters once, so it says nothing about a phase either.
+        //
+        // The other Sanctuary bosses with guard phases are not covered yet. Each needs its
+        // own animation hash, read off a real fight, the way these two were.
         damage.sonarGuardPhase =
-            damage.oryx3GuardDmg ||
-            damage.walledGardenReflectors ||
-            untouchable;
+            damage.oryx3GuardDmg || damage.walledGardenReflectors;
     }
 
     public String name() {

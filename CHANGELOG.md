@@ -13,6 +13,13 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 - The shared picture keeps **one** line about it, on the boss heading - *302k INTO GUARD · 863 HITS* - so a posted board still says a guard was shot. Who did it is a question for the list.
 - Clicking a name there goes to that player, the way the damage bars do.
 
+**Guarded hits stop appearing in dungeons that have no guard**
+
+- They were turning up everywhere. A plain thirty-five-enemy dungeon handed every player in it dozens of guarded hits, on a fight with no guard phase anywhere in it.
+- The cause was a catch-all added alongside the real detection: any enemy flagged **invulnerable** or **invincible** counted, on the reasoning that untouchable is the same ask - stop shooting - without needing a list of every boss that does it. Ordinary enemies raise those bits constantly, for spawning in and for scripted beats of no consequence, so the figure fired on trash mobs all run long.
+- It is gone. Sonar now counts only the two guards it can actually name: **Oryx's**, by the animation he plays, and the **Forgotten King's reflectors**. A figure that fires everywhere says nothing anywhere, and this is one that gets quoted at people afterwards.
+- The other Sanctuary bosses with guard phases are not covered. Each needs its own animation hash read off a real fight, the way those two were.
+
 **What the guard figures actually mean**
 
 - Worth being plain about, because the community uses *guard* and *counter* for different things and Sonar can only see one of them. It detects three signals: Oryx playing his **guard animation**, the Forgotten King with **reflectors** up, and any boss flagged **invulnerable**. All three mean the same thing - the boss's defences were up and your shots were doing nothing.
