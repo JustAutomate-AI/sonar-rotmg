@@ -2,6 +2,21 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.26.0
+
+**A dungeon opens on boss damage**
+
+- The damage board always opened on **Overall** - every hit of the instance, trash included. In a dungeon that is the wrong number to lead with: you entered it to fight its boss, and the boss total is what the run is actually about. The board had the right figure all along, one tab across, and nobody switched to it mid-fight.
+- So the view a place opens on is now decided by the place: a **dungeon opens on Bosses**, and the **Realm, the Nexus, the vault and the guild hall open on Overall**. Setting a realm to boss damage would do the exact reverse of the point - there is plenty to fight out there and almost none of it is a boss.
+- The test is the map's own name, using the same rule the dungeon-call pings already use, so the two can never disagree about what counts as a dungeon. The names it was checked against are the ones the game has actually been seen to send - *Realm of the Mad God*, *Packed Nexus*, *Guild Hall 4*, *Haunted Cemetery* - rather than names assumed.
+- It applies when you enter a place, so **picking a tab by hand sticks** for the rest of that instance. A run picked up partway, where the game never sent the map, is left alone: its area is a guess, and guessing "dungeon" there would open an empty board.
+- `sonar.damage.autotab=false` turns the whole thing off and restores the remembered tab.
+
+**Damage per minute, beside damage per second**
+
+- **DPM is the figure people actually trade** when they compare one O3 or Shatters pump against another, and it is what the older sniffers showed. Sonar knew it and never wrote it down.
+- Your stats now reads **`18,204  ·  1.1M dpm`** on each of its rate rows - Overall, Enemy and Boss - and the same on another player's breakdown. It is the per-second figure times sixty, so it shares the line rather than taking one of its own, and nothing moved to make room.
+
 ## 2.25.0
 
 **An enemy that was already on screen gives itself away when it shoots**

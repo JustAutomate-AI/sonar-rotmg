@@ -1185,8 +1185,35 @@ class LiveView {
             lockedEnemy = null;
             reviewing = null;
             reviewed = null;
+            chooseTab(model);
         }
         refresh();
+    }
+
+    /**
+     * The damage view a newly entered place opens on.
+     * <p>
+     * A dungeon is entered to fight its boss, so boss damage is what the run is
+     * actually about and the whole-instance total mostly dilutes it with trash.
+     * The realm is the opposite case: set it to bosses there and the board shows
+     * next to nothing while you clear, so the same default would do the reverse
+     * of what it is for. The place's own name decides which this is, using the
+     * same test the dungeon pings use, so the two can never disagree.
+     * <p>
+     * Only a name the game itself sent counts. A run picked up partway has no
+     * map packet and its area is a guess, and guessing "dungeon" there would
+     * open an empty board. Choosing a tab by hand sticks until the next place,
+     * because this only runs when the instance changes.
+     */
+    private void chooseTab(LiveModel m) {
+        if ("false".equals(sonar.util.PropertiesManager.getProperty("sonar.damage.autotab"))) return;
+        if (m == null || m.instanceKey == null) return;
+        scope.select(tabFor(m.instance), false);
+    }
+
+    /** Boss damage inside a dungeon, the whole instance anywhere else. */
+    static int tabFor(String instance) {
+        return sonar.ChatPings.inDungeonNamed(instance) ? BOSSES : OVERALL;
     }
 
     /**
@@ -1516,6 +1543,15 @@ class LiveView {
         report.accept("the Nexus and the vault are places with nothing to fight", nexus && vault);
         report.accept("the realm and a dungeon are not", !realm && !halls);
         report.accept("map ids are shown under the names the game uses", LiveModel.prettyMapName("{s.rotmg}").equals("Realm of the Mad God") && LiveModel.prettyMapName("{s.nexus}").equals("Nexus") && LiveModel.prettyMapName("Lost Halls").equals("Lost Halls"));
+        // the names below are the ones the game has actually been seen to send, from dungeon.stats
+        report.accept("a dungeon opens on boss damage",
+                tabFor("Oryx's Sanctuary") == BOSSES && tabFor("The Shatters") == BOSSES
+                        && tabFor("Haunted Cemetery") == BOSSES);
+        report.accept("the realm and the places you wait in open on the whole instance",
+                tabFor("Realm of the Mad God") == OVERALL && tabFor("Packed Nexus") == OVERALL
+                        && tabFor("Guild Hall 4") == OVERALL && tabFor("{s.vault}") == OVERALL);
+        report.accept("a rate is written per second and per minute together",
+                rateDpm(1000).equals("1,000  ·  60k dpm") && rateDpm(-1).equals("-"));
 
         java.util.List<Party.Member> savedParty = new ArrayList<>(Party.all());
         for (Party.Member pm : savedParty) Party.remove(pm.name);
@@ -2575,7 +2611,7 @@ class LiveView {
         LiveView view = new LiveView();
         LiveModel m = new LiveModel();
         m.tracked = true;
-        m.instance = "Realm";
+        m.instance = "Realm of the Mad God";
         String[] names = {"Username0", "Close", "Far", "Unplaced"};
         double[] away = {0, 8, 300, -1};
         boolean[] me = {true, false, false, false};
@@ -2964,6 +3000,19 @@ class LiveView {
         return dps < 0 ? "-" : SonarTheme.number(Math.round(dps));
     }
 
+    /**
+     * The same rate written both ways, per second and then per minute.
+     * <p>
+     * Damage per minute is the figure people actually trade when they compare
+     * one O3 or Shatters pump against another, and it is what the older sniffers
+     * showed. It is not new information - it is this number times sixty - so it
+     * shares the line rather than taking one of its own. Per second stays first
+     * because every other rate on the page is per second.
+     */
+    private static String rateDpm(double dps) {
+        return dps < 0 ? "-" : rate(dps) + "  ·  " + SonarTheme.brief(Math.round(dps * 60)) + " dpm";
+    }
+
     private void refresh() {
         LiveModel m = shown();
         LiveModel.Target enemy = lockedEnemy != null ? m.find(lockedEnemy) : null;
@@ -3057,9 +3106,9 @@ class LiveView {
             LiveModel.Row here = hasRows ? shownTarget.me() : null;
             double overall = m.whole.dps(mine), onEnemy = enemy == null ? -1 : enemy.dps(enemy.me()), onBosses = m.bosses.dps(m.bosses.me());
             ArrayList<String[]> f = new ArrayList<>();
-            f.add(new String[]{"Overall dps", rate(overall)});
-            f.add(new String[]{"Enemy dps", rate(onEnemy)});
-            f.add(new String[]{"Boss dps", rate(onBosses)});
+            f.add(new String[]{"Overall dps", rateDpm(overall)});
+            f.add(new String[]{"Enemy dps", rateDpm(onEnemy)});
+            f.add(new String[]{"Boss dps", rateDpm(onBosses)});
             f.add(new String[]{"Rank", here == null ? "-" : shownTarget.rankOf(here) + " of " + shownTarget.rows.size()});
             f.add(new String[]{"Total damage", here == null ? "-" : SonarTheme.number(here.damage)});
             f.add(new String[]{"Of boss health", bossShare(m, mine)});
@@ -3368,7 +3417,7 @@ class LiveView {
             f.add(new String[]{"Rank", chosen.damage <= 0 ? "-" : m.whole.rankOf(chosen) + " of " + m.whole.rows.size()});
             f.add(new String[]{"Of boss health", bossShare(m, chosen)});
             f.add(new String[]{"Share of all damage", m.whole.total <= 0 ? "-" : String.format("%.1f%%", chosen.damage * 100.0 / m.whole.total)});
-            f.add(new String[]{"Overall dps", rate(m.whole.dps(chosen))});
+            f.add(new String[]{"Overall dps", rateDpm(m.whole.dps(chosen))});
             f.add(new String[]{"Hits", SonarTheme.number(chosen.hits)});
             // only on a fight that has a guard to shoot, which is a handful of them; everywhere
             // else the line would read "-" for everyone forever and teach nobody anything
