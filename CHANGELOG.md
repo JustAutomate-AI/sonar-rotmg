@@ -2,6 +2,18 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.27.4
+
+**The shared cards count per minute too**
+
+- The exported results card and the MVP card still reported **damage per second** while the board they are a picture of had moved to per minute. Those cards are what actually gets posted when one run is held up against another, so they were the last place still speaking the old measure - and the one where the comparison is made.
+- Both now read in **damage per minute**, in the same one-decimal notation the bars use: `242.4k dpm overall`.
+- The per-enemy breakdown keeps its DPS column, and so does the player page. Those are the close-reading views, where a per-second figure is the finer instrument.
+
+**Contrast colours named by the hues they actually are**
+
+- The note explaining `classContrast` said "cyan behind a Samurai's red" from memory rather than from the wheel. A Samurai's bar is orange at hue 32 and its opposite is blue at 212; an Archer's green opposes rose, a Knight's blue opposes amber. Comment and changelog only - the colours themselves were always computed.
+
 ## 2.27.3
 
 **The damage figure comes forward off the bar**

@@ -855,11 +855,13 @@ final class ResultsImage {
         g.setColor(SonarTheme.TEXT);
         g.drawString(dmg, W - PAD - dfm.stringWidth(dmg), y + 17);
 
-        String dps = SonarTheme.compact(Math.round(r.damage / seconds)) + " dps overall";
+        // per minute, as the live board reads: this card is what gets posted when one run is
+        // compared against another, which is the comparison people make in dpm
+        String rate = SonarTheme.even(Math.round(r.damage / seconds * 60)) + " dpm overall";
         g.setFont(SonarTheme.font(11f));
         FontMetrics pfm = g.getFontMetrics();
         g.setColor(SonarTheme.FAINT);
-        g.drawString(dps, W - PAD - pfm.stringWidth(dps), y + 33);
+        g.drawString(rate, W - PAD - pfm.stringWidth(rate), y + 33);
 
         paintPerBossLine(g, m, r, nameX, y + 50, perBossLeecherIds, perBossPumperIds);
     }

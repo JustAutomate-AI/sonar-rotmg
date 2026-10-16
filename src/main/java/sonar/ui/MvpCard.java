@@ -317,7 +317,7 @@ final class MvpCard {
         // a fight that was never timed has no rate to report, and a figure Sonar cannot
         // know is left out rather than guessed from a second it made up
         StringBuilder line = new StringBuilder();
-        if (fight.fightMs > 0) line.append(SonarTheme.compact(Math.round(r.damage / seconds))).append(" dps");
+        if (fight.fightMs > 0) line.append(SonarTheme.even(Math.round(r.damage / seconds * 60))).append(" dpm");
         if (r.biggestHit > 0) {
             if (line.length() > 0) line.append("   ·   ");
             line.append("biggest hit ").append(SonarTheme.compact(r.biggestHit));
