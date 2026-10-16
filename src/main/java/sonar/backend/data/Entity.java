@@ -85,6 +85,37 @@ public class Entity implements Serializable {
         } catch (Exception e) {}
     }
 
+    /**
+     * Gives a name back to an enemy the server never introduced.
+     * <p>
+     * Only ever called for an entity whose type never arrived - see {@link EnemyIdentity} for
+     * how the type is worked out, and why it is worked out from what the thing shoots. It
+     * refuses to overwrite a type the game itself sent, so a recovered guess can never
+     * contradict the server; if the real packet turns up later, {@link #entityUpdate} sets the
+     * true type over this one, which is the right way round.
+     *
+     * @param type the object type the shots pinned it to.
+     * @return whether the entity took the name.
+     */
+    public boolean recoverType(int type) {
+        if (objectType > 0 || type <= 0) return false;
+        this.objectType = type;
+        this.recovered = true;
+        try {
+            name = IdToAsset.objectName(type);
+        } catch (Exception ignored) {
+            // a type with no name is still a better answer than "Enemy 0"
+        }
+        return true;
+    }
+
+    /** Whether this entity's identity was worked out rather than sent. */
+    public boolean wasRecovered() {
+        return recovered;
+    }
+
+    private boolean recovered;
+
     public void updateStats(ObjectStatusData status, long timePC) {
         statUpdates.add(status);
 

@@ -334,6 +334,31 @@ public class IdToAsset {
     }
 
     /**
+     * Every object id the game data knows about.
+     * <p>
+     * Lets the projectile tables be read backwards - from a shot to the things that could have
+     * fired it - which is how an enemy that was already on screen when the sniffer started gets
+     * its name back. A copy, so nothing outside can disturb the loaded data.
+     *
+     * @return the ids, in no particular order.
+     */
+    public static java.util.Set<Integer> objectIds() {
+        return new java.util.HashSet<>(objectID.keySet());
+    }
+
+    /**
+     * How many distinct projectiles an object can fire.
+     *
+     * @param id Id of the object.
+     * @return the number of entries in its projectile table, or 0 if it has none.
+     */
+    public static int projectileCount(int id) {
+        IdToAsset i = objectID.get(id);
+        if (i == null || i.projectiles == null) return 0;
+        return i.projectiles.length;
+    }
+
+    /**
      * Maximum damage of weapon.
      *
      * @param id           Id of the object.

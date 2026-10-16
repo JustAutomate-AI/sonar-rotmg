@@ -2,6 +2,23 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.25.0
+
+**An enemy that was already on screen gives itself away when it shoots**
+
+- The packet that says what an entity *is* arrives once, when the server introduces it. Start the sniffer after that and the entity stays type 0 forever - nameless, drawn as **"Enemy 0"** - because the tick stream that follows carries status by id and nothing else. In a run joined partway, that unidentifiable thing is very often the boss, because the boss is what was already on screen when you started.
+- One real Nest run came out with fifteen enemies named correctly and a single *Enemy 0* holding **688,525 damage**: the Killer Bee Queen, missing from her own board.
+- Every object in the game data carries its projectile table - each bullet's minimum and maximum damage - and `EnemyShootPacket` already carried the bullet's index and the damage it rolled. **Sonar had both halves and was throwing one away.** Running the table backwards turns a shot into the set of things that could have fired it; intersecting successive shots collapses that to one.
+- It collapses fast. Measured against the real game data: **Oryx 3 and the Forgotten King are pinned by a single shot**, Treasurer Gemsbok and the Killer Bee Queen by two. Of the 122 enemies the game labels BOSS, the median is two shots and 96% of those that resolve do so within five.
+- It never contradicts the server. An entity the game properly introduced is left exactly as it is; this is consulted only for a type that never arrived, and if the real packet turns up later it wins.
+- **It never guesses.** A candidate set still holding two possibilities stays unresolved rather than picking the likelier one, because a board naming the wrong boss is worse than one admitting it does not know. Oryx 2 shares its projectile table with another object and so never resolves this way - the dungeon name is what tells those two apart.
+
+**A run says when it is not the whole story**
+
+- What survives identification - something that never shot, or whose projectiles are shared - is still kept out of every figure, so an unanswerable number is never presented as a fight.
+- But the run now **counts what it dropped and says so**: the Instances list reads *"1 enemy not identified"* beside the run, and it is kept with the run, so a board reviewed days later still admits what is missing rather than looking complete because the thing it left out has no name to show.
+- A run that recovers everything says nothing, because there is nothing to say. Most late-joined runs are now in that group.
+
 ## 2.24.1
 
 **The demo stops putting a katana on a Wizard**

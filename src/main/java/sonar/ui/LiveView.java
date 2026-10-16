@@ -1775,6 +1775,40 @@ class LiveView {
         report.accept("both ends of every demo swap are items that class can actually hold", legal);
         report.accept("and the two ends differ, or the swap would show nothing", worthShowing);
 
+        // Identifying an enemy by what it shoots. The packet naming an entity arrives once,
+        // so anything already on screen when the sniffer started is type 0 forever - and in a
+        // late-joined run that is usually the boss. Its projectile table gives it away.
+        sonar.backend.data.EnemyIdentity id = new sonar.backend.data.EnemyIdentity();
+        int ORYX3 = 45363, QUEEN = 4243;
+        int found = -1;
+        for (int shot = 0; shot < 40 && found <= 0; shot++) {
+            int min = sonar.assets.IdToAsset.getIdProjectileMinDmg(ORYX3, shot % 6);
+            if (min <= 0) continue;
+            found = id.sawShot(900001, shot % 6, min);
+        }
+        report.accept("Oryx 3 is identified from the shots he fires", found == ORYX3);
+
+        sonar.backend.data.EnemyIdentity q = new sonar.backend.data.EnemyIdentity();
+        int queenFound = -1;
+        for (int shot = 0; shot < 40 && queenFound <= 0; shot++) {
+            int min = sonar.assets.IdToAsset.getIdProjectileMinDmg(QUEEN, shot % 8);
+            if (min <= 0) continue;
+            queenFound = q.sawShot(900002, shot % 8, min);
+        }
+        report.accept("and so is the Killer Bee Queen, the Enemy 0 of a real Nest run",
+                queenFound == QUEEN);
+
+        report.accept("a shot no enemy could have fired identifies nothing",
+                new sonar.backend.data.EnemyIdentity().sawShot(900003, 0, 999999) <= 0);
+        report.accept("and neither does a single shot that many enemies share",
+                new sonar.backend.data.EnemyIdentity().sawShot(900004, 0, 1) <= 0);
+
+        sonar.backend.data.EnemyIdentity cleared = new sonar.backend.data.EnemyIdentity();
+        cleared.sawShot(900005, 0, 100);
+        cleared.clear();
+        report.accept("a new instance starts the identification over",
+                cleared.pending() == 0);
+
         report.accept("readings out of order are put back in order before being compared",
                 LiveModel.swapsForTest(new long[]{3000, 1000},
                         new int[][]{{bow, bow, robe, ring}, {sword, bow, robe, ring}},
@@ -3393,7 +3427,8 @@ class LiveView {
      * a complete run or quietly averaged in with them.
      */
     private ListPane.Item pastItem(LiveModel.Past p) {
-        return new ListPane.Item(p.name, instanceDetail(p.durationMs, p.total, p.mine, p.joined), "", -1,
+        return new ListPane.Item(p.name,
+                instanceDetail(p.durationMs, p.total, p.mine, p.joined, p.unidentified), "", -1,
                 p.joined ? SonarTheme.GOLD : SonarTheme.accent());
     }
 
@@ -3403,8 +3438,23 @@ class LiveView {
      * two different ways.
      */
     private String instanceDetail(long durationMs, long partyTotal, long mine, boolean joined) {
+        return instanceDetail(durationMs, partyTotal, mine, joined, 0);
+    }
+
+    /**
+     * @param unidentified enemies that took damage and were never worked out. A late start
+     *                     usually recovers everything, because an enemy names itself as soon
+     *                     as it shoots; when one is left over the run says so here, so a board
+     *                     is never read as complete when a fight has been left out of it.
+     */
+    private String instanceDetail(long durationMs, long partyTotal, long mine, boolean joined,
+                                  int unidentified) {
         String detail = SonarTheme.clock(durationMs) + "  ·  party " + SonarTheme.compact(partyTotal)
                 + (mine > 0 ? "  ·  you " + SonarTheme.compact(mine) : "");
+        if (unidentified > 0) {
+            detail += "  ·  " + unidentified
+                    + (unidentified == 1 ? " enemy not identified" : " enemies not identified");
+        }
         return joined ? "Started late  ·  " + detail : detail;
     }
 

@@ -174,6 +174,19 @@ public class GameData {
     private Object joinedKey;
 
     /**
+     * Works out what the enemies Sonar never saw introduced actually are, from what they shoot.
+     * One per session, cleared with everything else when the instance ends.
+     */
+    private final EnemyIdentity identity = new EnemyIdentity();
+    /** How many enemies this instance got their name back that way, for the run's notice. */
+    private int recoveredEnemies;
+
+    /** How many enemies were identified from their shots rather than from the server. */
+    public int recoveredEnemies() {
+        return recoveredEnemies;
+    }
+
+    /**
      * The instance to key by: the map when there is one, a stand-in when Sonar came in
      * partway and there is real damage to account for, and null when there is neither.
      */
@@ -881,6 +894,16 @@ public class GameData {
         Entity e = entityList.get(p.ownerId);
         boolean ap = false;
         if (e != null) {
+            // An enemy that was already on screen when the sniffer started has no type and
+            // never will from the tick stream - but it tells us what it is every time it
+            // shoots. See EnemyIdentity. Done before the armour-piercing lookup below, so a
+            // shot that completes the identification is itself read correctly.
+            if (e.objectType <= 0) {
+                int found = identity.sawShot(p.ownerId, p.bulletType, p.damage);
+                if (found > 0 && e.recoverType(found)) {
+                    recoveredEnemies++;
+                }
+            }
             int etype = e.objectType;
             int btype = p.bulletType;
             try {
@@ -952,6 +975,8 @@ public class GameData {
         charId = -1;
         selfByName = false;
         joinedKey = null;
+        identity.clear();
+        recoveredEnemies = 0;
         time = -1;
         // A run Sonar came in partway through has no map, so this gate used to drop it on
         // the floor: the damage was collected, shown live, and then thrown away when the

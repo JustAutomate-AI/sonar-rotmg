@@ -73,6 +73,14 @@ final class InstanceHistory {
          * is the right answer for them, since nothing could be recorded partway before.
          */
         boolean joined;
+        /**
+         * Enemies that took damage and were never identified, and how much.
+         * <p>
+         * Absent from files written before this existed, where Gson leaves them zero - which is
+         * the right answer for them, since nothing was being left out of the figures then.
+         */
+        int unidentified;
+        long unidentifiedDamage;
         String myName = "", myClass = "";
         int[] statTotal = new int[8], statBoost = new int[8];
         List<LiveModel.Target> targets = new ArrayList<>();
@@ -98,6 +106,8 @@ final class InstanceHistory {
             e.maxPlayers = m.maxPlayers;
             e.hasPlayer = m.hasPlayer;
             e.joined = past.joined || m.joined;
+            e.unidentified = Math.max(past.unidentified, m.unidentified);
+            e.unidentifiedDamage = Math.max(past.unidentifiedDamage, m.unidentifiedDamage);
             e.myName = m.myName;
             e.myClass = m.myClass;
             e.statTotal = m.statTotal.clone();
@@ -190,6 +200,8 @@ final class InstanceHistory {
         m.petAll = e.petAll;
         m.hasPlayer = e.hasPlayer;
         m.joined = e.joined;
+        m.unidentified = e.unidentified;
+        m.unidentifiedDamage = e.unidentifiedDamage;
         m.myName = e.myName;
         m.myClass = e.myClass;
         if (e.statTotal != null) System.arraycopy(e.statTotal, 0, m.statTotal, 0, Math.min(8, e.statTotal.length));
@@ -207,6 +219,8 @@ final class InstanceHistory {
 
         LiveModel.Past p = new LiveModel.Past();
         p.joined = e.joined;
+        p.unidentified = e.unidentified;
+        p.unidentifiedDamage = e.unidentifiedDamage;
         p.name = e.name;
         p.durationMs = e.durationMs;
         p.startedAt = e.startedAt;

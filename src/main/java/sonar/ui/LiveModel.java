@@ -56,6 +56,24 @@ final class LiveModel {
      * usually holds a complete record of the fight people actually care about.
      */
     boolean joined;
+    /**
+     * Enemies that took damage and could never be identified, and how much they took.
+     * <p>
+     * Not an error on its own - a run that recovers everything has none of these, and most
+     * late-joined runs do recover everything, because an enemy names itself as soon as it
+     * shoots. When one is left over, its damage is kept out of every figure and the run says
+     * so rather than quietly reporting a total that is missing a fight.
+     */
+    int unidentified;
+    long unidentifiedDamage;
+    /** Enemies that were named from their shots rather than by the server. */
+    int recovered;
+
+    /** Whether anything in this run had to be left out of the figures. */
+    public boolean incomplete() {
+        return unidentified > 0;
+    }
+
     /** Every enemy that took player damage, most recently hit first. */
     final ArrayList<Target> targets = new ArrayList<>();
     /** All enemies of the instance added together. */
@@ -747,6 +765,14 @@ final class LiveModel {
         LiveModel frozen;
         /** True when Sonar came in partway: the run is real but it is not the whole run. */
         boolean joined;
+        /**
+         * Enemies that took damage and were never identified, and how much.
+         * <p>
+         * Kept with the run so a board reviewed days later still admits what it is missing,
+         * rather than looking complete because the thing it left out has no name to show.
+         */
+        int unidentified;
+        long unidentifiedDamage;
     }
 
     static LiveModel live(GameData data) {
@@ -1019,6 +1045,8 @@ final class LiveModel {
         p.mine = me == null ? 0 : me.damage;
         p.source = d;
         p.joined = m.joined;
+        p.unidentified = m.unidentified;
+        p.unidentifiedDamage = m.unidentifiedDamage;
         // kept as it stands now: the server check only knows the instance that has just ended
         p.frozen = m;
         return p;
@@ -1102,15 +1130,26 @@ final class LiveModel {
         HashMap<Integer, ArrayList<Kit>> readings = new HashMap<>();
         for (Entity e : hit) {
             if (e == null) continue;
-            // An enemy whose type never arrived. It shows up as "Enemy 0" and it is not an
-            // enemy - it is damage Sonar could not place, which happens when the sniffer was
-            // started partway through a run and the packet introducing that entity is long
-            // gone. Left in, it takes a section on the board, a slice of every percentage and
-            // in one real run the largest total of the lot, all of it unattributable.
+            // An enemy whose type never arrived, and which its own shots could not pin down
+            // either. It would show as "Enemy 0" and it is not an enemy - it is damage Sonar
+            // could not place, which happens when the sniffer was started partway through a
+            // run and the packet introducing that entity is long gone. Left in, it takes a
+            // section on the board, a slice of every percentage and in one real run the
+            // largest total of the lot, all of it unattributable.
             //
-            // Mid-run starts still work, and everything Sonar *can* identify in one is still
-            // counted. This is only about not presenting an unanswerable figure as a fight.
-            if (e.objectType <= 0) continue;
+            // Most of these are recovered before they get here: an enemy gives itself away
+            // every time it fires, and a boss is usually named within two shots. What reaches
+            // this line is the remainder - a thing that never shot, or one whose projectiles
+            // are shared with something else. That much is dropped from the figures and
+            // counted, so the run can say plainly that it is not the whole story.
+            if (e.objectType <= 0) {
+                if (!e.getPlayerDamageList().isEmpty()) {
+                    m.unidentified++;
+                    for (Damage d : e.getPlayerDamageList()) m.unidentifiedDamage += d.getDamage();
+                }
+                continue;
+            }
+            if (e.wasRecovered()) m.recovered++;
             List<Damage> list = e.getPlayerDamageList();
             if (list.isEmpty()) continue;
             Target t = new Target();
