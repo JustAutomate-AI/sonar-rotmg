@@ -532,8 +532,8 @@ public final class SonarTheme {
      * to stay legible while sitting on that class's bar.
      * <p>
      * Only lightly saturated and near full brightness: its job is to lift an edge away from
-     * the colour behind it, not to put a second colour on the row. On a Samurai's red bar
-     * this comes back cyan, on an Archer's green a soft magenta.
+     * the colour behind it, not to put a second colour on the row. On a Samurai's orange bar
+     * this comes back blue, on an Archer's green a rose, on a Knight's blue an amber.
      */
     public static Color classContrast(String className) {
         Color own = classColor(className, true);

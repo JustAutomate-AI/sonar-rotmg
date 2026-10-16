@@ -7,7 +7,7 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 **The damage figure comes forward off the bar**
 
 - A number drawn on a coloured bar needs an **edge of its own**, or the colour behind it eats the thin strokes of the glyphs. A drop shadow could not do that where a figure crossed from the dark track onto a bright bar - which is exactly where `450,412` sits on a Necromancer's magenta.
-- Damage dealt is now drawn with a **hard black outline**, over a **bloom in the colour opposite that player's class**: cyan behind a Samurai's red, soft magenta behind an Archer's green. Each row is separated from precisely the colour it is lying on, and at 5-9% opacity the bloom is felt rather than seen.
+- Damage dealt is now drawn with a **hard black outline**, over a **bloom in the colour opposite that player's class**: blue behind a Samurai's orange, rose behind an Archer's green, amber behind a Knight's blue. Each row is separated from precisely the colour it is lying on, and at 5-9% opacity the bloom is felt rather than seen.
 - The figure also moves up into the **same type as the rate beside it**, so the two are a pair and what distinguishes them is treatment rather than size: damage stands off the bar, the rate sits back against it.
 - `SonarTheme.classContrast` is one rotation of the hue wheel from a class's own colour, at 42% saturation and full brightness. Every class gets its own opposite rather than one colour chosen to suit most of them.
 - Both numbers being in the larger type, the second gives way a little sooner as the window narrows rather than reaching back over the name beside it.
