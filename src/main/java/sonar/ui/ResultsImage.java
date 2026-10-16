@@ -421,8 +421,11 @@ final class ResultsImage {
         if (boss.finalBoss && !continued) {
             tagX = drawTag(g, tagX, y + 6, "FINAL", SonarTheme.GOLD);
         }
-        // a fight with a guard says so on its heading, carrying what went into it, so the
-        // reader knows what the coral figures down the rows are before reading one
+        // A fight with a guard says so once, on its heading. The rows below used to carry it
+        // too - a red wash down each bar and a badge beside each name - which was the same
+        // fact three times on a picture whose job is the damage. In the app it has a list of
+        // its own now; here one line says a guard was shot and how much went into it, and
+        // who did it is a question for that list.
         long intoGuard = 0, intoGuardHits = 0;
         for (LiveModel.Row r : boss.rows) {
             intoGuard += r.guardDamage;
@@ -490,15 +493,6 @@ final class ResultsImage {
         g.clip(SonarTheme.round(trackX, y, barW, BOSS_ROW_H, 7));
         g.setPaint(new GradientPaint(trackX, 0, dark, (float) (trackX + Math.max(80, barW)), 0, light));
         g.fill(SonarTheme.round(trackX, y, Math.max(barW, 16), BOSS_ROW_H, 7));
-        // the guard's share of that bar, off its right end, as the live list draws it
-        double guardW = r.guardShare() * barW;
-        if (guardW > 0.5) {
-            g.setPaint(null);
-            g.setColor(SonarTheme.GUARD_GLASS);
-            g.fill(new java.awt.geom.Rectangle2D.Double(trackX + barW - guardW, y, guardW, BOSS_ROW_H));
-            g.setColor(new Color(0, 0, 0, 70));
-            g.fill(new java.awt.geom.Rectangle2D.Double(trackX + barW - guardW, y, 1.2, BOSS_ROW_H));
-        }
         g.setClip(clip);
         g.setPaint(null);
 
@@ -564,50 +558,19 @@ final class ResultsImage {
         g.setFont(SonarTheme.bold(12f));
         String shown = SonarTheme.fit(r.name, g.getFontMetrics(), room);
         int nameW = g.getFontMetrics().stringWidth(shown);
-        String guard = "";
-        if (r.guardDamage > 0 && !r.guardIncidental()) {
-            String[] tries = {
-                    SonarTheme.brief(r.guardDamage) + " guard · " + SonarTheme.hits(r.guardHits),
-                    SonarTheme.brief(r.guardDamage) + " · " + SonarTheme.brief(r.guardHits),
-                    SonarTheme.brief(r.guardDamage)};
-            for (String option : tries) {
-                if (width(g, SonarTheme.bold(9.5f), option) + 16 <= room - nameW) {
-                    guard = option;
-                    break;
-                }
-            }
-        }
-        double guardStart = barEnd - guardW;
-        across(g, shown, nameX, y + BOSS_ROW_H / 2f + 4, guardStart, barEnd, y, dark);
-        if (!guard.isEmpty()) {
-            // a dark badge carrying the coral, which is what 2.12.0 settled on for the nexus
-            // tag: one ink that reads on every class colour beats guessing per bar
-            int gw = g.getFontMetrics().stringWidth(shown);
-            g.setFont(SonarTheme.bold(9.5f));
-            float gx = nameX + gw + 8;
-            int pill = g.getFontMetrics().stringWidth(guard) + 10;
-            g.setColor(new Color(0x15, 0x10, 0x1a, 175));
-            g.fill(SonarTheme.round(gx - 5, y + (BOSS_ROW_H - 14) / 2.0, pill, 14, 5));
-            g.setColor(SonarTheme.CORAL);
-            g.drawString(guard, gx, y + BOSS_ROW_H / 2f + 3.5f);
-        }
+        across(g, shown, nameX, y + BOSS_ROW_H / 2f + 4, barEnd, y, dark);
 
         g.setFont(SonarTheme.bold(11.5f));
-        across(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, guardStart, barEnd, y, light);
+        across(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, barEnd, y, light);
         if (!pct.isEmpty()) {
             g.setFont(SonarTheme.bold(9.5f));
-            across(g, pct, dmgX - pctW + 3, y + BOSS_ROW_H / 2f + 3.5f, guardStart, barEnd, y, light, 0.75);
+            across(g, pct, dmgX - pctW + 3, y + BOSS_ROW_H / 2f + 3.5f, barEnd, y, light, 0.75);
         }
     }
 
     private static void across(Graphics2D g, String text, float x, float y,
                                double barEnd, int rowY, Color bar) {
-        across(g, text, x, y, barEnd, barEnd, rowY, bar, 1);
-    }
-
-    private static void across(Graphics2D g, String text, float x, float y,
-                               double guardStart, double barEnd, int rowY, Color bar) {
-        across(g, text, x, y, guardStart, barEnd, rowY, bar, 1);
+        across(g, text, x, y, barEnd, rowY, bar, 1);
     }
 
     /**
@@ -623,27 +586,19 @@ final class ResultsImage {
      * chosen for what is actually behind it. Where a name does not cross the end, one of
      * the two draws covers everything and the other falls outside its clip.
      */
-    private static void across(Graphics2D g, String text, float x, float y,
-                               double barEnd, int rowY, Color bar, double fade) {
-        across(g, text, x, y, barEnd, barEnd, rowY, bar, fade);
-    }
-
     /**
-     * Three stretches rather than two, because a bar may end in the red run that marks
-     * damage put into a boss's guard. A player who did nothing else has a bar that is red
-     * nearly all the way along, and their name sits on top of it; ink chosen for their class
-     * colour would be unreadable there. Clipping each stretch separately keeps the red
-     * honest about its proportion instead of stopping it short of the text.
+     * Two stretches: the bar, and the panel past its end. There used to be a third for the
+     * red run that marked damage put into a boss's guard, which no longer comes near a bar.
      */
     private static void across(Graphics2D g, String text, float x, float y,
-                               double guardStart, double barEnd, int rowY, Color bar, double fade) {
+                               double barEnd, int rowY, Color bar, double fade) {
         if (text == null || text.isEmpty()) return;
         int top = rowY - 2, height = BOSS_ROW_H + 4;
-        double[] from = {-10000, guardStart, barEnd};
-        double[] to = {guardStart, barEnd, 20000};
-        Color[] behind = {bar, SonarTheme.onGlass(bar), SonarTheme.SURFACE};
+        double[] from = {-10000, barEnd};
+        double[] to = {barEnd, 20000};
+        Color[] behind = {bar, SonarTheme.SURFACE};
         Shape old = g.getClip();
-        for (int zone = 0; zone < 3; zone++) {
+        for (int zone = 0; zone < 2; zone++) {
             if (to[zone] <= from[zone]) continue;
             Color ink = inkOn(behind[zone]);
             if (fade < 1) ink = SonarTheme.alpha(ink, fade);

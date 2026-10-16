@@ -264,77 +264,39 @@ public final class CharacterCache {
     }
 
     /**
-     * Records the full character list, when the game answers one. This covers
-     * every character at once, including those not played recently.
+     * Marks a character as lost, by hand.
+     * <p>
+     * Sonar used to work this out for itself by asking the account website for the
+     * whole character list and burying anything that had stopped appearing on it.
+     * That request is gone - it was an authenticated call to the game's own servers
+     * made by something that is not the game - and with it went the only signal the
+     * game ever gave that a character had died, since nothing in the packet stream
+     * says so against a character id.
+     * <p>
+     * So it is a decision now rather than a deduction, which is also the honest
+     * version: Sonar never knew whether a character had died or been deleted, only
+     * that it was gone. Everything already remembered about it is kept either way,
+     * and {@link #restore(int)} puts it back if the wrong one was picked.
      */
-    public static synchronized void seenAll(List<sonar.game.RealmCharacter> chars) {
+    public static synchronized boolean bury(int id) {
         load();
-        if (chars == null) return;
-        for (sonar.game.RealmCharacter c : chars) {
-            if (c == null || c.charId <= 0) continue;
-            Entry e = CHARACTERS.get(c.charId);
-            if (e == null) {
-                e = new Entry();
-                e.id = c.charId;
-                e.lastSeen = 1; // seen, but not played since Sonar started
-            }
-            if (c.classString != null && !c.classString.isEmpty()) e.className = c.classString;
-            e.level = c.level;
-            e.fame = c.fame;
-            e.exp = c.exp;
-            e.seasonal = c.seasonal;
-            int[] raw = {c.hp, c.mp, c.atk, c.def, c.spd, c.dex, c.vit, c.wis};
-            System.arraycopy(raw, 0, e.stat, 0, 8);
-            if (c.equipment != null) {
-                for (int i = 0; i < 4 && i < c.equipment.length; i++) e.gearIds[i] = c.equipment[i];
-                // the list sends one array: the four worn items, then the eight carried
-                for (int i = 0; i < 8; i++) {
-                    int at = 4 + i;
-                    e.inventory[i] = at < c.equipment.length && c.equipment[at] > 0 ? c.equipment[at] : -1;
-                }
-            }
-            if (c.skin > 0) e.skin = c.skin;
-            else if (e.skin <= 0) e.skin = c.classNum;
-            // the exalt bonus is deliberately not taken from the character list: what that holds is
-            // progress towards the next exalt (0-75 per stat), not what exaltation adds to the stat.
-            // The real bonus only arrives on the character being played, so seen() fills it in.
-            if (c.petName != null) e.petName = c.petName;
-            e.petRarity = c.petRarity;
-            CHARACTERS.put(c.charId, e);
-        }
-        buryMissing(chars);
+        Entry e = CHARACTERS.get(id);
+        if (e == null || e.died != 0) return false;
+        e.died = System.currentTimeMillis();
         save();
-        // the same answer carries the account's exaltation, which is the only time the game sends it all
-        rememberExaltation(true);
+        return true;
     }
 
-    /**
-     * Marks as dead every remembered character the account no longer lists.
-     * <p>
-     * Scoped to the seasonal flags actually present in this answer. The game
-     * can send the seasonal characters and the regular ones separately, and
-     * comparing one against the other would bury every character on the side
-     * that was not asked for.
-     */
-    private static void buryMissing(List<sonar.game.RealmCharacter> chars) {
-        if (chars == null || chars.isEmpty()) return;
-        java.util.Set<Integer> alive = new java.util.HashSet<>();
-        boolean sawSeasonal = false, sawRegular = false;
-        for (sonar.game.RealmCharacter c : chars) {
-            if (c == null || c.charId <= 0) continue;
-            alive.add(c.charId);
-            if (c.seasonal) sawSeasonal = true;
-            else sawRegular = true;
-        }
-        if (alive.isEmpty()) return;
-        long now = System.currentTimeMillis();
-        for (Entry e : CHARACTERS.values()) {
-            if (e.died != 0 || alive.contains(e.id)) continue;
-            // a character that was never actually played is only a stub; it has nothing to bury
-            if (e.level <= 0 && e.fame <= 0) continue;
-            if (e.seasonal ? !sawSeasonal : !sawRegular) continue;
-            e.died = now;
-        }
+    /** Puts a character marked lost back among the living. */
+    public static synchronized boolean restore(int id) {
+        load();
+        Entry e = CHARACTERS.get(id);
+        if (e == null || e.died == 0) return false;
+        e.died = 0;
+        // it is being played again as far as the page is concerned, so it sorts with the rest
+        if (e.lastSeen <= 0) e.lastSeen = 1;
+        save();
+        return true;
     }
 
     /** The characters that have gone, most recently lost first. */
@@ -351,12 +313,6 @@ public final class CharacterCache {
         ArrayList<Entry> list = new ArrayList<>();
         for (Entry e : all()) if (e.died == 0) list.add(e);
         return list;
-    }
-
-    /** Lets the self-test drive a list answer without a connection. */
-    static synchronized void buryMissingForTest(List<sonar.game.RealmCharacter> chars) {
-        load();
-        buryMissing(chars);
     }
 
     /** Every remembered character, most recently played first. */

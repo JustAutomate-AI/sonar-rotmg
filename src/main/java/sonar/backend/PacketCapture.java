@@ -43,6 +43,10 @@ public class PacketCapture implements Controller {
         } else if (packet instanceof UpdatePacket) {
             UpdatePacket p = (UpdatePacket) packet;
             data.update(p);
+            // This is the packet people arrive and leave on, so it is the one the roster
+            // is waiting for. Refreshing only on the tick below meant every arrival sat
+            // unlisted until the next one came round.
+            sonar.ui.SonarShell.tick(data);
             data.logPacket(packet);
 
             // Update player crucible bonus from stat 155

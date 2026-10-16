@@ -1,24 +1,24 @@
 package sonar;
 
 import sonar.ui.SonarDialog;
-import sonar.util.PropertiesManager;
 
 import java.awt.Component;
 import java.io.File;
 
 /**
- * The two things a fresh copy of Sonar still needs a human for.
+ * The one thing a fresh copy of Sonar still needs a human for.
  * <p>
- * Npcap, because reading network traffic needs a driver and no application can
- * install one quietly; and a shortcut, because a program unpacked from a zip has
- * nowhere to be launched from. Both used to be the job of a setup script the user
- * had to find and run before Sonar would work. Asking here means unpacking and
- * double-clicking is the whole installation.
+ * Npcap: reading network traffic needs a driver, and no application can install one
+ * quietly. It used to be the job of a setup script the user had to find and run before
+ * Sonar would work at all. Asking here means unpacking and double-clicking is the whole
+ * installation.
+ * <p>
+ * A shortcut used to be asked for here too. It is no longer a question - see
+ * {@link Shortcuts}, which makes one the way every other installed program does.
  */
 public final class FirstRun {
 
     private static final String NPCAP_URL = "https://npcap.com/#download";
-    private static final String ASKED_SHORTCUT = "sonar.asked.shortcut";
 
     private FirstRun() {
     }
@@ -56,56 +56,6 @@ public final class FirstRun {
                         + "separate download - tick \"WinPcap API-compatible Mode\" when it asks.",
                 "Open the download page", "Later");
         if (choice == 0) browse(parent, NPCAP_URL);
-    }
-
-    /**
-     * Offers a desktop shortcut the first time a packaged copy runs.
-     * <p>
-     * Only for the packaged build: a copy run from source or from the jar has no
-     * single executable worth pointing at, and the answer is remembered either way
-     * so it is asked once and never again.
-     */
-    public static void offerShortcut(Component parent) {
-        if (automated() || "true".equals(PropertiesManager.getProperty(ASKED_SHORTCUT))) return;
-        File exe = packagedExe();
-        if (exe == null) return;
-        PropertiesManager.setProperties(ASKED_SHORTCUT, "true");
-        int choice = SonarDialog.ask(parent, "Add a shortcut?",
-                "Sonar can put a shortcut on your desktop and in the Start menu,\n"
-                        + "so you do not have to come back to this folder to open it.",
-                "Add shortcut", "No thanks");
-        if (choice == 0) createShortcuts(exe);
-    }
-
-    /** The launcher this process was started from, when that is Sonar's own exe. */
-    private static File packagedExe() {
-        try {
-            String command = ProcessHandle.current().info().command().orElse(null);
-            if (command == null) return null;
-            File f = new File(command);
-            // the packaged launcher is Sonar.exe; a plain java.exe means this is not it
-            return f.getName().equalsIgnoreCase("Sonar.exe") && f.isFile() ? f : null;
-        } catch (Throwable e) {
-            return null;
-        }
-    }
-
-    private static void createShortcuts(File exe) {
-        String script =
-                "$ws = New-Object -ComObject WScript.Shell; "
-                        + "foreach ($dir in @([Environment]::GetFolderPath('Desktop'), "
-                        + "[Environment]::GetFolderPath('Programs'))) { "
-                        + "  $lnk = $ws.CreateShortcut((Join-Path $dir 'Sonar.lnk')); "
-                        + "  $lnk.TargetPath = '" + exe.getPath() + "'; "
-                        + "  $lnk.WorkingDirectory = '" + exe.getParent() + "'; "
-                        + "  $lnk.Description = 'Damage tracker for Realm of the Mad God'; "
-                        + "  $lnk.Save() }";
-        try {
-            new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
-                    "-ExecutionPolicy", "Bypass", "-Command", script).start();
-        } catch (Exception e) {
-            System.out.println("Shortcut was not created (" + e + ")");
-        }
     }
 
     private static void browse(Component parent, String url) {

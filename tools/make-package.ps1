@@ -113,9 +113,10 @@ Write-Host "  unpack it anywhere and run Sonar.exe - no Java needed"
 # answerable. It hangs, with the progress bar sitting on "Creating shortcuts" and no
 # way out but Task Manager. That is not a rare corner: a Desktop redirected by OneDrive
 # or a junction is extremely common, and 2.8.0 shipped with this fault. The Start menu
-# entry is written to a folder of its own and has never failed. Sonar offers a desktop
-# shortcut itself on first run (see FirstRun.java), where a refusal is just a message
-# rather than a wedged installer.
+# entry is written to a folder of its own and has never failed. Sonar writes a desktop
+# shortcut itself on first run (see Shortcuts.java), where a refusal is a line in a log
+# rather than a wedged installer. That code also finds the group entry this creates and
+# leaves it alone, so an installed copy does not end up with two Start menu entries.
 if (-not $Wix) {
     foreach ($c in @("${env:ProgramFiles(x86)}\WiX Toolset v3.14in",
                      "${env:ProgramFiles(x86)}\WiX Toolset v3.11in",

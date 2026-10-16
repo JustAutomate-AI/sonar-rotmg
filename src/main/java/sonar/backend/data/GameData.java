@@ -15,7 +15,7 @@ import sonar.packets.incoming.*;
 import sonar.packets.outgoing.*;
 import sonar.backend.SecurityAbilityUseCheck;
 import sonar.ChatPings;
-import sonar.game.HttpCharListRequest;
+import sonar.game.HttpAccountRequest;
 import sonar.game.ParseDungeon;
 import sonar.game.ParseEnchants;
 import sonar.game.PingSounds;
@@ -40,7 +40,6 @@ public class GameData {
     public long timePc;
     private long timePcFirst;
     public Entity player;
-    public Entity pet;
     protected final int[][] mapTiles = new int[2048][2048];
     public final HashMap<Integer, Entity> entityList = new HashMap<>();
     protected final HashMap<Integer, Entity> playerList = new HashMap<>();
@@ -116,7 +115,6 @@ public class GameData {
         new HashMap<>();
     private int moonlightFlames = 0;
     private static final int MOONLIGHT_BOSS_FLAME_ID = 20518;
-    private boolean updatedExaltStats = false;
     private final HashMap<String, ArrayList<String>> propLists =
         new HashMap<>();
 
@@ -222,24 +220,25 @@ public class GameData {
         }
     }
 
-    /** Set once a login has already tried for the character list, so it is asked for at most once. */
-    private boolean askedAtLogin;
-
+    /**
+     * Asks the account website for the character list, in the two rooms where that is
+     * what the game client itself is doing anyway.
+     * <p>
+     * This is the one place in Sonar that sends anything to the game's own servers.
+     * Everything else it knows it learned by reading traffic that was going past regardless,
+     * which no server can see; this is an authenticated request, made by a program that is
+     * not the game, from the same address a session is live on.
+     * <p>
+     * It used to make a third call: one speculative attempt per login, anywhere at all, to
+     * notice a character that had died or been deleted sooner. The comment that went with it
+     * recorded that the server was expected to refuse it outside these two rooms, and treated
+     * that as costing nothing. It is not nothing. A refused authenticated request is precisely
+     * what abuse detection is built to count, it happened on every single launch, and the only
+     * thing it bought was learning about a dead character a little earlier than the next Pet
+     * Yard visit would have. That trade was never worth making and the call is gone.
+     */
     public void webRequest() {
-        if (map.displayName.equals("Pet Yard")) {
-            petyard = true;
-            charListHttpRequest();
-        } else if (map.displayName.equals("Daily Quest Room")) {
-            charListHttpRequest();
-        } else if (!askedAtLogin) {
-            // The full list is the only way to notice a character has died or been deleted, and it
-            // was only ever asked for in those two rooms - so a loss went unseen until you happened
-            // to wander into one. One quiet attempt per login catches it far sooner. The server is
-            // said to refuse this outside those rooms; if it does, nothing is lost and nothing is
-            // said, and the two rooms above still work as they always have.
-            askedAtLogin = true;
-            charListHttpRequest(true);
-        }
+        if (map.displayName.equals("Pet Yard")) petyard = true;
     }
 
     private void updateDungeonStats(int charId, String str) {
@@ -819,7 +818,7 @@ public class GameData {
                 } else {
                     // Minion/summon has no owner mapping, ignore this damage
                     // (Sonar counts it separately when the attacker is a pet)
-                    sonar.ui.PetDamage.hit(map, attacker, pet, p.damageAmount);
+                    sonar.ui.PetDamage.hit(map, attacker, player, p.damageAmount);
                     attacker = null;
                 }
             }
@@ -1060,114 +1059,8 @@ public class GameData {
         }
     }
 
-    public void characterListUpdate(ArrayList<RealmCharacter> chars) {
-        characterDataRecieved = true;
-        this.chars = chars;
-        // the full list covers every character at once; keep it so the Characters page still has
-        // them after a restart, long after leaving the room that allowed the request
-        sonar.ui.CharacterCache.seenAll(chars);
-        charMap = new HashMap<>();
-        for (RealmCharacter r : chars) {
-            charMap.put(r.charId, r);
-        }
-        seasonalVault.clearChar();
-        regularVault.clearChar();
-        for (RealmCharacter c : chars) {
-            if (c.seasonal) {
-                seasonalVault.updateCharInventory(c);
-            } else {
-                regularVault.updateCharInventory(c);
-            }
-        }
-        RealmCharacter currentChar = charMap.get(charId);
-        if (charId != -1 && currentChar != null) {
-            makePet(currentChar);
-        }
-    }
-
-    private void makePet(RealmCharacter currentChar) {
-        pet = new Entity(this, -1, time);
-
-        pet.stat.set(StatType.SKIN_ID, new StatData());
-        pet.stat.set(StatType.PET_TYPE_STAT, new StatData());
-        pet.stat.set(StatType.PET_NAME_STAT, new StatData());
-        pet.stat.set(StatType.PET_RARITY_STAT, new StatData());
-        pet.stat.set(StatType.PET_INSTANCE_ID_STAT, new StatData());
-        pet.stat.set(StatType.PET_MAX_ABILITY_POWER_STAT, new StatData());
-        pet.stat.set(StatType.PET_FIRST_ABILITY_POINT_STAT, new StatData());
-        pet.stat.set(StatType.PET_FIRST_ABILITY_POWER_STAT, new StatData());
-        pet.stat.set(StatType.PET_FIRST_ABILITY_TYPE_STAT, new StatData());
-        pet.stat.set(StatType.PET_SECOND_ABILITY_POINT_STAT, new StatData());
-        pet.stat.set(StatType.PET_SECOND_ABILITY_POWER_STAT, new StatData());
-        pet.stat.set(StatType.PET_SECOND_ABILITY_TYPE_STAT, new StatData());
-        pet.stat.set(StatType.PET_THIRD_ABILITY_POINT_STAT, new StatData());
-        pet.stat.set(StatType.PET_THIRD_ABILITY_POWER_STAT, new StatData());
-        pet.stat.set(StatType.PET_THIRD_ABILITY_TYPE_STAT, new StatData());
-
-        pet.stat.get(StatType.SKIN_ID).statValue = currentChar.petSkin;
-        pet.stat.get(StatType.PET_TYPE_STAT).statValue = currentChar.petType;
-        pet.stat.get(StatType.PET_NAME_STAT).stringStatValue =
-            currentChar.petName;
-        pet.stat.get(StatType.PET_RARITY_STAT).statValue =
-            currentChar.petRarity;
-        pet.stat.get(StatType.PET_INSTANCE_ID_STAT).statValue =
-            currentChar.petInstanceId;
-        pet.stat.get(StatType.PET_MAX_ABILITY_POWER_STAT).statValue =
-            currentChar.petMaxAbilityPower;
-
-        pet.stat.get(StatType.PET_FIRST_ABILITY_POINT_STAT).statValue =
-            currentChar.petAbilitys[0];
-        pet.stat.get(StatType.PET_FIRST_ABILITY_POWER_STAT).statValue =
-            currentChar.petAbilitys[1];
-        pet.stat.get(StatType.PET_FIRST_ABILITY_TYPE_STAT).statValue =
-            currentChar.petAbilitys[2];
-        pet.stat.get(StatType.PET_SECOND_ABILITY_POINT_STAT).statValue =
-            currentChar.petAbilitys[3];
-        pet.stat.get(StatType.PET_SECOND_ABILITY_POWER_STAT).statValue =
-            currentChar.petAbilitys[4];
-        pet.stat.get(StatType.PET_SECOND_ABILITY_TYPE_STAT).statValue =
-            currentChar.petAbilitys[5];
-        pet.stat.get(StatType.PET_THIRD_ABILITY_POINT_STAT).statValue =
-            currentChar.petAbilitys[6];
-        pet.stat.get(StatType.PET_THIRD_ABILITY_POWER_STAT).statValue =
-            currentChar.petAbilitys[7];
-        pet.stat.get(StatType.PET_THIRD_ABILITY_TYPE_STAT).statValue =
-            currentChar.petAbilitys[8];
-    }
-
     /**
-     * Handles character data by sending char list request to rotmg servers while in the daily quest room.
-     * This is done here given pet yard and daily quest instance is the only instances where the char list
-     * request can be done without being rejected by rotmg servers.
-     * <p>
-     * token Current client token string used in http request packet.
-     */
-    public void charListHttpRequest() {
-        charListHttpRequest(false);
-    }
-
-    /**
-     * @param quiet true for the speculative attempt made at login, which is
-     *              expected to be refused outside the Pet Yard and the Daily
-     *              Quest Room and must not shout about it.
-     */
-    public void charListHttpRequest(boolean quiet) {
-        if (token == null || token.isEmpty()) return;
-        try {
-            String httpString = HttpCharListRequest.getChartList(token);
-            ArrayList<RealmCharacter> charList = RealmCharacter.getCharList(
-                httpString
-            );
-            if (charList != null) characterListUpdate(charList);
-        } catch (IOException e) {
-            if (!quiet) e.printStackTrace();
-        } catch (RuntimeException e) {
-            if (!quiet) e.printStackTrace();
-        }
-    }
-
-    /**
-     * Stores the token for char list requests.
+     * Stores the access token seen in the login traffic.
      *
      * @param token Current client token.
      */
@@ -1177,22 +1070,69 @@ public class GameData {
         updateExalts(token);
     }
 
+    /** Set once this run has tried, so a failure is not retried on every login packet. */
+    private boolean triedExaltsThisRun;
+
+    /** How long a reading of the account's exaltation is treated as current. */
+    private static final long EXALT_MAX_AGE = 24L * 60 * 60 * 1000;
+
+    /** Remembers when the exaltation was last read, across restarts. */
+    private static final String EXALT_CHECKED = "sonar.exalt.checked";
+
+    /**
+     * Reads the account's exaltation from the website, at most once a day.
+     * <p>
+     * This is the only request Sonar makes to the game's own servers. It used to be made
+     * once per launch, which on a day of updates or crashes meant a dozen of them; the
+     * reading it fetches changes about as often as you exalt a class, so once per launch
+     * was asking a hundred times for an answer that had moved once.
+     * <p>
+     * It is worth making at all because {@code ExaltationUpdatePacket} only carries the
+     * class you are playing, as you earn it: without a reading to start from, the page
+     * begins empty and fills in over months, and the exalted stats feed the damage figures
+     * too. So the shape is seed once, keep it current from the packets, and re-read a day
+     * later in case something was earned while Sonar was not watching.
+     * <p>
+     * The timestamp is written before the call rather than after, so a server that hangs
+     * or refuses cannot turn into a request on every login; a genuine failure still gets
+     * one more try on the next launch.
+     */
     private void updateExalts(String token) {
-        if (updatedExaltStats) return;
-        updatedExaltStats = true;
+        if (triedExaltsThisRun || token == null || token.isEmpty()) return;
+        triedExaltsThisRun = true;
+        long last = 0;
         try {
-            String s = HttpCharListRequest.getPowerUpStats(token);
-            if (RealmCharacter.checkExaltNew(s)) {
-            }
-        } catch (IOException e) {
-            // Exalt progress comes from the website, not the packet stream, so it is the one thing
-            // here that can fail for reasons that have nothing to do with the game: no connection,
-            // their server down. This used to be rethrown unchecked and took packet handling with
-            // it. The run matters more than the exalt numbers, so it is noted and left alone - and
-            // the flag goes back, so the next token that arrives tries again.
-            updatedExaltStats = false;
-            System.out.println("Could not fetch exalt stats: " + e.getMessage());
+            String saved = PropertiesManager.getProperty(EXALT_CHECKED);
+            if (saved != null && !saved.trim().isEmpty()) last = Long.parseLong(saved.trim());
+        } catch (RuntimeException ignored) {
+            // an unreadable stamp counts as never read
         }
+        long now = System.currentTimeMillis();
+        // a clock that has gone backwards must not lock this out until the date catches up
+        if (last > 0 && last <= now && now - last < EXALT_MAX_AGE) return;
+        final String previous = String.valueOf(last);
+        PropertiesManager.setProperties(EXALT_CHECKED, String.valueOf(now));
+        // off the packet thread: an HTTPS request that hangs must not take packet handling with it
+        Thread worker = new Thread(() -> {
+            try {
+                String s = HttpAccountRequest.getPowerUpStats(token);
+                if (s != null && RealmCharacter.checkExaltNew(s)) {
+                    // this answer covers every class at once, so nothing on the page is stale
+                    sonar.ui.CharacterCache.rememberExaltation(true);
+                }
+            } catch (IOException e) {
+                // Exalt progress comes from the website, not the packet stream, so it is the one
+                // thing here that can fail for reasons that have nothing to do with the game: no
+                // connection, their server down. The run matters more than the exalt numbers, so
+                // it is noted and left alone, and the stamp goes back so the next launch retries.
+                PropertiesManager.setProperties(EXALT_CHECKED, previous);
+                System.out.println("Could not fetch exalt stats: " + e.getMessage());
+            } catch (RuntimeException e) {
+                System.out.println("Could not read exalt stats: " + e);
+            }
+        }, "exalt-stats");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     /**

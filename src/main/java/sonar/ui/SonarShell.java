@@ -120,6 +120,13 @@ public class SonarShell extends JPanel {
     private int pastCounted;
     private long lastTick;
     private Object lastMap;
+    /**
+     * The next snapshot to draw, or null when none is waiting. Written on the packet
+     * thread, taken on the event thread; one slot, so a backlog cannot form.
+     */
+    private final java.util.concurrent.atomic.AtomicReference<Object[]> pending = new java.util.concurrent.atomic.AtomicReference<>();
+    /** -Dsonar.timing prints how long each snapshot took to build and to draw. */
+    private static final boolean TIMING = System.getProperty("sonar.timing") != null;
     private final boolean demo = System.getProperty("sonar.demo") != null;
 
     public SonarShell(GameData data) {
@@ -560,9 +567,14 @@ public class SonarShell extends JPanel {
     }
 
     /**
-     * Called on the packet thread for every game tick. Takes a snapshot of
-     * the instance there, where the data is consistent, and hands it to the
-     * event thread.
+     * Called on the packet thread whenever the world has changed. Takes a snapshot of
+     * the instance there, where the data is consistent, and hands it to the event thread.
+     * <p>
+     * Both packets that change who is in the room call this. The tick carries the stats,
+     * the update carries the arrivals and departures, and for a long time only the first
+     * of them refreshed anything - so somebody walking into view waited for the next tick
+     * to be listed, and in a crowd, where the server spreads the arrivals over a run of
+     * update packets, the roster filled in visible steps behind the game.
      */
     public static void tick(GameData data) {
         SonarShell s = instance;
@@ -572,6 +584,7 @@ public class SonarShell extends JPanel {
             if (now - s.lastTick < 120 && data.map == s.lastMap) return;
             s.lastTick = now;
             s.lastMap = data.map;
+            long started = System.nanoTime();
             ShattersRadar.tick(data);
             ShattersPuzzle.tick(data);
             InvulnTracker.tick(data);
@@ -596,10 +609,41 @@ public class SonarShell extends JPanel {
             CharacterCache.seen(data);
             LiveModel model = LiveModel.live(data);
             List<LiveModel.Past> pasts = new ArrayList<>(s.pastCache);
-            SwingUtilities.invokeLater(() -> s.live.apply(model, pasts));
+            long built = System.nanoTime();
+            if (TIMING) {
+                System.out.println("[timing] snapshot of " + model.seen.size() + " players built in "
+                        + (built - started) / 1000000 + "ms"
+                        + (s.pending.get() != null ? ", replacing one not yet drawn" : ""));
+            }
+            // One update waiting at a time, and always the newest one.
+            //
+            // Every snapshot used to be posted to the event thread on its own. Drawing one
+            // costs more than building one - a refresh rebuilds every list, every panel and
+            // every window on the page - so in a crowd they arrived faster than they could be
+            // drawn and the queue grew. What showed on screen was then however far behind the
+            // game the backlog had got, which is why a roster that was complete in the data
+            // took seconds to look complete. Replacing the pending snapshot instead of queueing
+            // another drops the stale ones, which nobody wanted drawn anyway.
+            boolean post = s.pending.getAndSet(new Object[]{model, pasts, built}) == null;
+            if (post) SwingUtilities.invokeLater(s::drawPending);
         } catch (RuntimeException e) {
             // the display must never interrupt packet handling
             e.printStackTrace();
+        }
+    }
+
+    /** Draws the newest snapshot and clears the slot, on the event thread. */
+    private void drawPending() {
+        Object[] next = pending.getAndSet(null);
+        if (next == null) return;
+        @SuppressWarnings("unchecked")
+        List<LiveModel.Past> pasts = (List<LiveModel.Past>) next[1];
+        long drawing = System.nanoTime();
+        live.apply((LiveModel) next[0], pasts);
+        if (TIMING) {
+            long built = (Long) next[2];
+            System.out.println("[timing] waited " + (drawing - built) / 1000000 + "ms to be drawn, drawn in "
+                    + (System.nanoTime() - drawing) / 1000000 + "ms");
         }
     }
 

@@ -46,6 +46,24 @@ class LiveView {
      */
     private final EnemyStrip breakdownEnemies = new EnemyStrip();
     private final FloatWindow breakdownWindow;
+    /**
+     * Who shot a boss while its defences were up.
+     * <p>
+     * This used to be three marks on the damage board at once: a red wash over the right
+     * end of every bar, the figures again in red brackets after the damage, and two more
+     * columns besides. One fact said three times, on a row already carrying nine, and the
+     * red had to survive being drawn over whatever class colour was behind it.
+     * <p>
+     * It is a list of its own now. The board goes back to being a damage board, and this
+     * answers the question it was always really answering - who did it, and how much -
+     * ranked, on its own, in the one place somebody goes looking for it. On a fight with
+     * nothing to report the window hides itself.
+     */
+    private final ListPane guarded = new ListPane("No guarded hits",
+            "Damage dealt to a boss with its guard up is listed here", this::pickGuarded);
+    private final FloatWindow guardedWindow;
+    /** Names in the order the guarded list is showing them, for picking one. */
+    private final java.util.ArrayList<String> guardedNames = new java.util.ArrayList<>();
     private final PartyFinderPane partyFinderPane = new PartyFinderPane();
     private final FloatWindow partyFinderWindow;
     /** The list of fights down the left of the Damage window, and the strip it sits in. */
@@ -235,7 +253,7 @@ class LiveView {
         // which is about you now rather than about a run that is over.
         historyWindow = window(instancePage, "history", "Instances", history, historyAccessory(), 0.006, 0.006, 0.26, 0.988, 220, 150);
         instanceWindow = window(instancePage, "instance", "Run summary", instance, shareAccessory(), 0.272, 0.006, 0.36, 0.49, 220, 150);
-        enemiesWindow = window(instancePage, "enemies", "Enemies", enemies, enemiesFilter, 0.272, 0.502, 0.36, 0.492, 220, 150);
+        enemiesWindow = window(instancePage, "enemies", "Enemies", enemies, enemiesFilter, 0.272, 0.502, 0.36, 0.26, 220, 150);
         history.icons = true;
         // Analysis page: the deeper-dive tools (per-boss breakdown, leaderboard/classification, the Shatters radar beta) -
         // split out from Instance since the two pages together had grown to seven windows fighting for one grid
@@ -255,6 +273,9 @@ class LiveView {
         // the breakdown sits under the enemies as a card, and opens over the page when it is wanted
         breakdownWindow = window(instancePage, "breakdown", "Damage breakdown", breakdownBody(), breakdownAccessory(),
                 0.642, 0.006, 0.352, 0.988, 240, 150);
+        // under the enemies, where the breakdown is: it belongs to the same fight
+        guardedWindow = window(instancePage, "guarded", "Guarded hits", guarded, guardedAccessory(),
+                0.272, 0.768, 0.36, 0.226, 220, 140);
         breakdownEnemies.onPick(this::refresh);
         if (shattersEnabled) openShattersOverlay();
         party.onAction(this::removePartyMember);
@@ -273,6 +294,9 @@ class LiveView {
         itemsWindow = window(playersPage, "items", "Damage by item", itemList, null, 0.688, 0.502, 0.306, 0.492, 220, 140);
         vaultWindow = window(vaultPage, "vault", "Vault", vaultPane, vaultTab, 0.006, 0.006, 0.988, 0.988, 260, 200);
         charactersWindow = window(charactersPage, "characters", "Characters", charactersPane, null, 0.006, 0.006, 0.988, 0.988, 300, 220);
+        // marking a character lost changes what is remembered, not what a packet said, so the
+        // page is told to rebuild rather than waiting for a game tick that may never come
+        charactersPane.onChanged = this::refresh;
         exaltationWindow = window(exaltationPage, "exaltation", "Exaltation", exaltationPane, null, 0.006, 0.006, 0.988, 0.988, 300, 220);
         wardrobeWindow = window(wardrobePage, "wardrobe", "Wardrobe", wardrobePane, null, 0.006, 0.006, 0.988, 0.988, 340, 240);
         // picking a class on the Exaltation cards and opening the wardrobe arrives on that same class
@@ -320,11 +344,102 @@ class LiveView {
         navigate = r;
     }
 
+    /**
+     * Picks a player and goes to where there is something to see about them.
+     * <p>
+     * Both rosters call this, and one of them is on the Live page, where nothing shows a
+     * chosen player at all - their gear, their items and their profile are all on the
+     * Players page. So clicking somebody there used to select them correctly and change
+     * nothing on screen, which is indistinguishable from a dead row. The damage bars have
+     * always gone to the Players page when clicked; the lists now do the same, and from
+     * the Players page itself the move is a no-op.
+     */
     private void pickPlayer(int index) {
         if (index < 0 || index >= rosterNames.size()) return;
         selectedPlayer = rosterNames.get(index);
         refresh();
+        navigate.accept(PLAYERS);
     }
+
+    /**
+     * Fills the guarded list from whichever fight the breakdown is showing.
+     * <p>
+     * Ranked by damage into the guard rather than by damage overall, because that is the
+     * order the question is asked in. Everyone picks up a stray hit or two - the server
+     * keeps resolving shots that were already in the air when the guard went up - so the
+     * list runs all the way down to those rather than drawing a line somewhere arbitrary
+     * and calling the rest innocent. The size of the numbers says the rest.
+     */
+    private void showGuarded(LiveModel.Target t) {
+        guardedNames.clear();
+        guardedRows = new java.util.ArrayList<>();
+        guardedFight = t == null ? "" : t.name;
+        if (t != null) {
+            for (LiveModel.Row r : t.rows) if (r.guardDamage > 0) guardedRows.add(r);
+            guardedRows.sort((a, b) -> Long.compare(b.guardDamage, a.guardDamage));
+        }
+        java.util.ArrayList<ListPane.Item> items = new java.util.ArrayList<>();
+        for (LiveModel.Row r : guardedRows) {
+            String detail = SonarTheme.hits(r.guardHits)
+                    + (r.damage > 0 ? String.format("  ·  %.1f%% of their damage", r.guardDamage * 100.0 / r.damage) : "");
+            items.add(new ListPane.Item(r.me ? r.name + " (you)" : r.name, detail,
+                    SonarTheme.compact(r.guardDamage), -1, SonarTheme.DANGER)
+                    .look(r.skin, r.dyeMain, r.dyeAccessory));
+            guardedNames.add(r.name);
+        }
+        guarded.show(items, -1);
+        guardedWindow.setNote(items.isEmpty() ? "" : items.size() + (items.size() == 1 ? " player" : " players"));
+        // nothing to say on a fight with no guard to shoot, which is most of them
+        instancePage.setAutoHidden(guardedWindow, guardedRows.isEmpty());
+    }
+
+    private void pickGuarded(int index) {
+        if (index < 0 || index >= guardedNames.size()) return;
+        selectedPlayer = guardedNames.get(index);
+        refresh();
+        navigate.accept(PLAYERS);
+    }
+
+    private final SonarButton guardedCopy = new SonarButton("Copy", false, this::copyGuarded);
+
+    private javax.swing.JComponent guardedAccessory() {
+        javax.swing.Box row = javax.swing.Box.createHorizontalBox();
+        row.add(guardedCopy);
+        guardedCopy.setToolTipText("Copy this list as text, ready to paste into Discord");
+        return row;
+    }
+
+    /**
+     * Puts the guarded list on the clipboard as text.
+     * <p>
+     * Text rather than a picture on purpose: this is the one thing from a run that gets
+     * quoted at somebody afterwards, and a short list pastes into a chat and stays readable
+     * where an image has to be opened. The board already has its own share for the picture.
+     */
+    private void copyGuarded() {
+        if (guardedNames.isEmpty()) {
+            flashShareButton(guardedCopy, "Copy", "Nothing to copy");
+            return;
+        }
+        StringBuilder out = new StringBuilder("Guarded hits");
+        if (!guardedFight.isEmpty()) out.append(" - ").append(guardedFight);
+        out.append('\n');
+        for (LiveModel.Row r : guardedRows) {
+            out.append(r.name).append("  ").append(SonarTheme.number(r.guardDamage))
+                    .append("  (").append(SonarTheme.hits(r.guardHits)).append(")\n");
+        }
+        try {
+            java.awt.datatransfer.StringSelection text = new java.awt.datatransfer.StringSelection(out.toString());
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(text, text);
+            flashShareButton(guardedCopy, "Copy", "Copied!");
+        } catch (RuntimeException e) {
+            flashShareButton(guardedCopy, "Copy", "Couldn't copy");
+        }
+    }
+
+    /** The rows behind the guarded list, in the order it is showing them. */
+    private java.util.List<LiveModel.Row> guardedRows = new java.util.ArrayList<>();
+    private String guardedFight = "";
 
     void save() {
         for (Workspace w : pages().values()) w.save();
@@ -2203,32 +2318,25 @@ class LiveView {
             seed.put(e.id, e);
         }
         CharacterCache.resetForTest(seed);
-        // the account answers with only the regular characters, and only one of the two is left
-        java.util.ArrayList<sonar.game.RealmCharacter> live = new java.util.ArrayList<>();
-        live.add(charFor(1, false));
-        CharacterCache.buryMissingForTest(live);
+        report.accept("a character marked lost by hand is buried", CharacterCache.bury(2));
         java.util.List<CharacterCache.Entry> gone = CharacterCache.graveyard();
-        report.accept("a character missing from the account's list is buried",
+        report.accept("and it is the only one in the graveyard",
                 gone.size() == 1 && gone.get(0).id == 2);
-        report.accept("a seasonal character is not buried by a regular-only list",
-                CharacterCache.living().stream().anyMatch(e -> e.id == 3));
+        report.accept("nobody else is touched by it",
+                CharacterCache.living().stream().anyMatch(e -> e.id == 1)
+                        && CharacterCache.living().stream().anyMatch(e -> e.id == 3));
         // the lost stay on the Characters page rather than vanishing from it - a character
         // disappearing without a word is worse than losing it
         report.accept("the one that went is still listed, marked as lost",
                 CharacterCache.all().stream().anyMatch(e -> e.id == 2 && e.died != 0));
         report.accept("and is not counted among the living",
                 CharacterCache.living().stream().noneMatch(e -> e.id == 2));
+        report.accept("burying the same one twice changes nothing", !CharacterCache.bury(2));
+        report.accept("restoring puts it back among the living", CharacterCache.restore(2)
+                && CharacterCache.living().stream().anyMatch(e -> e.id == 2)
+                && CharacterCache.graveyard().isEmpty());
+        report.accept("restoring one that was never lost changes nothing", !CharacterCache.restore(2));
         CharacterCache.resetForTest(new java.util.LinkedHashMap<>());
-    }
-
-    private static sonar.game.RealmCharacter charFor(int id, boolean seasonal) {
-        sonar.game.RealmCharacter c = new sonar.game.RealmCharacter();
-        c.charId = id;
-        c.classString = "Rogue";
-        c.level = 20;
-        c.fame = 3570;
-        c.seasonal = seasonal;
-        return c;
     }
 
     /**
@@ -2843,6 +2951,7 @@ class LiveView {
                 ? m.whole : pickedFight.target;
         breakdownPane.show(m.tracked ? breakdownTarget : null, m.completionKnown);
         breakdownWindow.setNote(breakdownPane.note());
+        showGuarded(m.tracked ? breakdownTarget : null);
 
         bossSegments.show(m);
         bossSegmentsWindow.setNote(m.stages.isEmpty() ? "" : m.stages.size() + (m.stages.size() == 1 ? " segment" : " segments"));
@@ -3048,7 +3157,7 @@ class LiveView {
                 f.add(new String[]{"Into the guard", any
                         ? SonarTheme.number(chosen.guardDamage) + "  ("
                         + SonarTheme.number(chosen.guardHits) + (chosen.guardHits == 1 ? " hit)" : " hits)")
-                        : "none", any ? "guard" : ""});
+                        : "none"});
             }
             f.add(new String[]{"Biggest hit", chosen.biggestHit <= 0 ? "-" : SonarTheme.number(chosen.biggestHit)});
             String[] slots = {"Weapon", "Ability", "Armor", "Ring"};

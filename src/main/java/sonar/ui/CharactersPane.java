@@ -12,11 +12,16 @@ import java.util.List;
 class CharactersPane extends Pane {
 
     private static final int ROW = 62, GAP = 8, PORTRAIT = 42, TILE = 34, PAD = 14;
-    private static final int DETAIL_HEAD = 20, STAT_ROW = 24;
+    private static final int DETAIL_HEAD = 20, STAT_ROW = 24, ACTION_ROW = 38;
 
     private List<LiveModel.CharSummary> chars = new ArrayList<>();
     /** The character opened up, by its id, or -1 when they are all closed. */
     private int opened = -1;
+    /** Where the opened character's lose/restore button was drawn, for hit testing. */
+    private Rectangle actionHit;
+    /** Called after a character is marked lost or restored, so the rest of the app follows. */
+    Runnable onChanged = () -> {
+    };
 
     CharactersPane() {
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -27,6 +32,12 @@ class CharactersPane extends Pane {
         List<LiveModel.CharSummary> ordered = new ArrayList<>(m.chars);
         ordered.sort((a, b) -> a.lost == b.lost ? 0 : a.lost == 0 ? -1 : b.lost == 0 ? 1 : Long.compare(b.lost, a.lost));
         chars = ordered;
+        // for screenshots: -Dsonar.shot.character=N opens the Nth one, where the detail is
+        String open = System.getProperty("sonar.shot.character");
+        if (opened == -1 && open != null && !chars.isEmpty()) {
+            int at = Math.max(0, Math.min(chars.size() - 1, Integer.parseInt(open.trim()) - 1));
+            opened = chars.get(at).id;
+        }
         revalidate();
         repaint();
     }
@@ -39,7 +50,8 @@ class CharactersPane extends Pane {
     private int detailHeight() {
         return DETAIL_HEAD + TILE + 10          // worn
                 + DETAIL_HEAD + TILE + 10       // carried
-                + DETAIL_HEAD + 4 * STAT_ROW + 8; // stats, two per line
+                + DETAIL_HEAD + 4 * STAT_ROW + 8 // stats, two per line
+                + ACTION_ROW;                    // marking it lost, or putting it back
     }
 
     private int heightOf(LiveModel.CharSummary c) {
@@ -56,6 +68,14 @@ class CharactersPane extends Pane {
 
     @Override
     void clicked(int x, int y) {
+        // the button inside an opened card is tested first: it sits below the row that
+        // toggles the card, but a miss on it must not fall through to anything else
+        if (actionHit != null && actionHit.contains(x, y)) {
+            for (LiveModel.CharSummary c : chars) {
+                if (c.id == opened) markLost(c);
+            }
+            return;
+        }
         int top = 0;
         for (LiveModel.CharSummary c : chars) {
             int h = heightOf(c);
@@ -69,6 +89,39 @@ class CharactersPane extends Pane {
         }
     }
 
+    /**
+     * Marks a character lost, or puts it back.
+     * <p>
+     * The game never says that a character has died against a character id, and the one
+     * thing that used to imply it - the account's own character list no longer carrying
+     * it - was an authenticated request to the game's servers that Sonar no longer makes.
+     * So it is a decision now. Nothing is thrown away either way: a character marked lost
+     * keeps everything already remembered about it and stays on this page, faded, and the
+     * same button puts it back.
+     */
+    private void markLost(LiveModel.CharSummary c) {
+        String name = c.className.isEmpty() ? "this character" : "your " + c.className;
+        if (c.lost == 0) {
+            int choice = SonarDialog.ask(this, "Mark as lost?",
+                    "Level " + c.level + ", " + SonarTheme.number(c.fame) + " fame.\n\n"
+                            + "It stays on this page with everything remembered about it,\n"
+                            + "and you can put " + name + " back at any time.",
+                    "Mark as lost", "Cancel");
+            if (choice != 0) return;
+            if (!CharacterCache.bury(c.id)) return;
+            c.lost = System.currentTimeMillis();
+        } else {
+            if (!CharacterCache.restore(c.id)) return;
+            c.lost = 0;
+        }
+        // the page is built on a game tick, which may never come with the sniffer off, so the
+        // card is changed here and the rest of the app told separately
+        chars.sort((a, b) -> a.lost == b.lost ? 0 : a.lost == 0 ? -1 : b.lost == 0 ? 1 : Long.compare(b.lost, a.lost));
+        revalidate();
+        repaint();
+        onChanged.run();
+    }
+
     @Override
     void paintContent(Graphics2D g, int width) {
         if (chars.isEmpty()) {
@@ -77,6 +130,7 @@ class CharactersPane extends Pane {
             return;
         }
         statHits.clear();
+        actionHit = null;
         int y = 0;
         for (LiveModel.CharSummary c : chars) {
             int h = heightOf(c);
@@ -271,6 +325,36 @@ class CharactersPane extends Pane {
             g.setColor(maxed ? SonarTheme.MINT : SonarTheme.TEXT);
             g.drawString(value, right - g.getFontMetrics().stringWidth(value), sy + 14);
         }
+        paintAction(g, width, y + 4 * STAT_ROW + 8, c);
+    }
+
+    /**
+     * The lose/restore button, at the foot of an opened character.
+     * <p>
+     * Deliberately plain and deliberately down here, under everything the character is,
+     * rather than a cross in the corner of the row: it is the one control on this page
+     * that changes what Sonar remembers, and it should take a moment to reach.
+     */
+    private void paintAction(Graphics2D g, int width, int top, LiveModel.CharSummary c) {
+        boolean lost = c.lost != 0;
+        String text = lost ? "Put back on the account" : "Mark as lost";
+        g.setFont(SonarTheme.bold(11f));
+        int w = g.getFontMetrics().stringWidth(text) + 26, h = 26;
+        int x = width - PAD - w, y = top + (ACTION_ROW - h) / 2;
+        actionHit = new Rectangle(x, y, w, h);
+        boolean over = actionHit.contains(hoverX, hoverY);
+        Color ink = lost ? SonarTheme.MINT : SonarTheme.CORAL;
+        g.setColor(SonarTheme.alpha(ink, over ? 0.18 : 0.10));
+        g.fill(SonarTheme.round(x, y, w, h, 9));
+        g.setColor(SonarTheme.alpha(ink, over ? 0.75 : 0.45));
+        g.draw(SonarTheme.round(x + 0.5, y + 0.5, w - 1, h - 1, 9));
+        g.setColor(ink);
+        g.drawString(text, x + 13, y + 17);
+
+        g.setFont(SonarTheme.font(10.5f));
+        g.setColor(SonarTheme.FAINT);
+        g.drawString(lost ? "Nothing was deleted - this only changes how it is listed"
+                : "Sonar cannot see a death, so say so here and it keeps the record", PAD, y + 17);
     }
 
     private int label(Graphics2D g, String text, int y) {

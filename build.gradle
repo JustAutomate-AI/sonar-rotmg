@@ -92,6 +92,12 @@ public class Version {
 // this build was cut from rather than whatever a release page says later.
 processResources {
     from('CHANGELOG.md')
+    // The shortcut helper ships inside the jar so the packaged build can write a Start menu
+    // entry that carries Sonar's taskbar identity. It is the same file Setup compiles for a
+    // copy built from source, kept in one place rather than copied into the Java as a string.
+    from('tools/launcher') {
+        include 'Shortcut.cs'
+    }
 }
 
 compileJava.dependsOn generateSources

@@ -64,7 +64,8 @@ public class AppWindow {
         frame.setVisible(true);
         // after the window is up, so the dialogs have something to sit on
         javax.swing.SwingUtilities.invokeLater(() -> {
-            FirstRun.offerShortcut(frame);
+            // no dialog of its own: it checks the Start menu on a thread and says nothing
+            Shortcuts.ensure();
             FirstRun.checkNpcap(frame);
         });
     }

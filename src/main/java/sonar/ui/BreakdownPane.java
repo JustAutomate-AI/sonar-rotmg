@@ -24,16 +24,7 @@ class BreakdownPane extends Pane {
     /** Each column, with the width the table needs before it is worth showing. */
     private static final int NEED_PERCENT = 430, NEED_DPS = 520, NEED_HITS = 600, NEED_BIG = 690,
             NEED_TAKEN = 632, NEED_GEAR = 912, NEED_TRACKING = 1032;
-    /**
-     * The guard column appears only on a fight that has a guard phase, which is a handful of
-     * them, so it is allowed in at a narrower width than the columns that are always there.
-     * Where it does appear it is usually the column somebody opened the list to read.
-     */
-    private static final int NEED_GUARD = 492, NEED_GUARD_HITS = 582;
-
     private List<LiveModel.Row> rows = new ArrayList<>();
-    /** True when this fight had a guard phase somebody shot into: see {@link #NEED_GUARD}. */
-    private boolean anyGuard;
     private long total;
     private long enemyHealth;
     private long fightMs;
@@ -53,7 +44,6 @@ class BreakdownPane extends Pane {
         this.fightMs = t == null ? 0 : t.fightMs;
         this.targetName = t == null ? "" : t.name;
         this.completionKnown = completionKnown;
-        this.anyGuard = t != null && t.anyGuarded();
         revalidate();
         repaint();
     }
@@ -93,7 +83,7 @@ class BreakdownPane extends Pane {
 
     /** Right edge of each column, worked out once so the header and the rows agree. */
     private static final class Layout {
-        int damage, percent, dps, hits, biggest, guard, guardHits, taken, gear, tracking, nameEnd;
+        int damage, percent, dps, hits, biggest, taken, gear, tracking, nameEnd;
     }
 
     private Layout layout(int width) {
@@ -110,14 +100,6 @@ class BreakdownPane extends Pane {
         if (width >= NEED_TAKEN) {
             l.taken = right;
             right -= 72;
-        }
-        if (anyGuard && width >= NEED_GUARD_HITS) {
-            l.guardHits = right;
-            right -= 66;
-        }
-        if (anyGuard && width >= NEED_GUARD) {
-            l.guard = right;
-            right -= 76;
         }
         if (width >= NEED_BIG) {
             l.biggest = right;
@@ -205,8 +187,6 @@ class BreakdownPane extends Pane {
         if (l.dps > 0) right(g, "DPS", l.dps, y);
         if (l.hits > 0) right(g, "HITS", l.hits, y);
         if (l.biggest > 0) right(g, "BIGGEST", l.biggest, y);
-        if (l.guard > 0) right(g, "INTO GUARD", l.guard, y);
-        if (l.guardHits > 0) right(g, "GUARD HITS", l.guardHits, y);
         if (l.taken > 0) right(g, "TAKEN", l.taken, y);
         if (l.gear > 0) g.drawString("GEAR", l.gear, y);
         if (l.tracking > 0) right(g, "TRACKING", l.tracking, y);
@@ -300,14 +280,6 @@ class BreakdownPane extends Pane {
 
 
 
-    /**
-     * The red laid over the part of a bar that went into the guard.
-     * <p>
-     * Tinted glass rather than paint: deep enough to read as a warning on every class
-     * colour, translucent enough that the class is still visible under it. Chosen by sample
-     * against real bars - a bright red over a Knight's blue comes out pink, which is the one
-     * thing it must not look like.
-     */
     private void paintRow(Graphics2D g, int width, int top, int index, LiveModel.Row r, Layout l, long best) {
         boolean hovered = hoverY >= top && hoverY < top + ROW;
         boolean open = r.id == opened;
@@ -320,17 +292,6 @@ class BreakdownPane extends Pane {
         g.setPaint(new GradientPaint(PAD, 0, SonarTheme.alpha(SonarTheme.classColor(r.cls, false), 0.55),
                 (float) (PAD + Math.max(90, barW)), 0, SonarTheme.alpha(SonarTheme.classColor(r.cls, true), 0.55)));
         g.fill(SonarTheme.round(PAD, top + 2, Math.max(barW, 10), ROW - 5, 7));
-        // the part of that bar that went into the guard, taken off its right end, the same
-        // way the Live page marks a pet's share. A player who did nothing but shoot the guard
-        // has a bar that is almost all red, which is the whole point of showing it this way.
-        double guardW = r.guardShare() * barW;
-        if (guardW > 0.5) {
-            g.setPaint(null);
-            g.setColor(SonarTheme.GUARD_GLASS);
-            g.fill(new java.awt.geom.Rectangle2D.Double(PAD + barW - guardW, top + 2, guardW, ROW - 5));
-            g.setColor(new Color(0, 0, 0, 70));
-            g.fill(new java.awt.geom.Rectangle2D.Double(PAD + barW - guardW, top + 2, 1.2, ROW - 5));
-        }
         g.setClip(clip);
         g.setPaint(null);
 
@@ -353,19 +314,15 @@ class BreakdownPane extends Pane {
         // in the ink that suits whatever is actually behind it. The bar is its class colour
         // laid over the panel at just over half strength, which is the surface to read against.
         double barEnd = PAD + barW;
-        // where the red run starts, which is a third surface the text may cross
-        double guardStart = barEnd - guardW;
         int clipTop = top + 2, clipH = ROW - 5;
         Color barFace = SonarTheme.mix(SonarTheme.SURFACE, SonarTheme.classColor(r.cls, true), 0.55);
         Color onBar = SonarTheme.inkOn(barFace);
-        Color onGuard = SonarTheme.inkOn(SonarTheme.onGlass(barFace));
 
         int mid = top + ROW / 2;
         g.setFont(SonarTheme.font(10f));
         String rank = String.valueOf(index + 1);
         SonarTheme.across(g, rank, PAD + 14 - g.getFontMetrics().stringWidth(rank), mid + 4,
-                guardStart, barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.55),
-                SonarTheme.alpha(onGuard, 0.55), SonarTheme.FAINT);
+                barEnd, clipTop, clipH, SonarTheme.alpha(onBar, 0.55), SonarTheme.FAINT);
 
         int x = PAD + 22;
         if (!Glyph.player(g, r.skin, r.dyeMain, r.dyeAccessory, x, mid - PORTRAIT / 2.0, PORTRAIT)) {
@@ -376,47 +333,24 @@ class BreakdownPane extends Pane {
 
         g.setFont(SonarTheme.bold(12f));
         String name = SonarTheme.fit(r.name.isEmpty() ? "Unknown" : r.name, g.getFontMetrics(), Math.max(40, l.nameEnd - x));
-        SonarTheme.across(g, name, x, mid + 4, guardStart, barEnd, clipTop, clipH, onBar, onGuard, SonarTheme.TEXT);
+        SonarTheme.across(g, name, x, mid + 4, barEnd, clipTop, clipH, onBar, SonarTheme.TEXT);
         int after = x + g.getFontMetrics().stringWidth(name) + 7;
         if (!r.cls.isEmpty() && after < l.nameEnd - 20) {
             g.setFont(SonarTheme.font(10f));
             // the class stays the quieter of the two, on the bar as well as off it
             String cls = SonarTheme.fit(r.cls, g.getFontMetrics(), l.nameEnd - after);
-            SonarTheme.across(g, cls, after, mid + 4, guardStart, barEnd, clipTop, clipH,
-                    SonarTheme.alpha(onBar, 0.7), SonarTheme.alpha(onGuard, 0.7), SonarTheme.FAINT);
+            SonarTheme.across(g, cls, after, mid + 4, barEnd, clipTop, clipH,
+                    SonarTheme.alpha(onBar, 0.7), SonarTheme.FAINT);
             after += g.getFontMetrics().stringWidth(cls) + 7;
         }
         paintLeftTag(g, r, after, mid, l, barEnd, barFace);
 
         g.setFont(SonarTheme.bold(12f));
-        String figure = SonarTheme.number(r.damage);
-        // the brackets are what the columns become when there is no room for them, so where
-        // the columns are showing these would be the same two numbers printed twice
-        if (r.guardDamage > 0 && l.guard <= 0) {
-            // the guard's figure in brackets after the damage, where a reader already is
-            // both figures, because the hit count is what other trackers call "guarded hits"
-            // and it is the one people quote at each other afterwards
-            String inside = "  (" + SonarTheme.brief(r.guardDamage)
-                    + "  ·  " + SonarTheme.hits(r.guardHits) + ")";
-            g.setFont(SonarTheme.bold(11f));
-            int insideW = g.getFontMetrics().stringWidth(inside);
-            // Always red, never softened: damage into a guard is the thing this figure exists
-            // to report, and a stray hit is still a hit on the guard. What separates one shot
-            // from three hundred is the size of the number and the length of the red run on
-            // the bar, which is plenty - it does not need the colour as well.
-            //
-            // Outlined, because a full bar puts this line on the class colour and on the deep
-            // red within the same breath. A shadow carries it on most surfaces and loses it on
-            // the bright end of a gradient; an outline holds on all of them.
-            SonarTheme.acrossOutlined(g, inside, l.damage - insideW, mid + 4, guardStart, barEnd,
-                    clipTop, clipH, SonarTheme.DANGER, SonarTheme.GUARD_INK, SonarTheme.DANGER);
-            g.setFont(SonarTheme.bold(12f));
-            g.setColor(SonarTheme.TEXT);
-            right(g, figure, l.damage - insideW, mid + 4);
-        } else {
-            g.setColor(SonarTheme.TEXT);
-            right(g, figure, l.damage, mid + 4);
-        }
+        // Guarded damage used to be printed here in red brackets, and tinted the bar behind
+        // it besides. Three sayings of one fact on a row that already carries nine figures:
+        // it is its own window now, where it can be read, ranked and posted on its own.
+        g.setColor(SonarTheme.TEXT);
+        right(g, SonarTheme.number(r.damage), l.damage, mid + 4);
 
         g.setFont(SonarTheme.font(11f));
         double seconds = Math.max(1, fightMs / 1000.0);
@@ -425,11 +359,6 @@ class BreakdownPane extends Pane {
         cell(g, l.dps, mid, SonarTheme.number(Math.round(r.damage / seconds)), SonarTheme.MUTED);
         cell(g, l.hits, mid, r.hits > 0 ? SonarTheme.number(r.hits) : "-", SonarTheme.MUTED);
         cell(g, l.biggest, mid, r.biggestHit > 0 ? SonarTheme.number(r.biggestHit) : "-", SonarTheme.MUTED);
-        // damage put into a guard that was up: the number somebody is asked about afterwards,
-        // so it carries the same red here as it does in the brackets
-        Color guardInk = r.guardDamage > 0 ? SonarTheme.DANGER : SonarTheme.FAINT;
-        cell(g, l.guard, mid, r.guardDamage > 0 ? SonarTheme.number(r.guardDamage) : "-", guardInk);
-        cell(g, l.guardHits, mid, r.guardHits > 0 ? SonarTheme.number(r.guardHits) : "-", guardInk);
         // What the run cost them. The server announces this one outright for everybody else,
         // so it is their figure rather than ours; the user's own row is the exception, worked
         // out from the shot that hit them and this client's own idea of its defence.

@@ -81,12 +81,30 @@ final class PlayerLook {
         }
     }
 
+    /**
+     * Writes the file on a thread of its own.
+     * <p>
+     * This is called from the packet thread, and at ten thousand faces the serialising
+     * and the write together are long enough to be felt by everything downstream of it -
+     * which is the whole display. The bytes are made here, under the lock, so what lands
+     * is a consistent snapshot; only the write itself is handed off.
+     */
     private static synchronized void save() {
+        final byte[] bytes;
         try {
-            Files.write(file().toPath(), GSON.toJson(LOOKS).getBytes(StandardCharsets.UTF_8));
+            bytes = GSON.toJson(LOOKS).getBytes(StandardCharsets.UTF_8);
         } catch (Exception ignored) {
-            // remembering how someone looked must never interrupt a game tick
+            return;
         }
+        Thread writer = new Thread(() -> {
+            try {
+                Files.write(file().toPath(), bytes);
+            } catch (Exception ignored) {
+                // remembering how someone looked must never interrupt a game tick
+            }
+        }, "player-looks");
+        writer.setDaemon(true);
+        writer.start();
     }
 
     /** Records how everyone in this instance looks, for the next time they are seen. */

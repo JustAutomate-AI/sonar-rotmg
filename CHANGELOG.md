@@ -2,6 +2,63 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.20.0
+
+**Guarded hits get a window of their own**
+
+- The damage board was saying one fact three times: a deep red wash over the right end of every bar, the same figures again in red brackets after the damage, and two more columns besides. On a row already carrying nine numbers, over whatever class colour happened to be behind it.
+- **The board is a damage board again.** No wash, no brackets, no guard columns - on the Live bars, in the Damage breakdown and in the shared picture alike.
+- In their place, **Guarded hits**: a list of its own on the Instance page, ranked by damage into the guard, each row carrying the hits and what share of that player's damage it was. It hides itself on a fight with no guard to shoot, which is most of them.
+- A **Copy** button puts the list on the clipboard as text. Text rather than a picture on purpose: this is the thing that gets quoted at somebody afterwards, and a short list pastes into a chat and stays readable.
+- The shared picture keeps **one** line about it, on the boss heading - *302k INTO GUARD · 863 HITS* - so a posted board still says a guard was shot. Who did it is a question for the list.
+- Clicking a name there goes to that player, the way the damage bars do.
+
+**What the guard figures actually mean**
+
+- Worth being plain about, because the community uses *guard* and *counter* for different things and Sonar can only see one of them. It detects three signals: Oryx playing his **guard animation**, the Forgotten King with **reflectors** up, and any boss flagged **invulnerable**. All three mean the same thing - the boss's defences were up and your shots were doing nothing.
+- It cannot see the other mechanic, the one where too much damage inside an ordinary phase shifts the rotation. That is a threshold, and nothing in the packets names it.
+- Of the Sanctuary's five bosses with these phases, Sonar knows **Oryx** specifically. The rest are caught only if they raise the invulnerable flag. **Chancellor Dammah is deliberately excluded** - his flag reads true for every hit until he counters once, so it says nothing about a phase.
+
+**Sonar stops asking the game's servers for your character list**
+
+- Sonar reads traffic that was going past anyway, which no server can see. One part of it did something different in kind: an **authenticated POST to the account website**, carrying your access token, made by a program that is not the game client, from the address your session is live on. That was the only thing about Sonar their servers could observe at all.
+- There were three of those calls. The worst was ours: a **speculative request on every single launch**, which the comment beside it recorded as expected to be refused outside the Pet Yard and the Daily Quest Room, and treated as costing nothing. A refused authenticated request is not nothing - it is exactly what abuse detection counts - and on a day of updates it fired a dozen times.
+- **The whole character-list request is gone**, all three call sites. The Characters page is built from the characters it watches you play, which it already recorded and already kept across restarts.
+
+**Marking a character lost, by hand**
+
+- Losing the list means losing the only hint the game ever gave that a character had died: it never says so against a character id, it just stops listing one. So open a character on the Characters page and there is a **Mark as lost** button at the foot of it.
+- Nothing is deleted. The character keeps everything remembered about it, stays on the page with its `LOST` tag the way a character lost the old way always did, and the same button puts it back.
+- This is also the more honest version. Sonar never knew whether a character had died or been deleted - only that it had gone.
+
+**Exalt progress: once, then once a day**
+
+- The second request, for your exaltation, used to fire **once per launch**. The thing it fetches changes about as often as you exalt a class, so it was asking a hundred times for an answer that had moved once.
+- Now it is asked for **at most once every 24 hours**, remembered across restarts, so eight launches in an evening make one request rather than eight. Between readings it stays current from `ExaltationUpdatePacket`, which carries a class's whole progress as you earn it.
+- It also moved **off the packet thread** and gained timeouts. An HTTPS request that hung used to hang packet handling with it.
+
+**Your pet is recognised without asking anyone**
+
+- Telling your pet's damage from everyone else's used to need the character list, because that is where the pet's instance id lived. It only worked after a Pet Yard or Daily Quest Room visit, so for most of most sessions no pet could be told from any other.
+- A pet entity carries **its owner's account id**, and your own entity carries that same id. Comparing the two works everywhere, from the first hit, and needs no request at all.
+
+**Sonar is findable from the Start menu**
+
+- A program unpacked from a zip has no Start menu entry, so typing its name finds nothing - and the drive it was unpacked onto usually is not in the search index either. Sonar used to ask about that once, on first run, and record the answer **before** showing the dialog, so a refusal and a call that quietly failed were indistinguishable, and it never asked again.
+- It is not a question any more. The Start menu entry is checked at **every start**: made when missing, repointed when the install has moved, rewritten when it predates the taskbar identity that lets a pinned Sonar and the running window be one button.
+- The desktop is your own space: that one is made once and never resurrected. Delete it and it stays deleted. An install put here by the Windows installer has its own entry in its own group, which this finds and leaves alone rather than adding a duplicate.
+
+**The roster keeps up with the room**
+
+- Players arrive on the update packet and only the tick packet refreshed anything, so somebody walking into view waited for the next tick to be listed. In a crowd, where the server spreads arrivals over a run of update packets, the roster filled in visible steps behind the game. Both packets refresh it now.
+- Snapshots used to be posted to the display one at a time. Drawing one costs more than building one, so in a crowd they arrived faster than they could be drawn and the queue grew - what you saw was however far behind the backlog had got. Only the newest snapshot waits now; the stale ones are dropped, which nobody wanted drawn anyway.
+- `-Dsonar.timing` prints how long each snapshot took to build and to draw.
+- Remembering how players look writes `players.json` from the packet thread. The write moved to a thread of its own.
+
+**Clicking a player goes somewhere**
+
+- The **Players here** list sits on the Live page, and nothing on that page shows a chosen player - their gear, their items and their profile are all on the Players page. So clicking somebody selected them correctly and changed nothing on screen, which is indistinguishable from a dead row. The damage bars have always gone to the Players page when clicked; the lists do the same now.
+
 ## 2.19.0
 
 **Two columns gone, and the ones left have room**

@@ -8,11 +8,18 @@ import sonar.backend.data.Entity;
 /**
  * Damage dealt by pets in the current instance.
  * <p>
- * The game reports a pet's hit under the pet's own id and does not say whose
- * pet it is. The user's pet can be recognised once the character list has
- * been loaded (it happens in the Pet Yard and the Daily Quest Room), because
- * that list holds the pet's instance id. Every other pet is counted together.
- * Pet damage is kept apart from the players' damage lists.
+ * The game reports a pet's hit under the pet's own id and never says in so many
+ * words whose pet it is. It does say who owns it: a pet entity carries its owner's
+ * account id, and the user's own entity carries that same account id, so the two
+ * can simply be compared. Every other pet is counted together, and pet damage is
+ * kept apart from the players' damage lists.
+ * <p>
+ * This used to be answered by asking the account website for the character list,
+ * which holds the pet's instance id. That worked only after a visit to the Pet Yard
+ * or the Daily Quest Room, which is where the game allows the request - so for most
+ * of most sessions no pet could be told from any other - and it meant sending an
+ * authenticated request to the game's servers to learn something that was already
+ * in the packets. Reading the owner off the pet is both wider and quieter.
  */
 public final class PetDamage {
 
@@ -30,10 +37,10 @@ public final class PetDamage {
      *
      * @param map      The instance the hit happened in.
      * @param attacker The entity that dealt the damage.
-     * @param userPet  The user's pet as described by the character list, or null when not loaded.
+     * @param user     The user's own entity, or null while it is not known which player that is.
      * @param amount   Damage dealt.
      */
-    public static void hit(Object map, Entity attacker, Entity userPet, int amount) {
+    public static void hit(Object map, Entity attacker, Entity user, int amount) {
         try {
             if (attacker == null || amount <= 0 || !isPet(attacker)) return;
             if (map != instance) {
@@ -41,8 +48,9 @@ public final class PetDamage {
                 mine = 0;
                 others = 0;
             }
-            ownPetKnown = userPet != null;
-            if (isSamePet(attacker, userPet)) mine += amount;
+            String owner = account(user);
+            ownPetKnown = !owner.isEmpty();
+            if (ownPetKnown && owner.equals(ownerOf(attacker))) mine += amount;
             else others += amount;
         } catch (RuntimeException e) {
             // pet bookkeeping must never interrupt packet handling
@@ -66,10 +74,21 @@ public final class PetDamage {
         return "Pet".equals(IdToAsset.getClazz(e.objectType));
     }
 
-    private static boolean isSamePet(Entity worldPet, Entity userPet) {
-        if (userPet == null || worldPet.stat == null || userPet.stat == null) return false;
-        StatData a = worldPet.stat.get(StatType.PET_INSTANCE_ID_STAT), b = userPet.stat.get(StatType.PET_INSTANCE_ID_STAT);
-        return a != null && b != null && a.statValue != 0 && a.statValue == b.statValue;
+    /** The account a pet in the world belongs to, or empty when it did not say. */
+    private static String ownerOf(Entity worldPet) {
+        return text(worldPet, StatType.OWNER_ACCOUNT_ID_STAT);
+    }
+
+    /** The user's own account, or empty when their entity is not known yet. */
+    private static String account(Entity user) {
+        return text(user, StatType.ACCOUNT_ID_STAT);
+    }
+
+    private static String text(Entity e, StatType type) {
+        if (e == null || e.stat == null) return "";
+        StatData d = e.stat.get(type);
+        String value = d == null ? null : d.stringStatValue;
+        return value == null ? "" : value.trim();
     }
 
     /** Damage by the user's pet in the given instance, or -1 while the user's pet can not be told apart. */

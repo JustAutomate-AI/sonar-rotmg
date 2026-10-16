@@ -471,16 +471,14 @@ final class LiveModel {
          * to draw.
          */
         /**
-         * True when the guard figures are a stray shot or two rather than something somebody
-         * did. A shot already in flight when the guard goes up lands on the guard, so almost
-         * every player ends an Oryx run with a hit or two on the board however carefully they
-         * played. Those are worth reporting exactly and worth not shouting about: drawn in
-         * red beside a name they would read as an accusation of the whole party.
+         * How much of this player's damage went into a guard, as a proportion.
+         * <p>
+         * Nothing draws a bar from this any more - the guarded list reports the figures
+         * themselves - but it is what tells a stray shot from a habit, which is the only
+         * question the number is ever asked. A shot already in flight when the guard goes
+         * up lands on the guard, so almost every player ends an Oryx run with a hit or two
+         * however carefully they played.
          */
-        boolean guardIncidental() {
-            return guardDamage > 0 && guardShare() < 0.01;
-        }
-
         double guardShare() {
             return damage <= 0 || guardDamage <= 0 ? 0 : Math.min(1, guardDamage / (double) damage);
         }
@@ -778,9 +776,9 @@ final class LiveModel {
         m.regularVaultKnown = haveRegular;
         countVault(m, data.seasonalVault, m.ownedSeasonal);
         countVault(m, data.regularVault, m.ownedRegular);
-        // read from the remembered characters rather than the game's full list directly: that list only
-        // arrives in the Pet Yard and the Daily Quest Room, while the cache also holds every character
-        // played since, and survives a restart
+        // read from the remembered characters, which is now the only source: the account's full
+        // character list was an authenticated request to the game's own servers and is gone. Every
+        // character played in front of Sonar is recorded as it is played and survives a restart
         int currentId = data.getCharId();
         for (CharacterCache.Entry c : CharacterCache.all()) {
             CharSummary s = new CharSummary();

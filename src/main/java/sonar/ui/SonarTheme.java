@@ -215,7 +215,6 @@ public final class SonarTheme {
      * pink-red, and over a Knight's blue at this strength it lands on a flat pink, which
      * reads as a highlight rather than as a stain.
      */
-    public static final Color GUARD_GLASS = new Color(0x8c, 0x0f, 0x1f, 195);
     /** The blue that marks an exaltation bonus, wherever one is shown apart from a base stat. */
     public static final Color EXALT = new Color(0x6aa8ff);
     /** The pair the Neon ground is built around: the figure, and the thing that names it. */
@@ -424,42 +423,6 @@ public final class SonarTheme {
         across(g, text, x, y, barEnd, barEnd, top, height, onBar, onBar, offBar);
     }
 
-    /**
-     * The same, for a bar that ends in a second colour - the red run that marks damage put
-     * into a boss's guard, which grows from the right end of the bar inwards.
-     * <p>
-     * This is the backup the red run needs. A player who did nothing but shoot the guard has
-     * a bar that is red nearly all the way along, and their name sits on top of it; ink
-     * chosen for a Paladin's yellow would be unreadable there. So the line is drawn three
-     * times rather than twice, each run clipped to one stretch of what is actually behind
-     * it, which keeps the red honest about its proportion instead of stopping it short of
-     * the text. Where the red is absent the middle stretch is empty and this costs nothing.
-     *
-     * @param guardStart where the second colour begins; pass {@code barEnd} for none.
-     */
-    public static void acrossOutlined(Graphics2D g, String text, float x, float y, double guardStart,
-                                      double barEnd, int top, int height, Color ink) {
-        acrossOutlined(g, text, x, y, guardStart, barEnd, top, height, ink, ink, ink);
-    }
-
-    /** {@link #across}, with each run outlined - see {@link #outlined}. */
-    public static void acrossOutlined(Graphics2D g, String text, float x, float y, double guardStart,
-                                      double barEnd, int top, int height,
-                                      Color onBar, Color onGuard, Color offBar) {
-        if (text == null || text.isEmpty()) return;
-        double[] from = {-10000, guardStart, barEnd};
-        double[] to = {guardStart, barEnd, 20000};
-        Color[] ink = {onBar, onGuard, offBar};
-        Shape old = g.getClip();
-        for (int zone = 0; zone < 3; zone++) {
-            if (to[zone] <= from[zone]) continue;
-            g.setClip(old);
-            g.clip(new java.awt.geom.Rectangle2D.Double(from[zone], top, to[zone] - from[zone], height));
-            outlined(g, text, x, y, ink[zone], OUTLINE);
-        }
-        g.setClip(old);
-    }
-
     public static void across(Graphics2D g, String text, float x, float y, double guardStart, double barEnd,
                               int top, int height, Color onBar, Color onGuard, Color offBar) {
         if (text == null || text.isEmpty()) return;
@@ -482,22 +445,6 @@ public final class SonarTheme {
      * {@link #DANGER} rather than a different colour: DANGER is the right weight on the panel
      * and disappears on the glass, which is the same family at much the same darkness, but a
      * figure that changed colour entirely halfway along would read as two things.
-     */
-    public static final Color GUARD_INK = new Color(0xff, 0x93, 0xa6);
-
-    /** What a surface becomes under {@link #GUARD_GLASS}, for choosing ink to sit on it. */
-    public static Color onGlass(Color surface) {
-        return mix(surface, GUARD_GLASS, GUARD_GLASS.getAlpha() / 255.0);
-    }
-
-    /**
-     * A line of text with a dark outline around it, so a colour chosen to mean something
-     * keeps meaning it wherever it lands.
-     * <p>
-     * A red figure has to read on the panel, on eight different class colours and on the deep
-     * red laid over a bar. A single drop shadow carries it on most of those and loses it on
-     * the bright end of a gradient. Eight offsets at one pixel is a real outline rather than a
-     * shadow, and at these sizes it costs nothing worth measuring.
      */
     public static void outlined(Graphics2D g, String text, float x, float y, Color fill, Color edge) {
         if (text == null || text.isEmpty()) return;
