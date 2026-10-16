@@ -203,7 +203,9 @@ class DamagePane extends Pane {
         // columns give way one by one as the window narrows, so text never overlaps
         boolean showShare = width >= 300;
         boolean showClass = width >= 400;
-        boolean showTotal = width >= 480;
+        // both numbers are now set in the larger type, so the second one gives way a little
+        // sooner than it used to rather than reaching back over the name beside it
+        boolean showTotal = width >= 520;
         gearHits.clear();
         // the effect ticker runs only while a style is actually on screen
         boolean anyStyle = false;
@@ -285,22 +287,28 @@ class DamagePane extends Pane {
             String dealt = SonarTheme.number(Math.round(b.shown.get()));
             // the chosen measure is the main number; the other one follows when there is room
             String main = totals ? dealt : dpm, other = totals ? dpm : dealt;
+            // The chosen measure sits furthest right, the other one to its left; which of the two
+            // is damage dealt depends on the switch above the bars. Both are set in the same type
+            // and what separates them is their treatment: damage is drawn to come forward off the
+            // bar (see damageText), and the rate is softened to the theme's own text colour so it
+            // sits back against it. The step each one leaves is measured rather than assumed,
+            // because how wide these runs are is not something a constant can know.
+            Color rateColor = SonarTheme.alpha(SonarTheme.TEXT, 0.78);
             g.setFont(numberFont);
-            // damage dealt is the figure the eye should land on, so it alone gets full white;
-            // a rate in the same slot is softened to the theme's own text colour, which sits
-            // back against the bar instead of standing off it
-            shadowText(g, main, right - numFm.stringWidth(main), base,
-                    totals ? Color.WHITE : SonarTheme.alpha(SonarTheme.TEXT, 0.78));
-            right -= numFm.stringWidth(main) + 14;
-            if (showTotal) {
-                g.setFont(small);
-                // lifted a little: with the rate softened above, this is the figure left to
-                // carry the row, and at 190 it read as a footnote to it
-                shadowText(g, other, right - smallFm.stringWidth(other), base,
-                        new Color(255, 255, 255, 220));
-                // measured rather than a fixed step: these strings are now written out in full,
-                // so how much room they take is no longer something a constant can know
-                right -= smallFm.stringWidth(other) + 14;
+            if (totals) {
+                damageText(g, main, right - numFm.stringWidth(main), base, b.row.cls);
+                right -= numFm.stringWidth(main) + 14;
+                if (showTotal) {
+                    shadowText(g, other, right - numFm.stringWidth(other), base, rateColor);
+                    right -= numFm.stringWidth(other) + 14;
+                }
+            } else {
+                shadowText(g, main, right - numFm.stringWidth(main), base, rateColor);
+                right -= numFm.stringWidth(main) + 14;
+                if (showTotal) {
+                    damageText(g, other, right - numFm.stringWidth(other), base, b.row.cls);
+                    right -= numFm.stringWidth(other) + 14;
+                }
             }
 
             boolean member = !b.row.me && Party.has(b.row.name);
@@ -525,6 +533,32 @@ class DamagePane extends Pane {
      * bar begins, on the row's own backdrop, so they need nothing but the theme's
      * ordinary text colour - which is the whole reason the bar was moved.
      */
+    /**
+     * Damage dealt, drawn to be read while it sits on a bar in the player's class colour.
+     * <p>
+     * A figure on a coloured ground needs an edge of its own, or the colour behind it eats
+     * the thin parts of the glyphs - which is what a drop shadow alone could not stop where
+     * a number crossed from the dark track onto a bright bar. The hard black outline does
+     * that work. The bloom beneath it is in the colour opposite this player's class, so it
+     * separates the number from exactly the colour it is lying on, and is faint enough to
+     * be felt rather than seen.
+     */
+    private static void damageText(Graphics2D g, String s, float x, float y, String cls) {
+        bloom(g, s, x, y, SonarTheme.classContrast(cls));
+        SonarTheme.outlined(g, s, x, y, Color.WHITE, SonarTheme.OUTLINE);
+    }
+
+    /** A bloom two to three pixels out, faint enough to lift an edge without being a colour of its own. */
+    private static void bloom(Graphics2D g, String s, float x, float y, Color c) {
+        for (int r = 3; r >= 2; r--) {
+            g.setColor(SonarTheme.alpha(c, 0.05 + (3 - r) * 0.045));
+            g.drawString(s, x - r, y);
+            g.drawString(s, x + r, y);
+            g.drawString(s, x, y - r);
+            g.drawString(s, x, y + r);
+        }
+    }
+
     private static void shadowText(Graphics2D g, String s, float x, float y, Color c) {
         if (s.isEmpty()) return;
         g.setColor(new Color(0, 0, 0, 110));

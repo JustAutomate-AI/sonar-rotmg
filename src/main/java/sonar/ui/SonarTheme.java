@@ -527,6 +527,20 @@ public final class SonarTheme {
         return Color.getHSBColor(h, light ? 0.62f : 0.68f, light ? 0.86f : 0.62f);
     }
 
+    /**
+     * A pale colour from the far side of the wheel from a class's own, for a figure that has
+     * to stay legible while sitting on that class's bar.
+     * <p>
+     * Only lightly saturated and near full brightness: its job is to lift an edge away from
+     * the colour behind it, not to put a second colour on the row. On a Samurai's red bar
+     * this comes back cyan, on an Archer's green a soft magenta.
+     */
+    public static Color classContrast(String className) {
+        Color own = classColor(className, true);
+        float[] hsb = Color.RGBtoHSB(own.getRed(), own.getGreen(), own.getBlue(), null);
+        return Color.getHSBColor((hsb[0] + 0.5f) % 1f, 0.42f, 1f);
+    }
+
     public static String number(long n) {
         return String.format("%,d", n);
     }
