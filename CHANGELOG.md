@@ -2,6 +2,25 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.24.0
+
+**Swap outs: what a player changed, and when**
+
+- A swap is usually the most deliberate thing somebody does in a fight - a melee weapon for a chest phase, an armour change before a hit everyone knows is coming, a ring swapped for the one that keeps them alive through it. Sonar knew every one of them already: **every hit carries all four slots and their enchants at the moment it landed**. It threw them all away and kept a last-seen snapshot, which for anyone who swapped is the least interesting kit they wore.
+- The **Players** page now lists them for whoever is picked in the roster: the slot, how far into the run it happened, what went out, what came in, and **the enchants on both sides**.
+- **A change of enchants alone counts.** Two of the same item with different enchants is a real swap and reads as nothing at all if only names are compared, so those are listed and tagged `ENCHANTS` so the row is not mistaken for one that changed nothing.
+- Over the whole run rather than one fight: a chest-phase weapon goes on before a boss and comes off after it, and scoping to one fight would cut the swap off at one end or the other.
+- A slot the game had simply not sent yet is not a swap when it arrives, and the kit somebody started in is not a swap either.
+
+**The Damage window leaves the Players page**
+
+- It was a third copy of the same board. The Live page carries it, the Damage breakdown carries it with more in it, and this one carried it again with three switches of its own to keep in step. Swap outs sits there now.
+
+**"Enemy 0" stops taking a share of the run**
+
+- An enemy whose type never arrived shows up as *Enemy 0*, and it is not an enemy - it is damage Sonar could not place, which happens when the sniffer is started partway through a run and the packet introducing that entity is long gone. In one real run it was the **largest total on the board**, all of it unattributable.
+- It is left out of the figures now. Mid-run starts still work and everything Sonar *can* identify in one is still counted; this is only about not presenting an unanswerable number as a fight.
+
 ## 2.23.0
 
 **Sonar stops disagreeing with itself about one boss**

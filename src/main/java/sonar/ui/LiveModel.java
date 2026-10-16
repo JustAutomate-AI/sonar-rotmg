@@ -1097,8 +1097,20 @@ final class LiveModel {
         m.tracked = true;
 
         HashMap<Integer, Row> sum = new HashMap<>();
+        // every distinct kit each player was seen in, gathered across all the enemies and
+        // turned into swaps once the whole run has been walked
+        HashMap<Integer, ArrayList<Kit>> readings = new HashMap<>();
         for (Entity e : hit) {
             if (e == null) continue;
+            // An enemy whose type never arrived. It shows up as "Enemy 0" and it is not an
+            // enemy - it is damage Sonar could not place, which happens when the sniffer was
+            // started partway through a run and the packet introducing that entity is long
+            // gone. Left in, it takes a section on the board, a slice of every percentage and
+            // in one real run the largest total of the lot, all of it unattributable.
+            //
+            // Mid-run starts still work, and everything Sonar *can* identify in one is still
+            // counted. This is only about not presenting an unanswerable figure as a fight.
+            if (e.objectType <= 0) continue;
             List<Damage> list = e.getPlayerDamageList();
             if (list.isEmpty()) continue;
             Target t = new Target();
@@ -1134,6 +1146,10 @@ final class LiveModel {
             // every single hit, to see which item each player's damage came from
             HashMap<Integer, Row> byPlayer = new HashMap<>();
             for (Row r : t.rows) byPlayer.put(r.id, r);
+            // the last kit seen for each player on THIS enemy, so a reading is only kept when
+            // something actually moved. Enemies are walked in their own order rather than the
+            // run's, so these are sorted and de-duplicated once every enemy has been seen.
+            HashMap<Integer, Kit> lastKit = new HashMap<>();
             for (Damage d : e.getDamageList()) {
                 if (d.owner == null || d.damage <= 0) continue;
                 Row r = byPlayer.get(d.owner.id);
@@ -1171,6 +1187,7 @@ final class LiveModel {
                         int held = r.weaponTimeline.isEmpty() ? -1 : r.weaponTimeline.get(r.weaponTimeline.size() - 1).weaponId;
                         if (inv[0] != held) r.weaponTimeline.add(new Row.WeaponSpan(d.time, inv[0]));
                     }
+                    noteKit(readings, lastKit, r.id, d.time, inv, codes);
                 }
             }
             for (Row r : t.rows) r.calculated = r.damage;
@@ -1204,6 +1221,7 @@ final class LiveModel {
             if (t.total > 0) m.targets.add(t);
         }
         m.targets.sort((a, b) -> Long.compare(b.lastHit, a.lastHit));
+        buildSwaps(m, readings);
 
         m.whole.name = "Whole instance";
         m.whole.fightMs = applyStages(m, startTimePc);
@@ -1223,6 +1241,92 @@ final class LiveModel {
         }
         if (m.current == null && !m.targets.isEmpty()) m.current = m.targets.get(0);
         return m;
+    }
+
+    /**
+     * Keeps one reading of a player's kit, when it differs from the last one seen on this
+     * enemy. Cheap on purpose: a swap is rare and a hit is not, so the common path is four
+     * integer comparisons and four string comparisons and then nothing.
+     */
+    private static void noteKit(HashMap<Integer, ArrayList<Kit>> readings, HashMap<Integer, Kit> lastKit,
+                                int playerId, long time, int[] inv, String[] codes) {
+        int[] ids = new int[4];
+        String[] enchants = new String[4];
+        boolean anything = false;
+        for (int i = 0; i < 4; i++) {
+            ids[i] = i < inv.length && inv[i] > 0 ? inv[i] : 0;
+            enchants[i] = codes != null && i < codes.length && codes[i] != null ? codes[i] : "";
+            if (ids[i] > 0) anything = true;
+        }
+        // a hit that carried no inventory at all says nothing about what they were holding
+        if (!anything) return;
+        Kit kit = new Kit(time, ids, enchants);
+        Kit was = lastKit.get(playerId);
+        if (was != null && was.same(kit)) return;
+        lastKit.put(playerId, kit);
+        readings.computeIfAbsent(playerId, k -> new ArrayList<>()).add(kit);
+    }
+
+    /**
+     * Turns the readings into a run of swaps per player.
+     * <p>
+     * The readings arrive enemy by enemy rather than in the run's own order, and the same kit
+     * can be recorded once per enemy, so they are sorted by time and collapsed before being
+     * compared. What comes out is one entry per slot that actually moved, which is the list
+     * somebody wants to read afterwards: what went out, what came in, and with what on it.
+     * <p>
+     * The first reading is a starting kit rather than a swap, so nothing is emitted for it.
+     */
+    private static void buildSwaps(LiveModel m, HashMap<Integer, ArrayList<Kit>> readings) {
+        for (java.util.Map.Entry<Integer, ArrayList<Kit>> e : readings.entrySet()) {
+            ArrayList<Kit> kits = e.getValue();
+            if (kits.size() < 2) continue;
+            kits.sort((a, b) -> Long.compare(a.time, b.time));
+            ArrayList<Swap> out = new ArrayList<>();
+            Kit previous = kits.get(0);
+            for (int i = 1; i < kits.size(); i++) {
+                Kit now = kits.get(i);
+                if (now.same(previous)) continue;
+                for (int slot = 0; slot < 4; slot++) {
+                    boolean item = previous.ids[slot] != now.ids[slot];
+                    boolean enchant = !previous.codes[slot].equals(now.codes[slot]);
+                    if (!item && !enchant) continue;
+                    // an empty slot filling in is the game telling us what was there all along,
+                    // not the player putting something on mid-fight
+                    if (previous.ids[slot] <= 0 || now.ids[slot] <= 0) continue;
+                    Swap sw = new Swap();
+                    sw.time = now.time;
+                    sw.slot = slot;
+                    sw.fromId = previous.ids[slot];
+                    sw.toId = now.ids[slot];
+                    sw.from = itemName(previous.ids[slot]);
+                    sw.to = itemName(now.ids[slot]);
+                    sw.fromEnchants = enchantNames(previous.codes[slot]);
+                    sw.toEnchants = enchantNames(now.codes[slot]);
+                    sw.fromTier = sonar.game.ParseEnchants.getTier(previous.codes[slot]);
+                    sw.toTier = sonar.game.ParseEnchants.getTier(now.codes[slot]);
+                    out.add(sw);
+                }
+                previous = now;
+            }
+            if (!out.isEmpty()) m.swaps.put(e.getKey(), out);
+        }
+    }
+
+    /**
+     * Drives the swap derivation from plain arrays, for the self-test.
+     * <p>
+     * The readings arrive from thousands of hits in a real run and from nothing at all in a
+     * demo, so the only way to hold this logic still is to hand it the readings directly.
+     */
+    static List<Swap> swapsForTest(long[] times, int[][] ids, String[][] codes) {
+        HashMap<Integer, ArrayList<Kit>> readings = new HashMap<>();
+        ArrayList<Kit> kits = new ArrayList<>();
+        for (int i = 0; i < times.length; i++) kits.add(new Kit(times[i], ids[i], codes[i]));
+        readings.put(1, kits);
+        LiveModel m = new LiveModel();
+        buildSwaps(m, readings);
+        return m.swapsFor(1);
     }
 
     /**
@@ -1457,6 +1561,63 @@ final class LiveModel {
          * So anything that reports a fight *as that boss* reads this instead.
          */
         Target anchor;
+    }
+
+    /**
+     * One moment a player changed a piece of kit, with what it was and what it became.
+     * <p>
+     * A swap is usually the most deliberate thing a player does in a fight - a chest-phase
+     * melee weapon, an armour change before a known hit, a swap-out to survive a phase - and
+     * a single last-seen snapshot of somebody's gear throws every one of them away. The
+     * enchants come too, because a swap between two of the same item is a swap between two
+     * different sets of enchants and is worth exactly as much.
+     */
+    public static final class Swap {
+        /** When it happened, on the same clock as the hits. */
+        public long time;
+        /** 0 weapon, 1 ability, 2 armour, 3 ring. */
+        public int slot;
+        public int fromId, toId;
+        public String from = "", to = "";
+        public String fromEnchants = "", toEnchants = "";
+        public int fromTier, toTier;
+        /** True when both sides are the same item and only the enchants moved. */
+        public boolean sameItem() {
+            return fromId > 0 && fromId == toId;
+        }
+    }
+
+    /** The four slots, in the order the game keeps them. */
+    public static final String[] SLOT_NAMES = {"Weapon", "Ability", "Armor", "Ring"};
+
+    /** Every kit change this run, by player id, oldest first. */
+    final java.util.HashMap<Integer, ArrayList<Swap>> swaps = new java.util.HashMap<>();
+
+    /** This player's kit changes this run, oldest first; never null. */
+    public List<Swap> swapsFor(int playerId) {
+        ArrayList<Swap> list = swaps.get(playerId);
+        return list == null ? java.util.Collections.emptyList() : list;
+    }
+
+    /** One reading of a player's whole kit, kept only long enough to diff against the next. */
+    private static final class Kit {
+        final long time;
+        final int[] ids;
+        final String[] codes;
+
+        Kit(long time, int[] ids, String[] codes) {
+            this.time = time;
+            this.ids = ids;
+            this.codes = codes;
+        }
+
+        boolean same(Kit other) {
+            for (int i = 0; i < 4; i++) {
+                if (ids[i] != other.ids[i]) return false;
+                if (!codes[i].equals(other.codes[i])) return false;
+            }
+            return true;
+        }
     }
 
     /** The fights of this instance, in the order they happened, led by the whole-instance total. */

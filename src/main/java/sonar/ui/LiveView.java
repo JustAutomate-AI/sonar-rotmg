@@ -92,7 +92,7 @@ class LiveView {
     });
     private final FactsPane playerFacts = new FactsPane();
     private final java.util.ArrayList<String> rosterNames = new java.util.ArrayList<>();
-    private final FloatWindow rosterWindow, playerWindow, playerDamageWindow, itemsWindow;
+    private final FloatWindow rosterWindow, playerWindow, swapsWindow, itemsWindow;
     /** Name of the player shown on the Players page; null shows the user. */
     // for screenshots: -Dsonar.shot.player=<name> starts with that player picked, exactly as
     // clicking their bar would, so every panel that follows the selection agrees
@@ -113,7 +113,15 @@ class LiveView {
      * somebody: a bar is the quickest way to choose a player, and it puts the figures
      * beside the gear and stats that explain them.
      */
-    private final DamagePane playerDamage = new DamagePane();
+    /**
+     * What the chosen player changed, where their damage bars used to be.
+     * <p>
+     * The bars were a third copy of the same board: the Live page carries it, the Damage
+     * breakdown carries it with more in it, and this one carried it again with switches of
+     * its own to keep in step. What was missing anywhere was the kit - and a last-seen
+     * snapshot of four items is the least a run knows about somebody's gear.
+     */
+    private final SwapsPane swapsPane = new SwapsPane();
     private final FactsPane fight = new FactsPane();
     private final FactsPane you = new FactsPane();
     private final FactsPane instance = new FactsPane();
@@ -147,29 +155,6 @@ class LiveView {
     // three separate damage views: the whole instance over elapsed time, one enemy at a time, and bosses only
     private final Segmented scope = new Segmented(new String[]{"Overall", "Enemy", "Bosses"}, savedTab(), i -> {
         sonar.util.PropertiesManager.setProperties("sonar.damage.tab", String.valueOf(i));
-        refresh();
-    });
-    // The Players page keeps its own, simpler switch. That page is about one player at a time,
-    // where the question is "how did they do overall" or "how did they do on the boss" - the
-    // per-enemy stepping of the Live page would only get in the way, so Bosses here means the
-    // instance's own boss rather than every flagged fight in it.
-    private static final int PLAYER_OVERALL = 0, PLAYER_BOSSES = 1;
-    private final Segmented playerScope = new Segmented(new String[]{"Overall", "Bosses"},
-            "1".equals(sonar.util.PropertiesManager.getProperty("sonar.players.damage.tab")) ? 1 : 0, i -> {
-        sonar.util.PropertiesManager.setProperties("sonar.players.damage.tab", String.valueOf(i));
-        refresh();
-    });
-    // This window used to take its measure and its audience from the Live page, which is a
-    // control governing a window it is not attached to - flipping a switch on one page quietly
-    // changed another. It owns all three of its switches now, and remembers them separately.
-    private final Segmented playerMetric = new Segmented(new String[]{"DPS", "Total"},
-            "1".equals(sonar.util.PropertiesManager.getProperty("sonar.players.damage.metric")) ? 1 : 0, i -> {
-        sonar.util.PropertiesManager.setProperties("sonar.players.damage.metric", String.valueOf(i));
-        refresh();
-    });
-    private final Segmented playerAudience = new Segmented(new String[]{"Everyone", "Party"},
-            "1".equals(sonar.util.PropertiesManager.getProperty("sonar.players.damage.party")) ? 1 : 0, i -> {
-        sonar.util.PropertiesManager.setProperties("sonar.players.damage.party", String.valueOf(i));
         refresh();
     });
     // the measure shown on the bars and headlines: damage per second, or total damage dealt
@@ -285,7 +270,7 @@ class LiveView {
         gearWindow = window(playersPage, "gear", "Gear and stats", gear, null, 0.282, 0.006, 0.40, 0.60, 240, 150);
         // the bars run the width of both columns above them, where the party and the
         // per-item list used to sit
-        playerDamageWindow = window(playersPage, "playerdamage", "Damage", playerDamage, playerDamageHeader(), 0.006, 0.612, 0.676, 0.382, 360, 150);
+        swapsWindow = window(playersPage, "swaps", "Swap outs", swapsPane, null, 0.006, 0.612, 0.676, 0.382, 320, 150);
         // the right column belongs to whoever is selected: who they are, then where their
         // damage came from. Both answer the same question and now sit together, which is
         // where the per-item list belongs rather than under the roster it has nothing to do with
@@ -482,15 +467,6 @@ class LiveView {
         return playerCards;
     }
 
-    private javax.swing.JComponent playerDamageHeader() {
-        javax.swing.Box row = javax.swing.Box.createHorizontalBox();
-        row.add(playerMetric);
-        row.add(javax.swing.Box.createHorizontalStrut(6));
-        row.add(playerAudience);
-        row.add(javax.swing.Box.createHorizontalStrut(6));
-        row.add(playerScope);
-        return row;
-    }
 
     private javax.swing.JComponent withScope(javax.swing.JComponent list) {
         javax.swing.Box row = javax.swing.Box.createHorizontalBox();
@@ -1752,6 +1728,41 @@ class LiveView {
         // read zero on O3, which is the one boss the figure exists for.
         java.util.Set<Integer> guardBosses = guardPhaseBosses();
         report.accept("Oryx 3 is a boss whose guard is worth counting", guardBosses.contains(45363));
+
+        // Swap outs. A last-seen snapshot of four items is the least a run knows about
+        // somebody's kit; every hit carried the whole of it and every one was thrown away.
+        int sword = 2290, bow = 4243, robe = 4278, ring = 4285;
+        String bare = "", fire = "FireRate";
+        java.util.List<LiveModel.Swap> moved = LiveModel.swapsForTest(
+                new long[]{1000, 2000, 3000},
+                new int[][]{{sword, bow, robe, ring}, {sword, bow, robe, ring}, {bow, bow, robe, ring}},
+                new String[][]{{bare, bare, bare, bare}, {bare, bare, bare, bare}, {bare, bare, bare, bare}});
+        report.accept("a weapon changed mid-run is one swap, from the old to the new",
+                moved.size() == 1 && moved.get(0).slot == 0
+                        && moved.get(0).fromId == sword && moved.get(0).toId == bow
+                        && moved.get(0).time == 3000);
+        report.accept("and the kit they started in is not itself a swap",
+                LiveModel.swapsForTest(new long[]{1000},
+                        new int[][]{{sword, bow, robe, ring}},
+                        new String[][]{{bare, bare, bare, bare}}).isEmpty());
+
+        java.util.List<LiveModel.Swap> reEnchant = LiveModel.swapsForTest(
+                new long[]{1000, 2000},
+                new int[][]{{sword, bow, robe, ring}, {sword, bow, robe, ring}},
+                new String[][]{{bare, bare, bare, bare}, {fire, bare, bare, bare}});
+        report.accept("the same item with different enchants is still a swap",
+                reEnchant.size() == 1 && reEnchant.get(0).sameItem());
+
+        report.accept("a slot the game had not sent yet is not a swap when it arrives",
+                LiveModel.swapsForTest(new long[]{1000, 2000},
+                        new int[][]{{sword, 0, robe, ring}, {sword, bow, robe, ring}},
+                        new String[][]{{bare, bare, bare, bare}, {bare, bare, bare, bare}}).isEmpty());
+
+        report.accept("readings out of order are put back in order before being compared",
+                LiveModel.swapsForTest(new long[]{3000, 1000},
+                        new int[][]{{bow, bow, robe, ring}, {sword, bow, robe, ring}},
+                        new String[][]{{bare, bare, bare, bare}, {bare, bare, bare, bare}})
+                        .get(0).fromId == sword);
         // Both wordings the game uses. Only the first was ever matched, so the Sanctuary runs
         // this check exists for went unmeasured while the file filled with easier fights.
         report.accept("the ordinary boss announcement is read",
@@ -2952,32 +2963,7 @@ class LiveView {
         // The Players page answers for itself rather than following the Live page: it is read
         // while picking through the roster, so neither the fight the Live page is locked onto
         // nor the switches sitting on it are what is wanted here.
-        playerDamage.totals(playerMetric.selected() == 1);
-        boolean playerBosses = playerScope.selected() == PLAYER_BOSSES;
-        boolean playerParty = playerAudience.selected() == 1;
-        LiveModel.Target playerEveryone = playerBosses ? m.mainBosses : m.whole;
-        LiveModel.Target playerTarget = playerParty ? partyOnly(playerEveryone) : playerEveryone;
-        boolean playerRows = m.tracked && playerTarget != null && !playerTarget.rows.isEmpty();
-        String playerEmptyTitle, playerEmptyHint;
-        if (!m.tracked) {
-            playerEmptyTitle = emptyTitle;
-            playerEmptyHint = emptyHint;
-        } else if (playerParty && playerEveryone != null && !playerEveryone.rows.isEmpty()) {
-            playerEmptyTitle = "No party damage here yet";
-            playerEmptyHint = "Switch to Everyone and click a player's bar to add them";
-        } else if (playerBosses) {
-            playerEmptyTitle = "No boss fought yet";
-            playerEmptyHint = "Boss damage shows here from the first hit on this instance's boss";
-        } else {
-            playerEmptyTitle = "No damage yet";
-            playerEmptyHint = "Bars appear as soon as someone lands a hit";
-        }
-        Object playerKey = Arrays.asList(m.instanceKey, "players", playerBosses, playerParty);
-        playerDamage.show(playerKey, playerRows ? playerTarget : null, playerEmptyTitle, playerEmptyHint);
-        playerDamageWindow.setNote(!playerRows ? "" : SonarTheme.compact(playerTarget.total) + "  ·  "
-                + (playerBosses ? (playerTarget.id == 1 ? "1 boss" : playerTarget.id + " bosses") + "  ·  "
-                        + SonarTheme.clock(playerTarget.fightMs) + " fighting"
-                        : SonarTheme.clock(playerTarget.fightMs) + " elapsed"));
+
         String basis = oneFight ? SonarTheme.clock(picked.target.fightMs) + " fighting"
                 : tab == OVERALL ? SonarTheme.clock(m.whole.fightMs) + " elapsed"
                 : tab == BOSSES ? (m.bosses.id == 1 ? "1 boss" : m.bosses.id + " bosses") + "  \u00b7  " + SonarTheme.clock(m.bosses.fightMs) + " fighting"
@@ -3283,6 +3269,28 @@ class LiveView {
         if (chosen != null) for (LiveModel.Row s : m.seen) if (s.id == chosen.id && !s.loadout[0].isEmpty()) worn = s;
         gear.show(worn);
         gearWindow.setNote(chosen == null ? "" : chosen.me ? chosen.name + " (you)" : chosen.name);
+
+        // Swap outs for whoever is picked in the roster, over the whole run rather than one
+        // fight: a chest-phase weapon goes on before the boss and comes off after it, and
+        // scoping this to a single fight would cut the swap off at one end or the other.
+        LiveModel.Row swapRow = chosen;
+        java.util.List<LiveModel.Swap> theirSwaps = swapRow == null
+                ? java.util.Collections.emptyList() : m.swapsFor(swapRow.id);
+        String swapTitle, swapHint;
+        if (swapRow == null) {
+            swapTitle = "No player selected";
+            swapHint = "Pick someone in the roster to see what they changed";
+        } else if (!m.tracked) {
+            swapTitle = emptyTitle;
+            swapHint = emptyHint;
+        } else {
+            // "You has not swapped anything" - the row's own name is not a subject that
+            // conjugates, so the line is written about the kit rather than about the player
+            swapTitle = "Nothing swapped yet";
+            swapHint = "Weapons, abilities, armour and rings appear here the moment one changes";
+        }
+        swapsPane.show(swapRow == null ? "" : swapRow.name, theirSwaps, m.whole.firstHit, swapTitle, swapHint);
+        swapsWindow.setNote(swapRow == null ? "" : swapsPane.note());
         rosterWindow.setNote(rosterItems.isEmpty() ? ""
                 : rosterScope.selected() == 1 ? rosterItems.size() + " within " + (int) NEAR_TILES + " tiles"
                 : rosterItems.size() + " seen  \u00b7  " + m.whole.rows.size() + " dealt damage");

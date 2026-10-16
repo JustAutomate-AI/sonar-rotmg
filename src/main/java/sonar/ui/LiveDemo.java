@@ -302,8 +302,11 @@ final class LiveDemo {
         m.whole.fightMs = elapsed;
         for (int p = 0; p < PLAYERS.length; p++) {
             m.whole.rows.add(row(p, sum[p], guardDmg[p], guardHit[p]));
+            demoSwaps(m, p);
             m.whole.total += sum[p];
         }
+        // when the run began, so a swap can say how far into it it happened
+        m.whole.firstHit = System.currentTimeMillis() - 380_000L;
         m.whole.rows.sort((a, b) -> Long.compare(b.damage, a.damage));
         // Two people who did not see the end of this run, so the board shows what that looks
         // like: one nexused partway, one died. A real run almost always has at least one.
@@ -401,6 +404,57 @@ final class LiveDemo {
         s.tier = tier;
         s.enchants = enchants;
         s.shiny = shiny;
+        return s;
+    }
+
+    /**
+     * Swaps for the demo, so the Swap outs window has something real to draw.
+     * <p>
+     * Shaped like the ones that actually happen rather than scattered at random: a melee
+     * weapon on for a chest phase and off again after it, an armour change before a hit
+     * everybody knows is coming, and a re-enchant of the same weapon - which is the case
+     * that reads as nothing at all if only item names are compared, and is why the pane
+     * says ENCHANTS outright when both sides match.
+     */
+    private static void demoSwaps(LiveModel m, int p) {
+        // most of a party swaps something, but not everybody; the user always does, so the
+        // window has something to show the moment the demo opens
+        if (p != 11 && p % 3 == 2) return;
+        int[] kit = kitFor(PLAYERS[p][1]);
+        java.util.ArrayList<LiveModel.Swap> out = new java.util.ArrayList<>();
+        long base = System.currentTimeMillis() - 230_000L;
+        int[] other = kitFor(PLAYERS[(p + 5) % PLAYERS.length][1]);
+
+        if (other[0] > 0 && other[0] != kit[0]) {
+            out.add(swap(base + 42_000L + p * 900L, 0, kit[0], other[0],
+                    enchantsFor(p, 0), enchantsFor(p + 2, 0)));
+            out.add(swap(base + 97_000L + p * 900L, 0, other[0], kit[0],
+                    enchantsFor(p + 2, 0), enchantsFor(p, 0)));
+        }
+        if (p % 2 == 0 && other[2] > 0 && other[2] != kit[2]) {
+            out.add(swap(base + 150_000L + p * 700L, 2, kit[2], other[2],
+                    enchantsFor(p, 2), enchantsFor(p + 1, 2)));
+        }
+        if (p % 4 == 1) {
+            // the same item twice: only the enchants moved
+            out.add(swap(base + 181_000L + p * 500L, 3, kit[3], kit[3],
+                    enchantsFor(p, 3), enchantsFor(p + 3, 3)));
+        }
+        if (!out.isEmpty()) m.swaps.put(p, out);
+    }
+
+    private static LiveModel.Swap swap(long time, int slot, int fromId, int toId, String from, String to) {
+        LiveModel.Swap s = new LiveModel.Swap();
+        s.time = time;
+        s.slot = slot;
+        s.fromId = fromId;
+        s.toId = toId;
+        s.from = LiveModel.itemName(fromId);
+        s.to = LiveModel.itemName(toId);
+        s.fromEnchants = from;
+        s.toEnchants = to;
+        s.fromTier = EnchantSprites.tierOf(EnchantSprites.best(from));
+        s.toTier = EnchantSprites.tierOf(EnchantSprites.best(to));
         return s;
     }
 
