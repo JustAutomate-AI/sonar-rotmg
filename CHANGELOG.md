@@ -4,6 +4,12 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 
 ## 2.21.0
 
+**The window stays where you put it**
+
+- Sonar remembered how big its window was and never where it was, so every launch it went back to the middle of the primary display. On one monitor that is invisible. On two it means the window cannot be kept anywhere: move it to the second screen, close it, and it is back on the first - which reads as being stuck to that monitor, because nothing you do to it survives.
+- It now remembers the position too, and opens where you left it.
+- A saved position is only used while it still lands on a monitor that is **connected**. Unplug a screen, or change a resolution, and it goes back to centred rather than opening off in space with nothing to click. Same guard the Shatters overlay has always had.
+
 **A Nest run stops being fourteen boss fights**
 
 - A public Nest came out of the shared picture with fourteen sections: three Soldier Bees, three Maggot Eggs, four Beehemoth adds, the hives, the Enraged bees and the Loot Goblin, each given its own board as though it were a boss.

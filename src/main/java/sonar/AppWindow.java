@@ -71,9 +71,22 @@ public class AppWindow {
     }
 
     /**
-     * Centers on the primary display, unless -Dsonar.monitor=N (1-based) asks for a
-     * different one - for testing without windows popping up over whatever is on the
-     * main screen.
+     * Puts the window back where it was left.
+     * <p>
+     * It used to centre on the primary display every single launch, because only the
+     * window's size was remembered and never its position. On one monitor that is
+     * invisible. On two it means the window cannot be kept anywhere: you move it to the
+     * second screen, close it, and it is back in the middle of the first one - which
+     * reads as the window being stuck to that monitor, because nothing you do to it
+     * survives.
+     * <p>
+     * A saved position is only used while it still lands on a screen that is connected.
+     * A monitor unplugged since, or a resolution change, would otherwise leave the window
+     * off in space with nothing to click to bring it back. Same guard the Shatters overlay
+     * has always had.
+     * <p>
+     * {@code -Dsonar.monitor=N} (1-based) still wins and is never written down. It is for
+     * running a test build without windows opening over whatever is on the main screen.
      */
     private void placeFrame() {
         String monitor = System.getProperty("sonar.monitor");
@@ -91,7 +104,29 @@ public class AppWindow {
                 // falls through to the default placement
             }
         }
+        try {
+            String saved = sonar.util.PropertiesManager.getProperty("sonar.frame.pos");
+            if (saved != null) {
+                String[] p = saved.split(",");
+                Rectangle where = new Rectangle(Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim()),
+                        frame.getWidth(), frame.getHeight());
+                if (onAConnectedScreen(where)) {
+                    frame.setLocation(where.x, where.y);
+                    return;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // an unreadable position is no position
+        }
         frame.setLocationRelativeTo(null);
+    }
+
+    /** Whether any part of this rectangle would land on a monitor that is actually plugged in. */
+    private static boolean onAConnectedScreen(Rectangle where) {
+        for (GraphicsDevice d : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+            if (d.getDefaultConfiguration().getBounds().intersects(where)) return true;
+        }
+        return false;
     }
 
     /**

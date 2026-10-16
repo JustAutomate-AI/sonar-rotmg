@@ -647,7 +647,7 @@ public class SonarShell extends JPanel {
         }
     }
 
-    /** Gives the main window a sensible first size and remembers the size the user leaves it at. */
+    /** Gives the main window a sensible first size and remembers the size and place the user leaves it at. */
     public static void sizeFrame(JFrame frame) {
         Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
         int w = Math.min(1440, (int) (screen.width * 0.9)), h = Math.min(900, (int) (screen.height * 0.9));
@@ -681,6 +681,10 @@ public class SonarShell extends JPanel {
                 PropertiesManager.setProperties("sonar.frame.max", maximized ? "T" : "F");
                 if (!maximized) {
                     PropertiesManager.setProperties("sonar.frame", frame.getWidth() + "," + frame.getHeight());
+                    // where it was left, not just how big. Without this the window went back to the
+                    // middle of the primary display every launch, so on a second monitor it could
+                    // not be kept anywhere: you moved it, closed it, and it came back.
+                    PropertiesManager.setProperties("sonar.frame.pos", frame.getX() + "," + frame.getY());
                 }
                 SonarShell s = instance;
                 if (s != null) s.live.save();

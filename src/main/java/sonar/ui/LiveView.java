@@ -1670,6 +1670,15 @@ class LiveView {
                         && labelledMinion(4281) && labelledMinion(29207));
         report.accept("and that never catches a real boss or miniboss",
                 !labelledMinion(4243) && !labelledMinion(4324));
+        // A saved window position is only honoured while it still lands on a monitor that is
+        // plugged in. Get this wrong and the window opens off in space with nothing to click.
+        java.awt.Rectangle onScreen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+                .getDefaultScreenDevice().getDefaultConfiguration().getBounds();
+        report.accept("a window position on a connected screen is kept",
+                onAConnectedScreen(new java.awt.Rectangle(onScreen.x + 40, onScreen.y + 40, 800, 600)));
+        report.accept("one from a monitor that is gone is not",
+                !onAConnectedScreen(new java.awt.Rectangle(-30000, -30000, 800, 600))
+                        && !onAConnectedScreen(new java.awt.Rectangle(400000, 400000, 800, 600)));
         // a shared image drops nobody: a fight too long for one column carries on in the next
         int[] oneBigFight = {23};
         int[] tallest = new int[2];
@@ -2740,6 +2749,18 @@ class LiveView {
     }
 
     /** Calls a private static of LiveModel, so the self-test can exercise it directly. */
+    /** Reaches the main window's own off-screen guard, so the self-test covers it. */
+    private static boolean onAConnectedScreen(java.awt.Rectangle where) {
+        try {
+            java.lang.reflect.Method m = sonar.AppWindow.class
+                    .getDeclaredMethod("onAConnectedScreen", java.awt.Rectangle.class);
+            m.setAccessible(true);
+            return (Boolean) m.invoke(null, where);
+        } catch (Exception e) {
+            throw new IllegalStateException("onAConnectedScreen() could not be called", e);
+        }
+    }
+
     /** Whether the game's data calls this object type somebody else's add. */
     private static boolean labelledMinion(int objectType) {
         try {
