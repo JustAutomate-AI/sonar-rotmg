@@ -57,6 +57,7 @@ public class Entity implements Serializable {
     private static final int ORYX_THE_MAD_GOD_GUARD_EXALTED_ANIMATION =
         -918686683;
     private static final int CHANCELLOR_DAMMAH = 9635;
+    private static final int TREASURER_GEMSBOK = 8700;
     private static final int FORGOTTEN_KING = 29039;
     private static final int FORGOTTEN_KING_REFLECTOR_ANIMATION = -123818367;
     private long lootDropTime;
@@ -605,24 +606,78 @@ public void genericDamageHit(
             gameData.hasGuardedPhaseEntity();
         damage.chancellorDammahDmg =
             objectType == CHANCELLOR_DAMMAH && !dammahCountered;
-        // Sonar: the one flag the interface reads. Only the two guards Sonar can actually
-        // name - Oryx's, by the animation he plays, and the Forgotten King's reflectors.
+        // Sonar: the one flag the interface reads.
         //
-        // It used to count any enemy flagged INVULNERABLE or INVINCIBLE as well, on the
-        // reasoning that being untouchable is the same ask - stop shooting - without needing
-        // a list of every boss that does it. That was wrong, and wrong loudly: ordinary
-        // enemies raise those bits all the time, for spawn-in and for scripted beats of no
-        // consequence, so a plain dungeon of thirty-five mobs handed every player in it
-        // dozens of guarded hits. A figure that fires everywhere says nothing anywhere, and
-        // this one is quoted at people afterwards.
+        // Two signals, and the history of both is worth keeping. The animations above name a
+        // guard exactly when they match, and say nothing when the game changes a hash under
+        // us. Being flatly untouchable is the cruder signal but it cannot go stale.
+        //
+        // Using the untouchable bits on *every* enemy was wrong, and wrong loudly: ordinary
+        // enemies raise them constantly, for spawn-in and scripted beats of no consequence,
+        // so a plain dungeon of thirty-five mobs handed every player in it dozens of guarded
+        // hits. Deleting them outright was wrong the other way, and quieter about it: O3's
+        // guard then rested entirely on two hashes, and when those stopped matching the
+        // figure read zero on the one boss the whole feature exists for. A number that fires
+        // everywhere says nothing; a number that fires nowhere says nothing and looks fine.
+        //
+        // So the bits are read again, on the bosses that actually have a phase like this and
+        // nowhere else. A Soldier Bee flickering invulnerable as it spawns is not on the list
+        // and never will be; Oryx raising his guard is.
         //
         // Dammah is left out for his own reason: his flag above is true for every hit until
         // he counters once, so it says nothing about a phase either.
-        //
-        // The other Sanctuary bosses with guard phases are not covered yet. Each needs its
-        // own animation hash, read off a real fight, the way these two were.
+        StatData condition = stat.get(StatType.CONDITION_STAT);
+        boolean untouchable =
+            condition != null &&
+            (condition.statValue &
+                (ConditionBits.INVULNERABLE.value() |
+                    ConditionBits.INVINCIBLE.value())) !=
+            0;
         damage.sonarGuardPhase =
-            damage.oryx3GuardDmg || damage.walledGardenReflectors;
+            damage.oryx3GuardDmg ||
+            damage.walledGardenReflectors ||
+            (untouchable && GUARD_PHASE_BOSSES.contains(objectType));
+        guardDebug(damage, untouchable);
+    }
+
+    /**
+     * The bosses whose defences going up is worth reporting, by object type.
+     * <p>
+     * Deliberately a list rather than a rule. Every attempt to infer this - a boss flag, a
+     * health threshold, the untouchable bits on their own - has ended up either sweeping in
+     * trash or missing the one fight that mattered. Naming them costs a line each and is the
+     * only version that is right by construction.
+     */
+    private static final java.util.Set<Integer> GUARD_PHASE_BOSSES =
+        new java.util.HashSet<>(java.util.Arrays.asList(
+            ORYX_THE_MAD_GOD,
+            FORGOTTEN_KING,
+            TREASURER_GEMSBOK));
+
+    /**
+     * Prints what a guard-phase boss was actually doing when it was hit, under
+     * {@code -Dsonar.guarddebug}.
+     * <p>
+     * The animation hashes above were read off a real fight once and cannot be checked by
+     * reading the source - which is how O3's came to be trusted long after they stopped
+     * matching. One run with this on prints every distinct animation value Oryx plays and
+     * whether he was untouchable at the time, which is enough to repair them from data
+     * rather than from guesswork.
+     */
+    private static final java.util.Set<String> GUARD_SEEN =
+        java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    private void guardDebug(Damage damage, boolean untouchable) {
+        if (System.getProperty("sonar.guarddebug") == null) return;
+        if (!GUARD_PHASE_BOSSES.contains(objectType)) return;
+        StatData animation = stat.get(StatType.ANIMATION_STAT);
+        int value = animation == null ? 0 : animation.statValue;
+        String key = objectType + "/" + value + "/" + untouchable;
+        if (!GUARD_SEEN.add(key)) return;
+        System.out.println("[guard] " + name() + " (type " + objectType + ")"
+            + "  animation=" + value
+            + "  untouchable=" + untouchable
+            + "  counted=" + damage.sonarGuardPhase);
     }
 
     public String name() {

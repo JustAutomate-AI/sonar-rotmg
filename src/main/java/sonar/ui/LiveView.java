@@ -1728,6 +1728,13 @@ class LiveView {
                         && labelledMinion(4281) && labelledMinion(29207));
         report.accept("and that never catches a real boss or miniboss",
                 !labelledMinion(4243) && !labelledMinion(4324));
+        // Being untouchable counts as a guard only on the bosses that actually have such a
+        // phase. Read on every enemy it fired on trash all run long; read on none of them it
+        // read zero on O3, which is the one boss the figure exists for.
+        java.util.Set<Integer> guardBosses = guardPhaseBosses();
+        report.accept("Oryx 3 is a boss whose guard is worth counting", guardBosses.contains(45363));
+        report.accept("a Soldier Bee flickering invulnerable is not",
+                !guardBosses.contains(2290) && !guardBosses.contains(4244) && !guardBosses.contains(29207));
         // A saved window position is only honoured while it still lands on a monitor that is
         // plugged in. Get this wrong and the window opens off in space with nothing to click.
         java.awt.Rectangle onScreen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
@@ -2807,6 +2814,18 @@ class LiveView {
     }
 
     /** Calls a private static of LiveModel, so the self-test can exercise it directly. */
+    /** The bosses whose untouchable phases count as a guard, for the self-test. */
+    @SuppressWarnings("unchecked")
+    private static java.util.Set<Integer> guardPhaseBosses() {
+        try {
+            java.lang.reflect.Field f = sonar.backend.data.Entity.class.getDeclaredField("GUARD_PHASE_BOSSES");
+            f.setAccessible(true);
+            return (java.util.Set<Integer>) f.get(null);
+        } catch (Exception e) {
+            throw new IllegalStateException("GUARD_PHASE_BOSSES could not be read", e);
+        }
+    }
+
     /** Reaches the main window's own off-screen guard, so the self-test covers it. */
     private static boolean onAConnectedScreen(java.awt.Rectangle where) {
         try {

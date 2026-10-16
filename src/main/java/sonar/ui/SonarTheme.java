@@ -400,6 +400,24 @@ public final class SonarTheme {
     }
 
     /** Ink that can be read on the given background: near-black on a light one, white on a dark one. */
+    /**
+     * The red laid over the part of a bar that went into a boss's guard.
+     * <p>
+     * Tinted glass rather than paint: deep enough to read as a warning on every class
+     * colour, translucent enough that the class is still visible under it. Chosen by
+     * sample against real bars - a bright red over a Knight's blue comes out pink, which
+     * is the one thing it must not look like.
+     */
+    /** Ink for the guarded figures: reads on the panel and on the oxblood alike. */
+    public static final Color GUARD_INK = new Color(0xff, 0x93, 0xa6);
+
+    public static final Color GUARD_GLASS = new Color(0x8c, 0x0f, 0x1f, 195);
+
+    /** What a surface becomes under {@link #GUARD_GLASS}, for choosing ink to sit on it. */
+    public static Color onGlass(Color surface) {
+        return mix(surface, GUARD_GLASS, GUARD_GLASS.getAlpha() / 255.0);
+    }
+
     public static Color inkOn(Color background) {
         double luminance = (0.2126 * background.getRed() + 0.7152 * background.getGreen()
                 + 0.0722 * background.getBlue()) / 255.0;

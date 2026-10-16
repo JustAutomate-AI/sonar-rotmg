@@ -4,6 +4,28 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 
 ## 2.22.0
 
+**Guarded hits are back on the board, as a column**
+
+- Each player's guarded figures now sit in a **GUARDED HITS** column on the right of the exported board, past the damage, lined up down the picture. The run total that used to ride on the boss heading is gone: the column says the same thing and says who.
+- The share of a bar that went into the guard is marked again, in the same deep oxblood, running from the **right end inwards**.
+- The column's width is measured per fight rather than fixed. A fixed one cost every row ninety pixels of name on every fight in the game, guard or no guard, which left *Usern...* down a picture whose whole point is who did what.
+
+**The class bar stops before the numbers**
+
+- A bar used to run the full width of its row, so the top player's passed under their share, their damage and the guarded column - and every one of those figures had to be drawn in ink chosen for whatever class colour happened to be behind it.
+- The bar now ends before the first digit. It may still run under the gear, whose tiles carry their own plates. Nothing else does, so the figures are drawn once, in one ink.
+
+**One fight is one list**
+
+- A single fight is listed straight down rather than split into columns. Splitting twenty players across two columns breaks the ranking in half for no reason.
+- Anyone is moved to the side only once the picture has run away vertically - past about two and a half times its own width, which is where a reader has to start scrolling to follow the order. The whole-run picture is unchanged.
+
+**Guarded hits work again on Oryx 3**
+
+- 2.21.0 removed the catch-all that counted any enemy flagged invulnerable, because it fired on trash all run long. That left O3's guard resting entirely on two animation hashes, and when those stopped matching, the figure read **zero on the one boss the feature exists for**. A number that fires everywhere says nothing; a number that fires nowhere says nothing and looks fine while doing it.
+- The invulnerable bits are read again, but only on the bosses that actually have a phase like this - Oryx 3, the Forgotten King and Treasurer Gemsbok - and nowhere else. A Soldier Bee flickering invulnerable as it spawns is not on that list and never will be.
+- `-Dsonar.guarddebug` prints every distinct animation value those bosses play and whether they were untouchable at the time, so the hashes can be repaired from a real run rather than from guesswork.
+
 **One boss at a time, instead of the whole dungeon**
 
 - The run's own share posts every fight in it, which is right when the run is the thing and wrong when the question is one boss. A **share button now sits beside Expand** on the Damage breakdown, and it posts whichever enemy is picked in the row above it.

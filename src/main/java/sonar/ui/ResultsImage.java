@@ -37,8 +37,32 @@ final class ResultsImage {
      * that would leave anyone off.
      */
     private static final int BOSS_ROW_CAP = 500;
+    /** The guarded figures for one row, or empty when that player never hit a guard. */
+    private static String guardText(LiveModel.Row r) {
+        if (r.guardDamage <= 0) return "";
+        return SonarTheme.brief(r.guardDamage) + "  ·  " + SonarTheme.number(r.guardHits);
+    }
+
+    /**
+     * How much room this section's guarded figures need, or 0 when none of them hit a guard.
+     * <p>
+     * Measured per section rather than fixed, because the room has to come from somewhere and
+     * the only place to take it from is the name. A fixed column cost every row ninety pixels
+     * of name on every fight in the game, guard or no guard, which left "Usern..." down a
+     * picture whose whole point is who did what.
+     */
+    private static int guardColumn(Graphics2D g, LiveModel.Target boss) {
+        int widest = 0;
+        for (LiveModel.Row r : boss.rows) {
+            String text = guardText(r);
+            if (!text.isEmpty()) widest = Math.max(widest, width(g, SonarTheme.bold(10f), text));
+        }
+        return widest == 0 ? 0 : widest + 14;
+    }
     /** The most columns the page will spread across before it gives up on being square. */
     private static final int MAX_COLUMNS = 7;
+    /** How many times its own width a single fight's picture may run before anyone is moved to the side. */
+    private static final double TALLEST = 2.6;
     /** One column of the per-boss page. Several sit side by side so the picture comes out roughly square. */
     private static final int COL_W = 404, COL_GAP = 14;
     /**
@@ -291,7 +315,22 @@ final class ResultsImage {
             // a shape that leaves people off is never preferred to one that does not, however square
             if (everyoneFits && !whole) continue;
             double w = tryColumns * COL_W + (tryColumns - 1) * COL_GAP;
-            double off = Math.abs(Math.log(w / (around + measured[0])));
+            double tall = around + measured[0];
+            // One fight reads as one ranking, straight down, and splitting twenty players
+            // across two columns breaks that ranking in half for no reason. So a single fight
+            // takes the fewest columns that holds everybody, and only moves anyone to the side
+            // once the picture has run away vertically - past TALLEST times its own width,
+            // which is about where a reader has to start scrolling to follow the order.
+            if (only != null) {
+                if (!whole) continue;
+                columns = tryColumns;
+                columnHeight = height;
+                tallestFound = measured[0];
+                everyoneFits = true;
+                if (tall <= w * TALLEST) break;
+                continue;
+            }
+            double off = Math.abs(Math.log(w / tall));
             if (!everyoneFits && whole || off < closest) {
                 if (whole && !everyoneFits) closest = Double.MAX_VALUE;
                 if (off < closest || (whole && !everyoneFits)) {
@@ -437,8 +476,9 @@ final class ResultsImage {
                                          Set<Integer> pumperIds, int from, int to, boolean continued) {
         boolean hasSprite = Glyph.object(g, boss.objectType, PAD, y + 1, 24);
         int textX = hasSprite ? PAD + 30 : PAD;
+        int guardColW = guardColumn(g, boss);
         String total = continued ? "continued" : SonarTheme.number(boss.total);
-        int totalW = width(g, SonarTheme.font(10.5f), total);
+        int totalW = width(g, SonarTheme.font(10.5f), total) + guardColW;
         g.setFont(SonarTheme.bold(13f));
         g.setColor(continued ? SonarTheme.MUTED : SonarTheme.TEXT);
         String title = SonarTheme.fit(boss.name.isEmpty() ? "Unknown enemy" : boss.name,
@@ -448,23 +488,19 @@ final class ResultsImage {
         if (boss.finalBoss && !continued) {
             tagX = drawTag(g, tagX, y + 6, "FINAL", SonarTheme.GOLD);
         }
-        // A fight with a guard says so once, on its heading. The rows below used to carry it
-        // too - a red wash down each bar and a badge beside each name - which was the same
-        // fact three times on a picture whose job is the damage. In the app it has a list of
-        // its own now; here one line says a guard was shot and how much went into it, and
-        // who did it is a question for that list.
-        long intoGuard = 0, intoGuardHits = 0;
-        for (LiveModel.Row r : boss.rows) {
-            intoGuard += r.guardDamage;
-            intoGuardHits += r.guardHits;
-        }
-        if (intoGuard > 0 && !continued) {
-            drawTag(g, tagX, y + 6, SonarTheme.brief(intoGuard) + " INTO GUARD · "
-                    + SonarTheme.hits(intoGuardHits).toUpperCase(), SonarTheme.CORAL);
+        // The run total used to sit here as a tag as well. With the figures in a column of
+        // their own, per player, it was the same fact twice on one line and the two collided
+        // whenever the boss name was long. The column says it better: it says who.
+        // the column's own name, once per section, over the figures it belongs to
+        if (guardColW > 0) {
+            g.setFont(SonarTheme.bold(8.5f));
+            g.setColor(SonarTheme.alpha(SonarTheme.GUARD_INK, 0.8));
+            String head = "GUARDED HITS";
+            g.drawString(head, colW - PAD - 8 - g.getFontMetrics().stringWidth(head), y + 17);
         }
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
-        g.drawString(total, colW - PAD - g.getFontMetrics().stringWidth(total), y + 17);
+        g.drawString(total, colW - PAD - guardColW - 16 - g.getFontMetrics().stringWidth(total), y + 17);
 
         y += BOSS_HEADER_H;
         if (boss.rows.isEmpty()) {
@@ -482,7 +518,7 @@ final class ResultsImage {
         int last = Math.min(to, boss.rows.size());
         for (int i = from; i < last; i++) {
             LiveModel.Row r = boss.rows.get(i);
-            paintBossRow(g, r, i + 1, y, leecherIds.contains(r.id), pumperIds.contains(r.id), top, health);
+            paintBossRow(g, r, i + 1, y, leecherIds.contains(r.id), pumperIds.contains(r.id), top, health, guardColW);
             y += BOSS_ROW_H + BOSS_ROW_GAP;
         }
         // only ever reached by a run with more names than the backstop allows
@@ -508,18 +544,48 @@ final class ResultsImage {
      * picture nobody could read without scrolling for a minute.
      */
     private static void paintBossRow(Graphics2D g, LiveModel.Row r, int rank, int y, boolean leecher, boolean pumper,
-                                     long top, long enemyHealth) {
+                                     long top, long enemyHealth, int guardColW) {
+        // The figures are measured before the bar is drawn, because the bar has to stop short
+        // of them. It used to run the whole width of the row, so the top player's bar passed
+        // under their damage, their share and the guarded column - and every one of those had
+        // to be drawn in ink picked for whatever class colour happened to be behind it, which
+        // is a lot of machinery to make a number legible on a surface it has no business being
+        // on. A bar that ends before the first digit needs none of it.
+        String dmg = SonarTheme.number(r.damage);
+        int dmgW = width(g, SonarTheme.bold(11.5f), dmg);
+        // the guarded figures get a column of their own on the right, past the damage, so they
+        // line up down the picture instead of hanging off whatever length each name happened
+        // to be. The width is the section's, not this row's, or nothing would line up at all.
+        float dmgX = colW - PAD - 8 - guardColW - dmgW;
+        String pct = enemyHealth > 0 ? String.format("%.1f%%", r.damage * 100.0 / enemyHealth) : "";
+        int pctW = pct.isEmpty() ? 0 : width(g, SonarTheme.bold(9.5f), pct) + 8;
+        int gearW = 4 * BOSS_GEAR + 3 * BOSS_GEAR_GAP;
+        int gearX = (int) dmgX - pctW - 10 - gearW;
+
         int trackX = PAD, trackW = colW - PAD * 2;
+        // the bar's own ceiling: it may run under the gear, whose tiles carry their own plates,
+        // and never under a digit
+        int barRoom = (int) Math.max(BOSS_ROW_H * 0.6, dmgX - pctW - 8 - trackX);
         g.setColor(new Color(255, 255, 255, 10));
         g.fill(SonarTheme.round(trackX, y, trackW, BOSS_ROW_H, 7));
 
         double share = top <= 0 ? 0 : Math.max(0, r.damage) / (double) top;
-        double barW = Math.max(BOSS_ROW_H * 0.6, share * trackW);
+        double barW = Math.max(BOSS_ROW_H * 0.6, share * barRoom);
         Color dark = SonarTheme.classColor(r.cls, false), light = SonarTheme.classColor(r.cls, true);
         Shape clip = g.getClip();
         g.clip(SonarTheme.round(trackX, y, barW, BOSS_ROW_H, 7));
         g.setPaint(new GradientPaint(trackX, 0, dark, (float) (trackX + Math.max(80, barW)), 0, light));
         g.fill(SonarTheme.round(trackX, y, Math.max(barW, 16), BOSS_ROW_H, 7));
+        // the share of that bar that went into the guard, taken off its right end, so how much
+        // of a player's damage was the part nobody wanted is read from the bar itself
+        double guardW = r.guardShare() * barW;
+        if (guardW > 0.5) {
+            g.setPaint(null);
+            g.setColor(SonarTheme.GUARD_GLASS);
+            g.fill(new java.awt.geom.Rectangle2D.Double(trackX + barW - guardW, y, guardW, BOSS_ROW_H));
+            g.setColor(new Color(0, 0, 0, 70));
+            g.fill(new java.awt.geom.Rectangle2D.Double(trackX + barW - guardW, y, 1.2, BOSS_ROW_H));
+        }
         g.setClip(clip);
         g.setPaint(null);
 
@@ -545,16 +611,7 @@ final class ResultsImage {
             g.fill(SonarTheme.round(px, py, BOSS_PORTRAIT, BOSS_PORTRAIT, 5));
         }
 
-        // the damage sits hard right, with its share of the enemy's own health beside it
-        String dmg = SonarTheme.number(r.damage);
-        int dmgW = width(g, SonarTheme.bold(11.5f), dmg);
-        float dmgX = colW - PAD - 8 - dmgW;
-        String pct = enemyHealth > 0 ? String.format("%.1f%%", r.damage * 100.0 / enemyHealth) : "";
-        int pctW = pct.isEmpty() ? 0 : width(g, SonarTheme.bold(9.5f), pct) + 8;
-
         // what they were holding, to the left of the figures
-        int gearW = 4 * BOSS_GEAR + 3 * BOSS_GEAR_GAP;
-        int gearX = (int) dmgX - pctW - 10 - gearW;
         for (int i = 0; i < 4; i++) {
             int id = i < r.gearIds.length ? r.gearIds[i] : -1;
             double gx = gearX + i * (BOSS_GEAR + BOSS_GEAR_GAP), gy = y + (BOSS_ROW_H - BOSS_GEAR) / 2.0;
@@ -573,6 +630,8 @@ final class ResultsImage {
         // as one on a Necromancer's violet - see inkOn. Deliberately anonymous; see paintRow().
         int nameX = px + BOSS_PORTRAIT + 7;
         double barEnd = trackX + barW;
+        // where the red run starts, which is a third surface the text may cross
+        double guardStart = barEnd - guardW;
         // What they put into the guard, right after their name, where a reader looking for it
         // finds it beside whoever it belongs to rather than in a column of its own.
         //
@@ -585,19 +644,34 @@ final class ResultsImage {
         g.setFont(SonarTheme.bold(12f));
         String shown = SonarTheme.fit(r.name, g.getFontMetrics(), room);
         int nameW = g.getFontMetrics().stringWidth(shown);
-        across(g, shown, nameX, y + BOSS_ROW_H / 2f + 4, barEnd, y, dark);
+        across(g, shown, nameX, y + BOSS_ROW_H / 2f + 4, guardStart, barEnd, y, dark);
 
+        // past the bar's end on every row now, so one ink does for all of them
         g.setFont(SonarTheme.bold(11.5f));
-        across(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, barEnd, y, light);
+        shadowed(g, dmg, dmgX, y + BOSS_ROW_H / 2f + 4, SonarTheme.TEXT, shadowFor(SonarTheme.TEXT));
         if (!pct.isEmpty()) {
             g.setFont(SonarTheme.bold(9.5f));
-            across(g, pct, dmgX - pctW + 3, y + BOSS_ROW_H / 2f + 3.5f, barEnd, y, light, 0.75);
+            shadowed(g, pct, dmgX - pctW + 3, y + BOSS_ROW_H / 2f + 3.5f,
+                    SonarTheme.MUTED, shadowFor(SonarTheme.MUTED));
+        }
+        String into = guardText(r);
+        if (!into.isEmpty()) {
+            g.setFont(SonarTheme.bold(10f));
+            int w = g.getFontMetrics().stringWidth(into);
+            // past the bar's end on every row, so it never needs ink chosen for a class colour
+            shadowed(g, into, colW - PAD - 8 - w, y + BOSS_ROW_H / 2f + 3.5f,
+                    SonarTheme.GUARD_INK, shadowFor(SonarTheme.GUARD_INK));
         }
     }
 
     private static void across(Graphics2D g, String text, float x, float y,
                                double barEnd, int rowY, Color bar) {
-        across(g, text, x, y, barEnd, rowY, bar, 1);
+        across(g, text, x, y, barEnd, barEnd, rowY, bar, 1);
+    }
+
+    private static void across(Graphics2D g, String text, float x, float y,
+                               double guardStart, double barEnd, int rowY, Color bar) {
+        across(g, text, x, y, guardStart, barEnd, rowY, bar, 1);
     }
 
     /**
@@ -614,18 +688,22 @@ final class ResultsImage {
      * the two draws covers everything and the other falls outside its clip.
      */
     /**
-     * Two stretches: the bar, and the panel past its end. There used to be a third for the
-     * red run that marked damage put into a boss's guard, which no longer comes near a bar.
+     * Three stretches, because a bar can end in the red run that marks damage put into a
+     * boss's guard. A player who did little else has a bar that is red most of the way
+     * along, and their name sits on top of it; ink chosen for their class colour would be
+     * unreadable there. Clipping each stretch separately keeps the red honest about its
+     * proportion instead of stopping it short of the text. Pass {@code barEnd} as the start
+     * for a row with no red, and the middle stretch costs nothing.
      */
     private static void across(Graphics2D g, String text, float x, float y,
-                               double barEnd, int rowY, Color bar, double fade) {
+                               double guardStart, double barEnd, int rowY, Color bar, double fade) {
         if (text == null || text.isEmpty()) return;
         int top = rowY - 2, height = BOSS_ROW_H + 4;
-        double[] from = {-10000, barEnd};
-        double[] to = {barEnd, 20000};
-        Color[] behind = {bar, SonarTheme.SURFACE};
+        double[] from = {-10000, guardStart, barEnd};
+        double[] to = {guardStart, barEnd, 20000};
+        Color[] behind = {bar, SonarTheme.onGlass(bar), SonarTheme.SURFACE};
         Shape old = g.getClip();
-        for (int zone = 0; zone < 2; zone++) {
+        for (int zone = 0; zone < 3; zone++) {
             if (to[zone] <= from[zone]) continue;
             Color ink = inkOn(behind[zone]);
             if (fade < 1) ink = SonarTheme.alpha(ink, fade);
