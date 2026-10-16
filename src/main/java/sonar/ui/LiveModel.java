@@ -1444,6 +1444,19 @@ final class LiveModel {
         boolean staged() {
             return kind.equals("boss") || kind.equals("miniboss");
         }
+
+        /**
+         * The fight this group was built around, without the adds folded into it.
+         * <p>
+         * {@link #target} is the whole group: the boss and every add that spawned during it,
+         * summed. That is the right answer for a list of what happened in a run, and the wrong
+         * one for a board with the boss's name at the top of it - the server's own announcement
+         * counts damage to Oryx, not to the things around him, and the MVP card already agreed
+         * with the server while the board did not. Same player, same fight, two figures.
+         * <p>
+         * So anything that reports a fight *as that boss* reads this instead.
+         */
+        Target anchor;
     }
 
     /** The fights of this instance, in the order they happened, led by the whole-instance total. */
@@ -1495,6 +1508,7 @@ final class LiveModel {
             g.target.fightMs = a.fightMs;
             g.target.firstHit = a.firstHit;
             g.target.lastHit = a.lastHit;
+            g.anchor = a;
             byAnchor.put(a, g);
             absorb(g, a);
         }

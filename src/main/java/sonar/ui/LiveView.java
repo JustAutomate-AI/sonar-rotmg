@@ -1693,6 +1693,17 @@ class LiveView {
                 boss != null && boss.kind.equals("boss") && boss.objectType > 0);
         report.accept("adds that spawned during a boss fight are folded into it, not listed apart",
                 boss != null && boss.enemies == 3);
+
+        // ...and the boss's own fight is still reachable, unmixed. The board carries the
+        // boss's name, so it has to carry the boss's figure: the server counts damage to
+        // Oryx, not to the things around him, and the MVP card was already saying so while
+        // the board said something else about the same player in the same run.
+        report.accept("the group keeps the boss's own fight, without the adds",
+                boss != null && boss.anchor != null && boss.anchor.total < boss.target.total);
+        // the boss's own 100, not the 300 it becomes once both Royal Guards are folded in
+        report.accept("and that is the figure the board reports",
+                boss != null && boss.anchor != null
+                        && boss.anchor.total == 100 && boss.target.total == 300);
         LiveModel.Group mini = named(gs, "Bridge Sentinel");
         report.accept("an enemy the game calls a miniboss is kept apart from the bosses",
                 mini != null && mini.kind.equals("miniboss"));
@@ -3089,8 +3100,11 @@ class LiveView {
         // shared image carries.
         breakdownEnemies.show(m);
         LiveModel.Group pickedFight = breakdownEnemies.picked();
+        // a fight picked by name reports that fight, adds excluded, so the breakdown, the
+        // shared picture, the MVP card and the server's own announcement all say one thing
         LiveModel.Target breakdownTarget = pickedFight == null || pickedFight.kind.equals("overall")
-                ? m.whole : pickedFight.target;
+                ? m.whole
+                : pickedFight.anchor != null ? pickedFight.anchor : pickedFight.target;
         shownFight = m.tracked ? breakdownTarget : null;
         shownFightIsWhole = pickedFight == null || pickedFight.kind.equals("overall");
         breakdownShare.setToolTipText(shownFight == null || shownFightIsWhole

@@ -145,7 +145,8 @@ final class ResultsImage {
         for (LiveModel.Group g : m.groups) if (g.staged()) staged.add(g);
         staged.sort((a, b) -> Long.compare(a.target.firstHit, b.target.firstHit));
         List<LiveModel.Target> out = new ArrayList<>();
-        for (LiveModel.Group g : staged) out.add(g.target);
+        // the boss itself, not the boss plus its adds - see Group.anchor
+        for (LiveModel.Group g : staged) out.add(g.anchor != null ? g.anchor : g.target);
         if (!out.isEmpty()) return out;
         for (LiveModel.Target t : m.stages) if (LiveModel.isFight(t)) out.add(t);
         if (!out.isEmpty()) return out;
@@ -904,10 +905,12 @@ final class ResultsImage {
         g.drawLine(PAD, y, pageW - PAD, y);
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
-        // the date and time, without signing the picture: whoever is being shown it knows where
-        // it came from, and a run is worth stamping with when it happened
-        String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM d, h:mm a"));
-        g.drawString(stamp, PAD, y + 22);
+        // No clock on a posted picture. It used to carry the date and the local time, on the
+        // reasoning that a run is worth stamping with when it happened - but the person posting
+        // it is not always the person in it, and a wall-clock time pinned to a known server is
+        // enough to put somebody in a time zone. Sonar is read-only about the game and ought to
+        // be read-only about the people playing it too. The run's own length is in the header
+        // where it belongs, and that says nothing about where anybody lives.
         if (classified) {
             g.drawString("PUMPER/LEECHER compares each player's damage to an estimated ceiling with their own gear - mint is near it, coral is well short.", PAD, y + 40);
         }

@@ -4,6 +4,17 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 
 ## 2.23.0
 
+**Sonar stops disagreeing with itself about one boss**
+
+- The same player, the same fight, two figures: the shared board said **1,236,955** and the MVP card said **1,205,437**. The server said 1,202,859.
+- The board was reporting the boss **plus every add folded into it**. Sonar groups an enemy whose fight overlaps a boss's into that boss, which is the right answer for a list of what happened in a run - *boss, wave, boss, wave* - and the wrong one for a board with the boss's name at the top of it. The MVP card reads the boss's own fight, which is why it was already within a fifth of a percent of the server.
+- Anything that reports a fight **as that boss** now reads the boss's own fight: the shared picture, the single-fight picture and the Damage breakdown alike. The grouping still decides which fights get a section, so nothing scatters.
+
+**No clock on a posted picture**
+
+- The footer carried the date and the **local** time. The person posting a board is not always the person in it, and a wall-clock time pinned to a known server is enough to put somebody in a time zone.
+- It is gone. Sonar is read-only about the game and ought to be read-only about the people playing it. The run's own length is still in the header, and that says nothing about where anybody lives.
+
 **The accuracy check finally hears Oryx**
 
 - Sonar compares its own figure against the server's own announcement at the end of a run, and keeps the result. It had two records in it. Neither was a Sanctuary run, which is the entire reason the check exists.
