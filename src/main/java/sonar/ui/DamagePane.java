@@ -274,10 +274,13 @@ class DamagePane extends Pane {
                         new Color(255, 255, 255, 200));
                 right -= 52;
             }
-            String dps = SonarTheme.number(Math.round(b.shown.get() / seconds)) + " dps";
+            // per minute, not per second: the bars are read at a glance while something is being
+            // fought, and a per-second figure changes under the eye with every shot that lands.
+            // The player page keeps the per-second number, where one person is read closely.
+            String dpm = SonarTheme.compact(Math.round(b.shown.get() / seconds * 60)) + " dpm";
             String dealt = SonarTheme.number(Math.round(b.shown.get()));
             // the chosen measure is the main number; the other one follows when there is room
-            String main = totals ? dealt : dps, other = totals ? dps : SonarTheme.compact(Math.round(b.shown.get()));
+            String main = totals ? dealt : dpm, other = totals ? dpm : SonarTheme.compact(Math.round(b.shown.get()));
             g.setFont(numberFont);
             shadowText(g, main, right - numFm.stringWidth(main), base, Color.WHITE);
             right -= numFm.stringWidth(main) + 14;

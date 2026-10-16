@@ -2,6 +2,21 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.27.0
+
+**The live page counts per minute**
+
+- **DPM and DPS have changed places.** The live board - the bars, the DPM/Total switch, Your stats and the current fight - now reports **damage per minute**, and **damage per second has moved to the player page**, where you land when you click somebody's bar.
+- Per minute is the figure people actually quote at each other, and it is the steadier one: a per-second number moves under the eye with every shot that lands, while a minute is long enough for a reading to mean something. The live page is read at a glance mid-fight, so it gets the steady figure.
+- Per second is the closer look, so it sits where one player is being read closely - `Overall dps` on their page, alongside their hits, their biggest hit and what each item of theirs did. The per-enemy breakdown keeps its DPS column for the same reason.
+- They are the same number sixty apart, so nothing was gained or lost in the move - only put where it is used.
+
+**Joining a dungeon partway opens on bosses too**
+
+- 2.26.0 left a late join alone, on the grounds that its area is a guess. That was the wrong way round: the places that are **not** dungeons are a short, known list - the realm, the Nexus, the vault, the guild hall, the pet yard, the bazaars - so anything else is a dungeon, including an area whose name never arrived.
+- This is also exactly the case the boss default exists for. Start the sniffer partway through a run and the boss is very often the only thing left to catch, so **Overall was the one tab guaranteed to be thin**.
+- A run picked up partway never looks like a new instance to the board, because the game sends no map packet for it and the key it is tracked under stays null. The moment tracking starts now counts as that run's beginning, which is when the tab is chosen.
+
 ## 2.26.0
 
 **A dungeon opens on boss damage**

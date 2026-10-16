@@ -157,8 +157,11 @@ class LiveView {
         sonar.util.PropertiesManager.setProperties("sonar.damage.tab", String.valueOf(i));
         refresh();
     });
-    // the measure shown on the bars and headlines: damage per second, or total damage dealt
-    private final Segmented metric = new Segmented(new String[]{"DPS", "Total"}, "1".equals(sonar.util.PropertiesManager.getProperty("sonar.damage.metric")) ? 1 : 0, i -> {
+    // the measure shown on the bars and headlines: damage per minute, or total damage dealt.
+    // Per minute rather than per second because a minute is the span people actually compare
+    // over - a pump is quoted in dpm - and a per-second figure jumps around with every shot.
+    // Per second is still there, on the player page, where one person is being read closely.
+    private final Segmented metric = new Segmented(new String[]{"DPM", "Total"}, "1".equals(sonar.util.PropertiesManager.getProperty("sonar.damage.metric")) ? 1 : 0, i -> {
         sonar.util.PropertiesManager.setProperties("sonar.damage.metric", String.valueOf(i));
         refresh();
     });
@@ -1175,6 +1178,10 @@ class LiveView {
     /** New data from the game. Must be called on the event thread. */
     void apply(LiveModel model, List<LiveModel.Past> pasts) {
         boolean newInstance = model.instanceKey != live.instanceKey;
+        // A run picked up partway has no map packet, so its key stays null and the line above
+        // never calls it new. The moment it starts tracking is that run's beginning as far as
+        // Sonar is concerned, and it still deserves the right tab.
+        boolean firstTracked = model.tracked && !live.tracked;
         live = model;
         CalcPane.latest = model;
         Party.seen(model);
@@ -1185,8 +1192,8 @@ class LiveView {
             lockedEnemy = null;
             reviewing = null;
             reviewed = null;
-            chooseTab(model);
         }
+        if (newInstance || firstTracked) chooseTab(model);
         refresh();
     }
 
@@ -1200,18 +1207,27 @@ class LiveView {
      * of what it is for. The place's own name decides which this is, using the
      * same test the dungeon pings use, so the two can never disagree.
      * <p>
-     * Only a name the game itself sent counts. A run picked up partway has no
-     * map packet and its area is a guess, and guessing "dungeon" there would
-     * open an empty board. Choosing a tab by hand sticks until the next place,
-     * because this only runs when the instance changes.
+     * An unnamed place counts as a dungeon too. A run picked up partway has no
+     * map packet, so its area is unknown - but a run worth tracking that is not
+     * one of the few places you wait in is a dungeon, and that is exactly the
+     * case where the boss is the only thing that was ever going to be caught.
+     * Choosing a tab by hand sticks until the next place, because this only runs
+     * when the instance changes or tracking first starts.
      */
     private void chooseTab(LiveModel m) {
         if ("false".equals(sonar.util.PropertiesManager.getProperty("sonar.damage.autotab"))) return;
-        if (m == null || m.instanceKey == null) return;
+        if (m == null) return;
         scope.select(tabFor(m.instance), false);
     }
 
-    /** Boss damage inside a dungeon, the whole instance anywhere else. */
+    /**
+     * Boss damage inside a dungeon, the whole instance in the places you wait in.
+     * <p>
+     * The list of places that are not dungeons is short and known - the realm,
+     * the Nexus, the vault, the guild hall, the pet yard, the bazaars - so this
+     * reads the other way round: anything that is not one of those is a dungeon,
+     * including an area whose name never arrived.
+     */
     static int tabFor(String instance) {
         return sonar.ChatPings.inDungeonNamed(instance) ? BOSSES : OVERALL;
     }
@@ -1550,8 +1566,13 @@ class LiveView {
         report.accept("the realm and the places you wait in open on the whole instance",
                 tabFor("Realm of the Mad God") == OVERALL && tabFor("Packed Nexus") == OVERALL
                         && tabFor("Guild Hall 4") == OVERALL && tabFor("{s.vault}") == OVERALL);
-        report.accept("a rate is written per second and per minute together",
-                rateDpm(1000).equals("1,000  ·  60k dpm") && rateDpm(-1).equals("-"));
+        // joining partway is the case this default exists for: the boss is often the only
+        // thing left to catch, and the area's name is exactly what never arrived
+        report.accept("a run joined partway, whose area never arrived, still opens on bosses",
+                tabFor("Unknown area") == BOSSES);
+        report.accept("the live page reports damage per minute", perMinute(1000).equals("60,000")
+                && perMinute(0).equals("0") && perMinute(-1).equals("-"));
+        report.accept("and the player page keeps it per second", rate(1000).equals("1,000"));
 
         java.util.List<Party.Member> savedParty = new ArrayList<>(Party.all());
         for (Party.Member pm : savedParty) Party.remove(pm.name);
@@ -3001,16 +3022,15 @@ class LiveView {
     }
 
     /**
-     * The same rate written both ways, per second and then per minute.
+     * The same rate per minute, which is what the live page reports.
      * <p>
-     * Damage per minute is the figure people actually trade when they compare
-     * one O3 or Shatters pump against another, and it is what the older sniffers
-     * showed. It is not new information - it is this number times sixty - so it
-     * shares the line rather than taking one of its own. Per second stays first
-     * because every other rate on the page is per second.
+     * Damage per minute is the figure people actually trade when they compare one
+     * O3 or Shatters pump against another, and it holds still long enough to be
+     * read: a per-second figure moves with every shot that lands. Per second is
+     * the closer look, so it lives on the player page rather than here.
      */
-    private static String rateDpm(double dps) {
-        return dps < 0 ? "-" : rate(dps) + "  ·  " + SonarTheme.brief(Math.round(dps * 60)) + " dpm";
+    private static String perMinute(double dps) {
+        return dps < 0 ? "-" : SonarTheme.number(Math.round(dps * 60));
     }
 
     private void refresh() {
@@ -3082,7 +3102,7 @@ class LiveView {
                 f.add(new String[]{"Health", SonarTheme.number(Math.max(0, enemy.hp)) + " / " + SonarTheme.number(enemy.maxHp)});
             }
             f.add(new String[]{"Fight time", SonarTheme.clock(enemy.fightMs)});
-            if (totals) f.add(new String[]{"Party dps", SonarTheme.number(Math.round(enemy.total / seconds))});
+            if (totals) f.add(new String[]{"Party dpm", SonarTheme.number(Math.round(enemy.total / seconds * 60))});
             else f.add(new String[]{"Party damage", SonarTheme.number(enemy.total)});
             f.add(new String[]{"Attackers", String.valueOf(enemy.rows.size())});
             // What the fight actually cost the enemy. A boss that refills between phases loses far more
@@ -3094,7 +3114,7 @@ class LiveView {
                 f.add(new String[]{"Healed in fight", SonarTheme.number(enemy.healthRegained)});
             }
             double health = enemy.maxHp > 0 ? Math.max(0, enemy.hp) / (double) enemy.maxHp : -1;
-            fight.show(totals ? enemy.total : enemy.total / seconds, totals ? "total party damage dealt" : "party damage per second", health, f);
+            fight.show(totals ? enemy.total : enemy.total / seconds * 60, totals ? "total party damage dealt" : "party damage per minute", health, f);
             fightWindow.setNote(health < 0 ? "" : String.format("%.1f%% health", health * 100));
         }
 
@@ -3106,9 +3126,9 @@ class LiveView {
             LiveModel.Row here = hasRows ? shownTarget.me() : null;
             double overall = m.whole.dps(mine), onEnemy = enemy == null ? -1 : enemy.dps(enemy.me()), onBosses = m.bosses.dps(m.bosses.me());
             ArrayList<String[]> f = new ArrayList<>();
-            f.add(new String[]{"Overall dps", rateDpm(overall)});
-            f.add(new String[]{"Enemy dps", rateDpm(onEnemy)});
-            f.add(new String[]{"Boss dps", rateDpm(onBosses)});
+            f.add(new String[]{"Overall dpm", perMinute(overall)});
+            f.add(new String[]{"Enemy dpm", perMinute(onEnemy)});
+            f.add(new String[]{"Boss dpm", perMinute(onBosses)});
             f.add(new String[]{"Rank", here == null ? "-" : shownTarget.rankOf(here) + " of " + shownTarget.rows.size()});
             f.add(new String[]{"Total damage", here == null ? "-" : SonarTheme.number(here.damage)});
             f.add(new String[]{"Of boss health", bossShare(m, mine)});
@@ -3122,7 +3142,7 @@ class LiveView {
             if (totals) {
                 you.show(here == null ? 0 : here.damage, "your total damage dealt " + where, -1, f);
             } else {
-                you.show(Math.max(0, tab == OVERALL ? overall : tab == BOSSES ? onBosses : onEnemy), "your damage per second " + where, -1, f);
+                you.show(Math.max(0, tab == OVERALL ? overall : tab == BOSSES ? onBosses : onEnemy) * 60, "your damage per minute " + where, -1, f);
             }
             youWindow.setNote(tab == OVERALL ? "overall" : tab == BOSSES ? "bosses" : enemy == null ? "" : enemy.name);
         }
@@ -3417,7 +3437,9 @@ class LiveView {
             f.add(new String[]{"Rank", chosen.damage <= 0 ? "-" : m.whole.rankOf(chosen) + " of " + m.whole.rows.size()});
             f.add(new String[]{"Of boss health", bossShare(m, chosen)});
             f.add(new String[]{"Share of all damage", m.whole.total <= 0 ? "-" : String.format("%.1f%%", chosen.damage * 100.0 / m.whole.total)});
-            f.add(new String[]{"Overall dps", rateDpm(m.whole.dps(chosen))});
+            // the live page reports per minute; this page is where one player is read closely,
+            // so it keeps the per-second figure - the two are the same number, sixty apart
+            f.add(new String[]{"Overall dps", rate(m.whole.dps(chosen))});
             f.add(new String[]{"Hits", SonarTheme.number(chosen.hits)});
             // only on a fight that has a guard to shoot, which is a handful of them; everywhere
             // else the line would read "-" for everyone forever and teach nobody anything
