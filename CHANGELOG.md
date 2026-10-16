@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.22.0
+
+**One boss at a time, instead of the whole dungeon**
+
+- The run's own share posts every fight in it, which is right when the run is the thing and wrong when the question is one boss. A **share button now sits beside Expand** on the Damage breakdown, and it posts whichever enemy is picked in the row above it.
+- The picture is headed with that fight's own name and its own total - *ORYX THE MAD GOD 3 / 4,956,683* - and carries the full roster for that fight, nobody capped off the bottom, flowing into as many columns as it needs.
+- With the picker on **Whole instance** there is no single fight to post, so the button says *Pick an enemy first* rather than quietly posting the run again under a different name.
+- It shares the renderer with the whole-run version rather than being written twice: one fight is a list of fights with one in it.
+
 ## 2.21.1
 
 **The update button stops showing mojibake**

@@ -630,8 +630,53 @@ class LiveView {
         return body;
     }
 
+    /** The fight the breakdown is showing, so the share button posts exactly that one. */
+    private LiveModel.Target shownFight;
+    /** True when the breakdown is on the whole instance rather than one picked enemy. */
+    private boolean shownFightIsWhole = true;
+
+    private final SonarButton breakdownShare = new SonarButton("", false, this::shareOneFight).icon("share");
+
     private javax.swing.JComponent breakdownAccessory() {
-        return breakdownToggle;
+        javax.swing.Box row = javax.swing.Box.createHorizontalBox();
+        row.add(breakdownShare);
+        row.add(javax.swing.Box.createHorizontalStrut(6));
+        row.add(breakdownToggle);
+        return row;
+    }
+
+    /**
+     * Copies the picked fight on its own.
+     * <p>
+     * The run's own share posts every fight in it, which is right when the run is the
+     * thing and wrong when the question is one boss. This posts whichever enemy is
+     * picked in the row above the breakdown, headed with its name and its total, so
+     * what lands in the chat is the answer rather than the answer plus eight others.
+     * <p>
+     * With the picker on the whole instance there is no one fight to post, so it says
+     * so rather than quietly posting the run again under a different button.
+     */
+    private void shareOneFight() {
+        LiveModel m = shown();
+        if (!m.tracked || shownFight == null) {
+            flashShareButton(breakdownShare, "", "No fight yet");
+            return;
+        }
+        if (shownFightIsWhole) {
+            flashShareButton(breakdownShare, "", "Pick an enemy first");
+            return;
+        }
+        // how someone looked is only sent while they are in sight; fill the rest in from memory
+        PlayerLook.fill(shownFight.rows);
+        try {
+            java.awt.image.BufferedImage img = ResultsImage.renderByBoss(m, shownFight);
+            ResultsImage.copyToClipboard(img);
+            ResultsImage.saveToDisk(img, m.instance + " - " + shownFight.name);
+            flashShareButton(breakdownShare, "", "Copied!");
+        } catch (Exception e) {
+            e.printStackTrace();
+            flashShareButton(breakdownShare, "", "Couldn't copy");
+        }
     }
 
     /**
@@ -849,6 +894,19 @@ class LiveView {
             javax.imageio.ImageIO.write(ResultsImage.renderByBoss(m), "png", new java.io.File(dir, "by-boss.png"));
             MvpCard.Pick pick = MvpCard.pick(m);
             if (pick != null) javax.imageio.ImageIO.write(MvpCard.render(m, pick), "png", new java.io.File(dir, "mvp.png"));
+            // one fight on its own, which is what the share beside the breakdown posts
+            LiveModel.Target one = null;
+            for (LiveModel.Group g : m.groups) {
+                if (g.kind.equals("boss")) { one = g.target; break; }
+            }
+            if (one == null) {
+                for (LiveModel.Group g : m.groups) {
+                    if (g.staged()) { one = g.target; break; }
+                }
+            }
+            if (one != null) {
+                javax.imageio.ImageIO.write(ResultsImage.renderByBoss(m, one), "png", new java.io.File(dir, "one-fight.png"));
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -2992,6 +3050,11 @@ class LiveView {
         LiveModel.Group pickedFight = breakdownEnemies.picked();
         LiveModel.Target breakdownTarget = pickedFight == null || pickedFight.kind.equals("overall")
                 ? m.whole : pickedFight.target;
+        shownFight = m.tracked ? breakdownTarget : null;
+        shownFightIsWhole = pickedFight == null || pickedFight.kind.equals("overall");
+        breakdownShare.setToolTipText(shownFight == null || shownFightIsWhole
+                ? "Pick an enemy above to copy that fight on its own"
+                : "Copy " + shownFight.name + " on its own, ready to paste into Discord");
         breakdownPane.show(m.tracked ? breakdownTarget : null, m.completionKnown);
         breakdownWindow.setNote(breakdownPane.note());
         showGuarded(m.tracked ? breakdownTarget : null);

@@ -230,10 +230,33 @@ final class ResultsImage {
      * from the list to make it fit.
      */
     static BufferedImage renderByBoss(LiveModel m) {
+        return renderByBoss(m, null);
+    }
+
+    /**
+     * The same board, for one fight instead of the whole run.
+     * <p>
+     * A dungeon's picture is the dungeon's picture: every fight in it, which is what you
+     * post when the run is the thing. Often it is not - the question is who did what on
+     * one boss, and the rest is noise around the answer. So the enemy picked above the
+     * breakdown can be posted on its own, headed with its own name and its own total.
+     * <p>
+     * Everything below is shared with the whole-run version rather than written twice:
+     * one fight is simply a list of fights with one in it. Two things differ. The caption
+     * warning that no boss was identified is dropped, because a fight picked by hand needs
+     * no apology for what it is; and the figure is labelled with the fight's own name
+     * rather than BOSS DAMAGE, since there is only one of them to total.
+     *
+     * @param only the single fight to draw, or null for every important fight in the run.
+     */
+    static BufferedImage renderByBoss(LiveModel m, LiveModel.Target only) {
         colW = COL_W;
         boolean classified = "potential".equals(m.leechMethod);
-        List<LiveModel.Target> fights = importantFights(m);
-        boolean known = bossesKnown(m);
+        List<LiveModel.Target> fights = only == null
+                ? importantFights(m)
+                : java.util.Collections.singletonList(only);
+        // a fight somebody picked is not a guess, so it never carries the "biggest fights instead" note
+        boolean known = only != null || bossesKnown(m);
         List<Set<Integer>> perBossLeecherIds = new ArrayList<>(), perBossPumperIds = new ArrayList<>();
         for (LiveModel.Target t : fights) {
             Set<Integer> leechIds = new HashSet<>(), pumpIds = new HashSet<>();
@@ -294,7 +317,11 @@ final class ResultsImage {
             pageW = width;
             long shownTotal = 0;
             for (LiveModel.Target t : fights) shownTotal += t.total;
-            int y = paintHeader(g, m, PAD, shownTotal, "BOSS DAMAGE");
+            String label = "BOSS DAMAGE";
+            if (only != null && only.name != null && !only.name.trim().isEmpty()) {
+                label = only.name.trim().toUpperCase(java.util.Locale.ROOT);
+            }
+            int y = paintHeader(g, m, PAD, shownTotal, label);
             y += 20;
 
             if (fights.isEmpty()) {
