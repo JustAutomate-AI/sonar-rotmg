@@ -38,10 +38,20 @@ import java.util.regex.Pattern;
  */
 public final class OryxAccuracy {
 
-    /** The announcement, with the name, the damage and the share. */
+    /**
+     * The announcement, with the name, the damage and the share.
+     * <p>
+     * The game has more than one way of saying it, and the one it uses for the kill that
+     * matters most was the one not listed here. An ordinary boss gives "X dealt the crucial
+     * blows with N (P%) damage!"; Oryx gives "X has vanquished the Exalted Mad God with
+     * N (P%) damage!". Only the first was matched, so every Sanctuary run - the whole
+     * reason this check exists - went unmeasured while the file filled with easier fights.
+     * <p>
+     * The boss's own name is left open rather than listed, so a wording Sonar has not seen
+     * still parses as long as the shape holds.
+     */
     private static final Pattern LINE = Pattern.compile(
-            "^(.+?) dealt the crucial blows with ([\\d,]+) \\(([\\d.]+)%\\) damage!\\s*$");
-
+            "^(.+?) (?:dealt the crucial blows|has vanquished .+?) with ([\\d,]+) \\(([\\d.]+)%\\) damage!\\s*$");
     /** Where the records live, one JSON object per line so appending never rewrites the file. */
     private static final String FILE = "history/accuracy.jsonl";
 
@@ -85,6 +95,27 @@ public final class OryxAccuracy {
         /** How far out our figure was, as a share of theirs. */
         double damageError() {
             return theirDamage <= 0 ? 0 : (ourDamage - theirDamage) / (double) theirDamage;
+        }
+    }
+
+    /** Whether a line is an announcement at all; for the self-test. */
+    static boolean parses(String line) {
+        return announcement(line) != null;
+    }
+
+    /**
+     * The damage and the share in an announcement, or null when it is not one.
+     * The share is returned in tenths, so the pair can be one array of longs.
+     */
+    static long[] announcement(String line) {
+        if (line == null) return null;
+        Matcher m = LINE.matcher(line);
+        if (!m.matches()) return null;
+        try {
+            return new long[]{Long.parseLong(m.group(2).replace(",", "")),
+                    Math.round(Double.parseDouble(m.group(3)) * 10)};
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 

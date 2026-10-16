@@ -2,6 +2,19 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.23.0
+
+**The accuracy check finally hears Oryx**
+
+- Sonar compares its own figure against the server's own announcement at the end of a run, and keeps the result. It had two records in it. Neither was a Sanctuary run, which is the entire reason the check exists.
+- The game has more than one wording. An ordinary boss gives *"X dealt the crucial blows with N (P%) damage!"*; Oryx gives *"X has vanquished the Exalted Mad God with N (P%) damage!"*. Only the first was ever matched, so every O3 kill went unmeasured while the file filled with easier fights.
+- Both are read now, and the boss's own name is left open rather than listed, so a wording Sonar has not seen still parses as long as the shape holds.
+
+**The share beside the breakdown says what it is**
+
+- It shipped as a bare share icon, which put **two identical glyphs on one page doing different jobs**: this one, and the Run summary's, which posts every fight in the run. The first thing anyone did was press the one they already knew and get the whole dungeon back.
+- It now reads **This fight**. An icon is not a name.
+
 ## 2.22.0
 
 **Guarded hits are back on the board, as a column**

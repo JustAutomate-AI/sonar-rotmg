@@ -635,7 +635,15 @@ class LiveView {
     /** True when the breakdown is on the whole instance rather than one picked enemy. */
     private boolean shownFightIsWhole = true;
 
-    private final SonarButton breakdownShare = new SonarButton("", false, this::shareOneFight).icon("share");
+    /**
+     * Posts the picked fight. Carries its own words on purpose.
+     * <p>
+     * It shipped as a bare share icon, which put two identical glyphs on one page doing
+     * different jobs - this one, and the Run summary's, which posts every fight in the run.
+     * The first thing anyone did was press the one they already knew and get the whole
+     * dungeon back. An icon is not a name.
+     */
+    private final SonarButton breakdownShare = new SonarButton("This fight", false, this::shareOneFight).icon("share");
 
     private javax.swing.JComponent breakdownAccessory() {
         javax.swing.Box row = javax.swing.Box.createHorizontalBox();
@@ -812,7 +820,7 @@ class LiveView {
         nav.add(shareButton);
         nav.add(javax.swing.Box.createHorizontalStrut(5));
         nav.add(accuracyButton);
-        shareBossButton.setToolTipText("Copy the bosses of this instance as an image, ready to paste into Discord");
+        shareBossButton.setToolTipText("Copy every boss of this run as one image - for one of them, use This fight on the Damage breakdown");
         shareButton.setToolTipText("Copy every player's damage as an image instead");
         accuracyButton.setToolTipText("Copy how Sonar's Oryx 3 numbers compared with the game's own announcement. No names.");
         return nav;
@@ -1733,6 +1741,14 @@ class LiveView {
         // read zero on O3, which is the one boss the figure exists for.
         java.util.Set<Integer> guardBosses = guardPhaseBosses();
         report.accept("Oryx 3 is a boss whose guard is worth counting", guardBosses.contains(45363));
+        // Both wordings the game uses. Only the first was ever matched, so the Sanctuary runs
+        // this check exists for went unmeasured while the file filled with easier fights.
+        report.accept("the ordinary boss announcement is read",
+                heardSaysDamage("Someone dealt the crucial blows with 180,640 (5.3%) damage!", 180640L, 5.3));
+        report.accept("and so is Oryx's, which is worded differently",
+                heardSaysDamage("golbu has vanquished the Exalted Mad God with 1202859 (14.2%) damage!", 1202859L, 14.2));
+        report.accept("an ordinary chat line is not mistaken for one",
+                !OryxAccuracy.parses("anyone want to do a nest"));
         report.accept("a Soldier Bee flickering invulnerable is not",
                 !guardBosses.contains(2290) && !guardBosses.contains(4244) && !guardBosses.contains(29207));
         // A saved window position is only honoured while it still lands on a monitor that is
@@ -2814,6 +2830,12 @@ class LiveView {
     }
 
     /** Calls a private static of LiveModel, so the self-test can exercise it directly. */
+    /** Whether the accuracy recorder reads this announcement, and reads it correctly. */
+    private static boolean heardSaysDamage(String line, long damage, double percent) {
+        long[] got = OryxAccuracy.announcement(line);
+        return got != null && got[0] == damage && Math.abs(got[1] / 10.0 - percent) < 0.001;
+    }
+
     /** The bosses whose untouchable phases count as a guard, for the self-test. */
     @SuppressWarnings("unchecked")
     private static java.util.Set<Integer> guardPhaseBosses() {
@@ -3072,7 +3094,7 @@ class LiveView {
         shownFight = m.tracked ? breakdownTarget : null;
         shownFightIsWhole = pickedFight == null || pickedFight.kind.equals("overall");
         breakdownShare.setToolTipText(shownFight == null || shownFightIsWhole
-                ? "Pick an enemy above to copy that fight on its own"
+                ? "Pick an enemy above to copy that fight on its own - the Run summary's share posts them all"
                 : "Copy " + shownFight.name + " on its own, ready to paste into Discord");
         breakdownPane.show(m.tracked ? breakdownTarget : null, m.completionKnown);
         breakdownWindow.setNote(breakdownPane.note());
