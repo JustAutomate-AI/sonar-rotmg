@@ -61,8 +61,18 @@ final class ResultsImage {
     }
     /** The most columns the page will spread across before it gives up on being square. */
     private static final int MAX_COLUMNS = 7;
-    /** How many times its own width a single fight's picture may run before anyone is moved to the side. */
-    private static final double TALLEST = 2.6;
+    /**
+     * How many times its own width a single fight's picture may run before anyone is moved
+     * to the side.
+     * <p>
+     * A column is 404 wide and a row costs 29, with 241 of header and footer around them, so
+     * the picture for N players runs {@code (29N + 241) / 404} times its own width. At 2.6 a
+     * fight split once it passed 28 players, which is most of a Sanctuary run - the ranking
+     * came apart exactly where it was most worth reading whole. At 3.5 it holds to 40, and a
+     * full Oryx board stays one list.
+     */
+    private static final double TALLEST =
+            Double.parseDouble(System.getProperty("sonar.export.tallest", "3.5"));
     /** One column of the per-boss page. Several sit side by side so the picture comes out roughly square. */
     private static final int COL_W = 404, COL_GAP = 14;
     /**

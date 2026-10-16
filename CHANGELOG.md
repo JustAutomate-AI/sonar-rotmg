@@ -42,7 +42,7 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 **One fight is one list**
 
 - A single fight is listed straight down rather than split into columns. Splitting twenty players across two columns breaks the ranking in half for no reason.
-- Anyone is moved to the side only once the picture has run away vertically - past about two and a half times its own width, which is where a reader has to start scrolling to follow the order. The whole-run picture is unchanged.
+- Anyone is moved to the side only once the picture has run away vertically - past **three and a half times** its own width. A column is 404 wide and a row costs 29, with 241 of header and footer around them, so a fight of N players runs `(29N + 241) / 404`: the old 2.6 split at 28 players, which is most of a Sanctuary run and exactly where a ranking is most worth reading whole. At 3.5 it holds to 40. The whole-run picture is unchanged.
 
 **Guarded hits work again on Oryx 3**
 
