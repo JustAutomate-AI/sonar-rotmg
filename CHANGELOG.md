@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.27.2
+
+**The rate stops shouting over the damage**
+
+- Writing a rate per minute out in full made it **six digits and a unit** - the longest string on the bar, set in the heaviest type, beside the damage figure it is meant to accompany rather than drown. `242,402 dpm` read as the row; `1,054,448` read as a footnote to it.
+- Rates on the bars are now **abbreviated to one decimal, the same way on every row**: `242.4k dpm`, `96.8k dpm`, `64.1k dpm`. One notation down the whole column, which is what 2.27.1 was for, at about half the width.
+- The rate is also **softened to the theme's own text colour** rather than full white, so it sits back against the bar instead of standing off it, and the damage figure beside it is lifted to carry the row. Damage dealt keeps full white whenever it is the chosen measure.
+- `SonarTheme.even` is the notation behind it: always one decimal, always abbreviated from a thousand. `compact` and `brief` each switch notation at a threshold, which is right for a number read on its own and wrong for a column read downward.
+
 ## 2.27.1
 
 **One notation down the whole column**

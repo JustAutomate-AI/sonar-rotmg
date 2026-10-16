@@ -1570,6 +1570,9 @@ class LiveView {
         // thing left to catch, and the area's name is exactly what never arrived
         report.accept("a run joined partway, whose area never arrived, still opens on bosses",
                 tabFor("Unknown area") == BOSSES);
+        report.accept("a rate on a bar is written the same way at every size",
+                SonarTheme.even(242402).equals("242.4k") && SonarTheme.even(96818).equals("96.8k")
+                        && SonarTheme.even(1054448).equals("1.1M") && SonarTheme.even(940).equals("940"));
         report.accept("the live page reports damage per minute", perMinute(1000).equals("60,000")
                 && perMinute(0).equals("0") && perMinute(-1).equals("-"));
         report.accept("and the player page keeps it per second", rate(1000).equals("1,000"));

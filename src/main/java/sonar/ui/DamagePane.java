@@ -203,9 +203,7 @@ class DamagePane extends Pane {
         // columns give way one by one as the window narrows, so text never overlaps
         boolean showShare = width >= 300;
         boolean showClass = width >= 400;
-        // written-out figures need more room than the abbreviated ones did, so the second
-        // number gives way a little sooner rather than crowding the name beside it
-        boolean showTotal = width >= 520;
+        boolean showTotal = width >= 480;
         gearHits.clear();
         // the effect ticker runs only while a style is actually on screen
         boolean anyStyle = false;
@@ -280,21 +278,26 @@ class DamagePane extends Pane {
             // fought, and a per-second figure changes under the eye with every shot that lands.
             // The player page keeps the per-second number, where one person is read closely.
             //
-            // Written out in full rather than abbreviated. This column is read down, one player
-            // against the next, and an abbreviation that only starts above a hundred thousand
-            // gives "242k" three rows above "96,818" - the same column in two different
-            // notations, which is exactly where the eye needs it to be in one.
-            String dpm = SonarTheme.number(Math.round(b.shown.get() / seconds * 60)) + " dpm";
+            // Abbreviated to one decimal, and the same way on every row. Written out, a rate per
+            // minute is six digits and a unit - the longest thing on the bar, in the heaviest
+            // type, next to the damage figure it is supposed to accompany rather than drown.
+            String dpm = SonarTheme.even(Math.round(b.shown.get() / seconds * 60)) + " dpm";
             String dealt = SonarTheme.number(Math.round(b.shown.get()));
             // the chosen measure is the main number; the other one follows when there is room
-            String main = totals ? dealt : dpm, other = totals ? dpm : SonarTheme.number(Math.round(b.shown.get()));
+            String main = totals ? dealt : dpm, other = totals ? dpm : dealt;
             g.setFont(numberFont);
-            shadowText(g, main, right - numFm.stringWidth(main), base, Color.WHITE);
+            // damage dealt is the figure the eye should land on, so it alone gets full white;
+            // a rate in the same slot is softened to the theme's own text colour, which sits
+            // back against the bar instead of standing off it
+            shadowText(g, main, right - numFm.stringWidth(main), base,
+                    totals ? Color.WHITE : SonarTheme.alpha(SonarTheme.TEXT, 0.78));
             right -= numFm.stringWidth(main) + 14;
             if (showTotal) {
                 g.setFont(small);
+                // lifted a little: with the rate softened above, this is the figure left to
+                // carry the row, and at 190 it read as a footnote to it
                 shadowText(g, other, right - smallFm.stringWidth(other), base,
-                        new Color(255, 255, 255, 190));
+                        new Color(255, 255, 255, 220));
                 // measured rather than a fixed step: these strings are now written out in full,
                 // so how much room they take is no longer something a constant can know
                 right -= smallFm.stringWidth(other) + 14;

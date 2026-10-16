@@ -548,6 +548,21 @@ public final class SonarTheme {
         return number(n);
     }
 
+    /**
+     * One notation at every size, for a figure read down a column rather than on its own.
+     * <p>
+     * {@link #compact} and {@link #brief} each switch notation at a threshold, which is
+     * right for a single number and wrong for a column: it puts "242k" three rows above
+     * "96,818" and asks the eye to convert between them on the way down. This always
+     * abbreviates from a thousand and always keeps one decimal, so every row of a column
+     * is written the same way and still carries three significant figures.
+     */
+    public static String even(long n) {
+        if (n >= 1_000_000) return String.format("%.1fM", n / 1_000_000.0);
+        if (n >= 1_000) return String.format("%.1fk", n / 1_000.0);
+        return number(n);
+    }
+
     /** A hit count with its own word, short enough for a badge: "1 hit", "350 hits", "1.2k hits". */
     public static String hits(long n) {
         return brief(n) + (n == 1 ? " hit" : " hits");
