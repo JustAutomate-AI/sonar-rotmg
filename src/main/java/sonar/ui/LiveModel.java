@@ -1324,6 +1324,37 @@ final class LiveModel {
         return bosses;
     }
 
+    /**
+     * Labels that settle it: the game saying this thing is somebody else's add.
+     * <p>
+     * The HP check below exists for minibosses the game never labelled, and it was
+     * promoting half a dungeon. A Nest run came out with fourteen sections - three
+     * Soldier Bees, three Maggot Eggs, four Beehemoth adds, the hives, the Enraged
+     * bees and the Loot Goblin - because the trash baseline there is set by swarms
+     * of eight-pixel critters, so anything with a real health bar clears five times
+     * the median without being anything of the sort.
+     * <p>
+     * The game's own data was right the whole time and Sonar was not reading it.
+     * Every one of those fourteen is labelled MINION, CRITTER or BOSS_SPAWNED; the
+     * Killer Bee Queen is labelled BOSS and the Beehemoths proper are MINIBOSS. So
+     * an enemy the game calls somebody's minion is never promoted on health alone,
+     * however much of it there is. Nothing here can demote an enemy the game does
+     * label a boss - {@link #isBoss} still wins.
+     */
+    private static final java.util.Set<String> MINION_LABELS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "MINION", "MINION_WEAK", "MINION_MID", "MINION_STRONG", "CRITTER", "BOSS_SPAWNED"));
+
+    /** Whether the game calls this enemy somebody else's add rather than a fight of its own. */
+    private static boolean minion(Target t) {
+        if (t == null || t.objectType <= 0) return false;
+        String label = IdToAsset.getIdLabel(t.objectType);
+        if (label == null) return false;
+        for (String s : label.split(",")) {
+            if (MINION_LABELS.contains(s.trim())) return true;
+        }
+        return false;
+    }
+
     /** A miniboss the game does not officially flag still earns its own segment once its max HP clearly stands out from the trash around it. */
     private static final double HP_OUTLIER_FACTOR = 5.0;
     /** Too few enemies hit yet to tell "trash" from "notably tough" - skip the HP check rather than guess from a tiny sample. */
@@ -1349,7 +1380,8 @@ final class LiveModel {
         int finalBossType = DungeonStages.finalBossFor(m.instance);
         Target finalBoss = null;
         for (Target t : m.targets) {
-            boolean hpOutlier = trashBaseline > 0 && size(t) > trashBaseline * HP_OUTLIER_FACTOR;
+            // health alone never promotes something the game has already called an add
+            boolean hpOutlier = trashBaseline > 0 && size(t) > trashBaseline * HP_OUTLIER_FACTOR && !minion(t);
             t.segment = (t.boss || hpOutlier) && !loot(t);
             if (t.segment) m.stages.add(t);
             if (finalBossType > 0 && t.objectType == finalBossType) {

@@ -38,7 +38,16 @@ public class GameData {
     protected int charId;
     public long time;
     public long timePc;
-    private long timePcFirst;
+    /**
+     * When this instance started, or -1 until the first tick sets it.
+     * <p>
+     * It must start at -1, not at 0. {@code setTime} only claims it when it reads -1, and
+     * {@code clear()} resets it to -1 on a map load - but a session that never sees a map
+     * load, because the sniffer was started partway through a run, never ran clear(). The
+     * field then kept its default of 0, setTime never claimed it, and the elapsed time came
+     * out as the whole wall clock since 1970: a Nest run shared as "497813:22:23 inside".
+     */
+    private long timePcFirst = -1;
     public Entity player;
     protected final int[][] mapTiles = new int[2048][2048];
     public final HashMap<Integer, Entity> entityList = new HashMap<>();

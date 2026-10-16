@@ -2,6 +2,21 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.21.0
+
+**A Nest run stops being fourteen boss fights**
+
+- A public Nest came out of the shared picture with fourteen sections: three Soldier Bees, three Maggot Eggs, four Beehemoth adds, the hives, the Enraged bees and the Loot Goblin, each given its own board as though it were a boss.
+- The cause was the health heuristic. Sonar promotes an unlabelled enemy to a fight of its own when its health is five times the median of the trash around it - which exists for minibosses the game never labelled, and is right most of the time. In the Nest the trash baseline is set by **swarms of eight-pixel critter bees**, so anything with a real health bar cleared five times the median without being anything of the sort.
+- **The game's own data was right and Sonar was not reading it.** Every one of those fourteen is labelled `MINION`, `CRITTER` or `BOSS_SPAWNED`; the Killer Bee Queen is labelled `BOSS` and the Beehemoths proper are `MINIBOSS`. An enemy the game calls somebody else's add is no longer promoted on health alone, however much of it there is.
+- Nothing here can demote a real one: an enemy the game labels a boss still is one.
+
+**Runs joined partway stop reporting fifty-six years inside**
+
+- A shared picture from a run Sonar joined late read **`497813:22:23 inside`**.
+- The instance's start time is claimed by the first tick, but only when it reads -1, and only `clear()` - which runs on a map load - set it to -1. A session that never saw a map load, because the sniffer was started partway through a run, never ran `clear()`. The field kept its default of **0**, so the first tick never claimed it and the elapsed time came out as the whole wall clock since 1970.
+- It now starts at -1, so the first tick claims it whether a map load was seen or not.
+
 ## 2.20.0
 
 **Guarded hits get a window of their own**

@@ -1661,6 +1661,15 @@ class LiveView {
         report.accept("a fight the game labels MINIBOSS is listed as one",
                 named(shatters.groups, "Twilight Archmage") != null
                         && named(shatters.groups, "Twilight Archmage").kind.equals("miniboss"));
+        // What the game calls an add settles it, whatever its health. A Nest run came out
+        // with fourteen sections because the trash baseline there is set by swarms of
+        // eight-pixel critters, so every Soldier Bee and Maggot Egg cleared five times the
+        // median and was promoted. The ids below are read straight from the game's own data.
+        report.accept("an enemy the game labels a minion is never promoted on health alone",
+                labelledMinion(2290) && labelledMinion(4244) && labelledMinion(4285)
+                        && labelledMinion(4281) && labelledMinion(29207));
+        report.accept("and that never catches a real boss or miniboss",
+                !labelledMinion(4243) && !labelledMinion(4324));
         // a shared image drops nobody: a fight too long for one column carries on in the next
         int[] oneBigFight = {23};
         int[] tallest = new int[2];
@@ -2731,6 +2740,19 @@ class LiveView {
     }
 
     /** Calls a private static of LiveModel, so the self-test can exercise it directly. */
+    /** Whether the game's data calls this object type somebody else's add. */
+    private static boolean labelledMinion(int objectType) {
+        try {
+            LiveModel.Target t = new LiveModel.Target();
+            t.objectType = objectType;
+            java.lang.reflect.Method m = LiveModel.class.getDeclaredMethod("minion", LiveModel.Target.class);
+            m.setAccessible(true);
+            return (Boolean) m.invoke(null, t);
+        } catch (Exception e) {
+            throw new IllegalStateException("minion() could not be called", e);
+        }
+    }
+
     private static void invoke(Class<?> type, String method, LiveModel arg) {
         try {
             java.lang.reflect.Method m = type.getDeclaredMethod(method, LiveModel.class);
