@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.21.1
+
+**The update button stops showing mojibake**
+
+- *Checking*, *Downloading*, *Installing*, *Restarting* and *Opening the installer* each ended in a stray `a-euro-broken-bar` rather than an ellipsis. On the one button whose whole job is to tell you it is safe to let a program replace itself, that looked exactly as dodgy as it sounds.
+- The source had been saved once through the wrong code page, turning the single ellipsis character into the three characters that represent its UTF-8 bytes read as Windows-1252. The build was compiling that faithfully.
+- All five are written as `…` now - an escape that is plain ASCII in the file and so cannot be mangled by any editor or code page again. **The whole Java source tree is now pure ASCII**, so there is nothing left of this kind to silently corrupt.
+
 ## 2.21.0
 
 **The window stays where you put it**
