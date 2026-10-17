@@ -19,7 +19,7 @@ Sonar reads the game's network traffic on your own machine and never writes to i
 Most meters give you one number for the whole run. Sonar splits the run the way it actually happened: **the bosses, the lesser bosses, and the trash in between, each on its own.** A player who padded their total on minions drops down the list the moment you look at the boss; a player who showed up for the fight that mattered climbs it.
 
 - **Three scopes** — the whole instance over elapsed time, one enemy at a time, or bosses only
-- **Two measures** — damage per second, or total damage dealt
+- **Two measures** — damage per minute, or total damage dealt. Per minute because a minute is the span people actually compare over, and a per-second figure jumps around with every shot; the player page keeps per second, where one person is being read closely
 - **Two audiences** — everyone in the instance, or just your party
 - **Your own damage is server-checked.** The game never reports your own hits, so Sonar holds its calculation against the health each enemy was actually seen to lose
 - **Pet damage is counted separately**, so it never inflates your number
@@ -32,7 +32,9 @@ Most meters give you one number for the whole run. Sonar splits the run the way 
 
 Click anyone's bar and the page fills in: their class and skin, every piece of gear with its enchants, their stats with equipment and exalt bonuses broken out, their hit count and biggest hit — and **where their damage came from**, split by weapon and ability.
 
-The damage window here has its own Overall and Bosses switch, so you can ask "how did they do overall" and "how did they do on the boss" without leaving the roster.
+### What they changed, and when
+
+Below the roster, **Swap outs** lists every piece of gear that player changed during the run, with the time it happened — a melee weapon brought out for a chest phase, an armour change before a hit everyone knows is coming. Every hit already carries the four slots and their enchants at the moment it landed, so none of it has to be guessed at. A board that shows only the kit somebody finished in is, for anyone who swapped, showing the least interesting kit they wore. **A change of enchants alone counts as a swap** and is listed as one, because two of the same item enchanted differently is a real change that reads as nothing at all if only the names are compared.
 
 ### And the runs you have both been in
 
