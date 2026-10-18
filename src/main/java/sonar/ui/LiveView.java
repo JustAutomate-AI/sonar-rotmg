@@ -1592,6 +1592,9 @@ class LiveView {
         for (Party.Member pm : savedParty) Party.remove(pm.name);
         scope.select(OVERALL, false);
         audience.select(0, false);
+        // the board opens on the last boss now, and these clicks are measured against the
+        // whole instance's rows, so say which fight is being clicked on rather than assuming
+        fightRail.select(0);
         refresh();
         livePage.validate();
         LiveModel.Row second = m.whole.rows.get(m.whole.rows.get(0).me ? 1 : 0);
@@ -2911,6 +2914,28 @@ class LiveView {
         report.accept("a saved size is measured against every monitor, not just the first",
                 desktop.width >= primary.width && desktop.height >= primary.height);
 
+        // which fight the damage board opens on. The whole instance is the one entry that is
+        // never the thing you just did; the headline fight is, and a dungeon ends on it.
+        java.util.List<LiveModel.Group> rail = new java.util.ArrayList<>();
+        rail.add(railEntry("overall", "Whole instance"));
+        report.accept("with nothing fought yet the board opens on the whole instance",
+                FightRail.latestBoss(rail) == 0);
+        rail.add(railEntry("wave", "Wave 1"));
+        rail.add(railEntry("tough", "Walking Horror"));
+        report.accept("trash and a tough enemy are not promoted over the instance",
+                FightRail.latestBoss(rail) == 0);
+        rail.add(railEntry("miniboss", "Bridge Sentinel"));
+        report.accept("a staged fight is opened on when there is no boss yet",
+                FightRail.latestBoss(rail) == 3);
+        rail.add(railEntry("boss", "Oryx the Mad God"));
+        report.accept("and the boss wins over a staged fight", FightRail.latestBoss(rail) == 4);
+        rail.add(railEntry("boss", "Oryx the Mad God 2"));
+        report.accept("with two bosses it is the later one, which is how a dungeon ends",
+                FightRail.latestBoss(rail) == 5);
+        rail.add(railEntry("wave", "Wave 2"));
+        report.accept("trash fought afterwards does not take the board off the boss",
+                FightRail.latestBoss(rail) == 5);
+
         fameSelfTest(report);
 
         report.accept("the void dressing is drawn quieter than what you are hunting",
@@ -3114,6 +3139,14 @@ class LiveView {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** One rail entry for the self-test. */
+    private static LiveModel.Group railEntry(String kind, String name) {
+        LiveModel.Group g = new LiveModel.Group();
+        g.kind = kind;
+        g.name = name;
+        return g;
     }
 
     /** A stand-in enemy for the self-test, with one player's hit on it. */

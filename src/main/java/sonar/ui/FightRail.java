@@ -42,6 +42,48 @@ class FightRail extends Pane {
         this.onPick = onPick;
     }
 
+    /** True once the user has picked a fight themselves, after which nothing picks for them. */
+    private boolean chosen;
+    /** The area the current choice belongs to, so a new run starts choosing again. */
+    private String onInstance = "";
+
+    /**
+     * Which fight to show when the user has not said: the most recent boss.
+     * <p>
+     * It used to be the whole instance, which is the one entry that is never the thing you
+     * just did. Walking out of Oryx's Chamber you want to know how the Oryx fight went, not
+     * how two hundred enemies averaged out - and the headline fight is almost always the
+     * last one, since that is what a dungeon ends on.
+     * <p>
+     * Holding by name would have defeated this on its own: "Whole instance" exists in every
+     * run, so it always matched and the selection never moved off it. The name is only held
+     * once the user has actually chosen something.
+     *
+     * @return the last real boss, else the last staged fight, else the whole instance
+     */
+    static int latestBoss(List<LiveModel.Group> groups) {
+        int boss = -1, staged = -1;
+        for (int i = 0; i < groups.size(); i++) {
+            String kind = groups.get(i).kind;
+            if (kind.equals("boss")) boss = i;
+            else if (kind.equals("miniboss")) staged = i;
+        }
+        if (boss >= 0) return boss;
+        return staged >= 0 ? staged : 0;
+    }
+
+    /**
+     * Picks a fight as though the user had clicked it, so the choice sticks across refreshes.
+     * Used by the self-test, which has to put the board on a known fight before it can click
+     * the bars on it.
+     */
+    void select(int index) {
+        if (index < 0 || index >= groups.size()) return;
+        selected = index;
+        chosen = true;
+        repaint();
+    }
+
     /** The fight currently being shown, or null before anything has been fought. */
     LiveModel.Group picked() {
         return selected >= 0 && selected < groups.size() ? groups.get(selected) : null;
@@ -49,17 +91,24 @@ class FightRail extends Pane {
 
     void show(LiveModel m) {
         List<LiveModel.Group> next = m.groups;
+        // a new area is a new run, and a choice made in the last one should not follow you
+        if (!m.instance.equals(onInstance)) {
+            onInstance = m.instance;
+            chosen = false;
+        }
         // hold the user's choice across refreshes by name, since the list is rebuilt every tick
         String was = picked() == null ? null : picked().name;
         groups = next;
         selected = 0;
-        if (was != null) {
+        if (chosen && was != null) {
             for (int i = 0; i < groups.size(); i++) {
                 if (groups.get(i).name.equals(was)) {
                     selected = i;
                     break;
                 }
             }
+        } else {
+            selected = latestBoss(groups);
         }
         rebuildLines();
         revalidate();
@@ -114,6 +163,7 @@ class FightRail extends Pane {
     void clicked(int x, int y) {
         for (Line l : lines) {
             if (l.group == null || y < l.y || y >= l.y + l.h) continue;
+            chosen = true;
             if (l.index == selected) return;
             selected = l.index;
             repaint();
