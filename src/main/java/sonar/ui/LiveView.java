@@ -3032,7 +3032,9 @@ class LiveView {
             java.util.List<int[]> sorted = new java.util.ArrayList<>(stats);
             sorted.sort((a, b) -> Integer.compare(a[0], b[0]));
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-            byte[] bits = new byte[16];
+            // thirty-two, the same as the server writes; sixteen was the fault a live
+            // character exposed, and a test encoder that repeats it proves nothing
+            byte[] bits = new byte[32];
             for (int[] one : sorted) bits[one[0] / 8] |= (byte) (1 << (one[0] % 8));
             out.write(bits, 0, bits.length);
             for (int[] one : sorted) {

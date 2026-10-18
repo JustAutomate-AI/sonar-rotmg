@@ -238,6 +238,9 @@ public class GameData {
         // the game sends it, so it is written down against the character rather than lost
         // the moment another one is played
         sonar.ui.CharacterCache.statsFor(charId, str);
+        // -Dsonar.fame.dump=1 prints what the game actually said, so the page can be checked
+        // against the game's own Fame Overview instead of against its own arithmetic
+        sonar.fame.FameDump.sawStats(charId, str);
     }
 
     public void petYardCheck(String displayName) {

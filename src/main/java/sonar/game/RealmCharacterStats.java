@@ -281,9 +281,19 @@ public class RealmCharacterStats {
         dungeonStats = dungeonCounts();
     }
 
+    /**
+     * Which statistics the blob carries: one bit each, least significant bit first.
+     * <p>
+     * This read sixteen bytes until a live character proved it wrong. The server sends
+     * thirty-two, so the second half of the bit array was being eaten as if it were values -
+     * sixteen phantom statistics all reading zero - and every real figure after them landed
+     * one slot early. The byte accounting settles it beyond argument: at sixteen bytes the
+     * blob leaves twenty-one bytes unread and produces sixteen zeroes; at thirty-two it is
+     * consumed exactly, to the byte, with no statistic set to zero.
+     */
     private boolean[] parseBits(BufferReader reader) {
-        boolean[] bitArray = new boolean[16 * 8];
-        for (int i = 0; i < 16; i++) {
+        boolean[] bitArray = new boolean[BIT_BYTES * 8];
+        for (int i = 0; i < BIT_BYTES; i++) {
             int j = i * 8;
             byte b = reader.readByte();
             bitArray[j] = (b & 0x1) > 0;
@@ -297,6 +307,9 @@ public class RealmCharacterStats {
         }
         return bitArray;
     }
+
+    /** How many bytes of "which statistics are present" the server writes. */
+    private static final int BIT_BYTES = 32;
 
     /**
      * The order the server writes the statistics in: ascending stat id.
@@ -336,14 +349,28 @@ public class RealmCharacterStats {
      * and cannot drift: a stat Sonar has no field for is still read, and only
      * then discarded, so the ones behind it stay aligned.
      */
+    /**
+     * Reads one value per bit set, in ascending statistic id.
+     * <p>
+     * It used to walk Sonar's own list of known statistics instead, which works only while
+     * that list is complete. The moment the game sets a bit for a statistic Sonar has never
+     * heard of - a new counter in a new release - that value went unread, and every figure
+     * after it was taken from the wrong place. Walking the bits means an unknown statistic
+     * costs its own value and nothing else.
+     */
     private void parseStats(BufferReader reader, boolean[] bitArray) {
         prepareOrder();
+        java.util.Map<Integer, java.lang.reflect.Field> byId = new java.util.HashMap<>();
         for (int i = 0; i < inOrder.length; i++) {
-            if (!readStat(bitArray, inOrder[i].getPcStatId())) continue;
+            if (fieldOf[i] != null) byId.put(inOrder[i].getPcStatId(), fieldOf[i]);
+        }
+        for (int id = 0; id < bitArray.length; id++) {
+            if (!bitArray[id]) continue;
             int value = reader.readCompressedInt();
-            if (fieldOf[i] == null) continue;
+            java.lang.reflect.Field field = byId.get(id);
+            if (field == null) continue;
             try {
-                fieldOf[i].setInt(this, value);
+                field.setInt(this, value);
             } catch (IllegalAccessException ignored) {
                 // that one statistic stays zero; the rest are unaffected
             }

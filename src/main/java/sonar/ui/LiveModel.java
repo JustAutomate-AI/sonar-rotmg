@@ -876,7 +876,10 @@ final class LiveModel {
                     estimate.dyeAccessory = c.dyeAccessory;
                     m.fame.add(estimate);
                     // kept against the live character so that a death has something to check
-                    if (s.current) sonar.fame.FameTruth.working(c.id, estimate.total(), c.fame);
+                    if (s.current) {
+                        sonar.fame.FameTruth.working(c.id, estimate.total(), c.fame);
+                        sonar.fame.FameDump.working(estimate);
+                    }
                 }
             }
         }
