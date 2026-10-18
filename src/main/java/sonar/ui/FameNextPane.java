@@ -21,7 +21,13 @@ import java.util.List;
  */
 class FameNextPane extends Pane {
 
-    private static final int HEAD = 24, ROW = 40, PAD = 11;
+    /**
+     * Held in step with the other two fame panes. The three windows sit side by side, so a
+     * gutter of 11 here against 13 next door and 14 beyond it reads as three panels that were
+     * built separately - which they were. One gutter and one corner radius across all three is
+     * most of what makes them look like one page rather than three.
+     */
+    private static final int HEAD = 26, ROW = 40, PAD = 13;
     private static final int MOST = 24;
 
     private FameEstimate estimate;
@@ -85,10 +91,10 @@ class FameNextPane extends Pane {
             boolean finishes = !s.finishes.isEmpty();
             g.setColor(finishes ? SonarTheme.alpha(SonarTheme.GOLD, over ? 0.18 : 0.12)
                     : over ? SonarTheme.lift(0.04) : SonarTheme.SURFACE);
-            g.fill(SonarTheme.round(0, y, width, ROW - 6, 9));
+            g.fill(SonarTheme.round(0, y, width, ROW - 6, 11));
             if (finishes) {
                 g.setColor(SonarTheme.alpha(SonarTheme.GOLD, 0.5));
-                g.draw(SonarTheme.round(0.5, y + 0.5, width - 1, ROW - 7, 9));
+                g.draw(SonarTheme.round(0.5, y + 0.5, width - 1, ROW - 7, 11));
             }
 
             // a quiet bar behind the row showing how it compares with the best on offer
@@ -107,8 +113,12 @@ class FameNextPane extends Pane {
             String prize = "+" + SonarTheme.number(s.reward + s.unlocks);
             g.drawString(prize, width - PAD - g.getFontMetrics().stringWidth(prize), y + 16);
 
+            // The rows that finish a collection are tinted gold, which lifts the card well clear
+            // of the panel - and FAINT, chosen to sit quietly on the dark surface, loses almost
+            // all its contrast against the lighter one. It reads as though the line has been cut
+            // off halfway. The ink steps up with the surface it is on.
             g.setFont(SonarTheme.font(10.5f));
-            g.setColor(SonarTheme.FAINT);
+            g.setColor(finishes ? SonarTheme.MUTED : SonarTheme.FAINT);
             String runs = s.toNext <= 0 ? "done" : s.toNext == 1 ? "1 more run" : s.toNext + " more runs";
             String at = s.count > 0 ? "  ·  " + SonarTheme.number(s.count) + " so far" : "";
             g.drawString(SonarTheme.fit(runs + at, g.getFontMetrics(), width - 2 * PAD), PAD, y + 29);

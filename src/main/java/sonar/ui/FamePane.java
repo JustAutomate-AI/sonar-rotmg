@@ -24,7 +24,8 @@ import java.util.List;
  */
 class FamePane extends Pane {
 
-    private static final int PAD = 14, CHIP_H = 28, ROW = 23;
+    /** The gutter is held in step with the other two fame panes; see FameNextPane. */
+    private static final int PAD = 13, CHIP_H = 28, ROW = 23;
 
     private List<FameEstimate> all = new ArrayList<>();
     /** Which character is being shown, by character id; -1 means whoever leads the list. */
@@ -149,10 +150,10 @@ class FamePane extends Pane {
             boolean over = hoverX >= x && hoverX < x + w && hoverY >= y && hoverY < y + CHIP_H;
             g.setColor(active ? SonarTheme.alpha(SonarTheme.accent(), 0.2)
                     : new Color(255, 255, 255, over ? 20 : 10));
-            g.fill(SonarTheme.round(x, y, w, CHIP_H, 9));
+            g.fill(SonarTheme.round(x, y, w, CHIP_H, 11));
             if (active) {
                 g.setColor(SonarTheme.alpha(SonarTheme.accent(), 0.7));
-                g.draw(SonarTheme.round(x + 0.5, y + 0.5, w - 1, CHIP_H - 1, 9));
+                g.draw(SonarTheme.round(x + 0.5, y + 0.5, w - 1, CHIP_H - 1, 11));
             }
             g.setFont(active ? SonarTheme.bold(11f) : SonarTheme.font(11f));
             g.setColor(active ? SonarTheme.accent() : e.lost ? SonarTheme.FAINT : SonarTheme.TEXT);
@@ -247,22 +248,33 @@ class FamePane extends Pane {
                 g.setColor(new Color(255, 255, 255, 12));
                 g.fill(SonarTheme.round(-4, y - 4, width + 8, ROW, 6));
             }
+            // A line that pays nothing yet is still worth listing - it says the count is being
+            // kept and how far off the first tier is - but it was drawn in the same bold gold as
+            // a line paying thousands, so the foot of the list shouted as loudly as the head of
+            // it. Everything on a nought row steps down one level of brightness instead.
+            boolean pays = worth > 0;
+
+            g.setFont(SonarTheme.bold(12f));
+            String paid = "+" + SonarTheme.number(worth);
+            int paidW = g.getFontMetrics().stringWidth(paid);
+
             g.setFont(SonarTheme.font(12f));
-            g.setColor(SonarTheme.TEXT);
-            int nameWidth = Math.max(60, width - 190);
+            g.setColor(pays ? SonarTheme.TEXT : SonarTheme.MUTED);
+            int nameWidth = Math.max(60, width - paidW - 104);
             g.drawString(SonarTheme.fit(l.name, g.getFontMetrics(), nameWidth), 0, y + 11);
 
             g.setFont(SonarTheme.font(11f));
             g.setColor(SonarTheme.FAINT);
             String middle = l.count > 0 ? SonarTheme.compact(l.count) : "";
             if (!l.tierName.isEmpty()) middle += middle.isEmpty() ? l.tierName : "  ·  " + l.tierName;
-            int mx = width - 86 - g.getFontMetrics().stringWidth(middle);
+            // measured off the figure it must not run into, rather than off a constant
+            int mx = width - paidW - 14 - g.getFontMetrics().stringWidth(middle);
             g.drawString(middle, Math.max(nameWidth + 6, mx), y + 11);
 
             g.setFont(SonarTheme.bold(12f));
-            g.setColor(l.percentTenths > 0 ? SonarTheme.VIOLET : SonarTheme.GOLD);
-            String paid = "+" + SonarTheme.number(worth);
-            g.drawString(paid, width - g.getFontMetrics().stringWidth(paid), y + 11);
+            g.setColor(!pays ? SonarTheme.FAINT
+                    : l.percentTenths > 0 ? SonarTheme.VIOLET : SonarTheme.GOLD);
+            g.drawString(paid, width - paidW, y + 11);
 
             if (l.name.equals("Dungeon completion") && !e.dungeonTop.isEmpty()) {
                 note(new Rectangle(0, y - 4, width, ROW),

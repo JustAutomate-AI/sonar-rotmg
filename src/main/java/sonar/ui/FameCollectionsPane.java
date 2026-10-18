@@ -22,7 +22,22 @@ import java.util.List;
  */
 class FameCollectionsPane extends Pane {
 
-    private static final int HEAD = 26, ROW = 58, OPEN_ROW = 20, PAD = 12, COLS = 2;
+    /**
+     * The row's metrics, which have to agree with each other or the type falls out of the card.
+     * <p>
+     * They did not. The card is drawn {@link #GAP} shorter than {@link #ROW}, and the last line
+     * sat low enough that its descenders crossed the bottom border - the "needs ..." line was
+     * drawn sitting on the edge of its own card. The three baselines are stated here beside the
+     * card height so the relationship is visible in one place, rather than spread across a
+     * dozen magic numbers in the paint where nothing says they are related at all.
+     */
+    private static final int HEAD = 26, ROW = 62, OPEN_ROW = 20, PAD = 13, COLS = 2;
+    /** The space between one card and the next; the card itself is {@code ROW - GAP} tall. */
+    private static final int GAP = 6;
+    /** Baselines inside a card: the name, the figures beside the bar, and the line beneath. */
+    private static final int LINE_NAME = 19, LINE_BAR = 33, LINE_FOOT = 48;
+    /** The bar's top edge and thickness. */
+    private static final int BAR_Y = 27, BAR_H = 5;
 
     private FameEstimate estimate;
     /** The set opened up, by name, or null when they are all closed. */
@@ -128,12 +143,16 @@ class FameCollectionsPane extends Pane {
                         + "at the base fame it has now. Collections are the only dungeon rewards that pay a "
                         + "share of base fame, so the figure grows as the character does.");
 
-        boolean overToggle = hoverY >= 0 && hoverY < HEAD && hoverX > width - 120;
+        // the hit zone is measured from the word, not guessed at: 120px covered empty panel to
+        // the left of a 70px label, so the pointer lit it up well before reaching anything
         g.setFont(SonarTheme.font(11f));
-        g.setColor(overToggle ? SonarTheme.accent() : SonarTheme.FAINT);
         String toggle = showDone ? "hide finished" : "show finished";
-        g.drawString(toggle, width - g.getFontMetrics().stringWidth(toggle), 14);
-        zones.add(new Rectangle(width - 120, 0, 120, HEAD));
+        int toggleW = g.getFontMetrics().stringWidth(toggle);
+        int toggleX = width - toggleW;
+        boolean overToggle = hoverY >= 0 && hoverY < HEAD && hoverX >= toggleX - 8;
+        g.setColor(overToggle ? SonarTheme.accent() : SonarTheme.FAINT);
+        g.drawString(toggle, toggleX, 14);
+        zones.add(new Rectangle(toggleX - 8, 0, toggleW + 8, HEAD));
         actions.add(() -> {
             showDone = !showDone;
             sonar.util.PropertiesManager.setProperties("sonar.fame.showdone", String.valueOf(showDone));
@@ -150,60 +169,62 @@ class FameCollectionsPane extends Pane {
         boolean over = hoverY >= y && hoverY < y + ROW;
         int openRows = rowsOpen(p, width);
         int height = ROW + openRows * OPEN_ROW + (openRows > 0 ? 10 : 0);
+        int card = height - GAP;
 
         g.setColor(open ? SonarTheme.RAISED : over ? SonarTheme.lift(0.04) : SonarTheme.SURFACE);
-        g.fill(SonarTheme.round(0, y, width, height - 6, 11));
+        g.fill(SonarTheme.round(0, y, width, card, 11));
         g.setColor(p.complete() ? SonarTheme.alpha(SonarTheme.MINT, 0.35) : SonarTheme.LINE);
-        g.draw(SonarTheme.round(0.5, y + 0.5, width - 1, height - 7, 11));
+        g.draw(SonarTheme.round(0.5, y + 0.5, width - 1, card - 1, 11));
+
+        // The right-hand column is measured rather than assumed. It used to be a flat 150px,
+        // which the price outgrew on the wider sets while the completion ratio grew towards it
+        // from the other side: "10/49" and "12.5% of base + 5,000" met in the middle with
+        // nothing to stop them. Both are measured first and the bar is given what is left.
+        g.setFont(SonarTheme.bold(13f));
+        String worth = p.complete() ? "earned" : "+" + SonarTheme.number(p.worth(estimate.baseFame));
+        int worthW = g.getFontMetrics().stringWidth(worth);
+
+        g.setFont(SonarTheme.font(10.5f));
+        String price = FamePane.tenths(p.set.percentTenths) + " of base  +  " + SonarTheme.number(p.set.flat);
+        int priceW = g.getFontMetrics().stringWidth(price);
+
+        g.setFont(SonarTheme.font(11f));
+        String ratio = p.have() + "/" + p.need();
+        int ratioW = g.getFontMetrics().stringWidth(ratio);
+
+        int rightW = Math.max(worthW, priceW);
+        int barW = Math.max(36, width - 2 * PAD - rightW - ratioW - 24);
 
         g.setFont(SonarTheme.bold(13f));
         g.setColor(p.complete() ? SonarTheme.MINT : SonarTheme.TEXT);
-        g.drawString(SonarTheme.fit(p.set.name, g.getFontMetrics(), width - 150), PAD, y + 20);
+        g.drawString(SonarTheme.fit(p.set.name, g.getFontMetrics(), width - 2 * PAD - worthW - 14),
+                PAD, y + LINE_NAME);
 
-        // the price, right aligned, in this character's own fame
-        g.setFont(SonarTheme.bold(13f));
-        String worth = p.complete() ? "earned" : "+" + SonarTheme.number(p.worth(estimate.baseFame));
         g.setColor(p.complete() ? SonarTheme.MINT : SonarTheme.GOLD);
-        g.drawString(worth, width - PAD - g.getFontMetrics().stringWidth(worth), y + 20);
+        g.drawString(worth, width - PAD - worthW, y + LINE_NAME);
 
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
-        String price = FamePane.tenths(p.set.percentTenths) + " of base  +  " + SonarTheme.number(p.set.flat);
-        g.drawString(price, width - PAD - g.getFontMetrics().stringWidth(price), y + 35);
+        g.drawString(price, width - PAD - priceW, y + LINE_BAR);
 
-        // the bar
-        int barW = Math.max(40, width - 2 * PAD - 150);
-        int barY = y + 29;
-        g.setColor(new Color(255, 255, 255, 18));
-        g.fill(SonarTheme.round(PAD, barY, barW, 6, 3));
+        // the bar: the track stays visible, so an untouched set still reads as a set of known size
+        g.setColor(new Color(255, 255, 255, 16));
+        g.fill(SonarTheme.round(PAD, y + BAR_Y, barW, BAR_H, BAR_H / 2.0));
         double along = p.along();
         if (along > 0) {
-            g.setColor(p.complete() ? SonarTheme.MINT : SonarTheme.accent());
-            g.fill(SonarTheme.round(PAD, barY, Math.max(4, barW * along), 6, 3));
+            Color fill = p.complete() ? SonarTheme.MINT : SonarTheme.accent();
+            double run = Math.max(4, barW * along);
+            g.setColor(SonarTheme.alpha(fill, 0.22));
+            g.fill(SonarTheme.round(PAD - 1, y + BAR_Y - 1, run + 2, BAR_H + 2, (BAR_H + 2) / 2.0));
+            g.setColor(fill);
+            g.fill(SonarTheme.round(PAD, y + BAR_Y, run, BAR_H, BAR_H / 2.0));
         }
-        g.setFont(SonarTheme.font(11f));
-        g.setColor(SonarTheme.MUTED);
-        g.drawString(p.have() + "/" + p.need(), PAD + barW + 8, y + 35);
 
-        // what is left, named when there are few enough to name
         g.setFont(SonarTheme.font(11f));
-        String blind = p.uncountable.isEmpty() ? ""
-                : "  ·  " + p.uncountable.size() + " the game does not report";
-        String line;
-        if (p.complete()) {
-            line = p.set.subtitle;
-            g.setColor(SonarTheme.FAINT);
-        } else if (p.missing.isEmpty()) {
-            line = p.set.subtitle + blind;
-            g.setColor(SonarTheme.MUTED);
-        } else if (p.missing.size() <= 3) {
-            line = "needs " + join(p.missing) + blind;
-            g.setColor(SonarTheme.SALMON);
-        } else {
-            line = p.missing.size() + " left" + blind + "  ·  " + p.set.subtitle;
-            g.setColor(SonarTheme.MUTED);
-        }
-        g.drawString(SonarTheme.fit(line, g.getFontMetrics(), width - 2 * PAD), PAD, y + 50);
+        g.setColor(p.complete() ? SonarTheme.alpha(SonarTheme.MINT, 0.8) : SonarTheme.MUTED);
+        g.drawString(ratio, PAD + barW + 9, y + LINE_BAR);
+
+        foot(g, width, y, p);
 
         if (!p.uncountable.isEmpty()) {
             note(new Rectangle(0, y, width, ROW), uncountableNote(p));
@@ -220,6 +241,46 @@ class FameCollectionsPane extends Pane {
 
         if (open) grid(g, width, y + ROW, p);
         return y + height;
+    }
+
+    /**
+     * The line under the bar: what is left, named outright when there are few enough to name.
+     * <p>
+     * This was drawn in {@link SonarTheme#SALMON}, which made the loudest thing on the page the
+     * one piece of news that is not a problem - a set with three dungeons left is a set nearly
+     * finished, and alarm red is the wrong way to say so. The hierarchy is carried by brightness
+     * instead of by hue: the word is faint, the dungeons it names are not. That leaves gold for
+     * what things are worth and mint for what is done, with no third colour arguing with either.
+     */
+    private void foot(Graphics2D g, int width, int y, FameEstimate.CollectionProgress p) {
+        g.setFont(SonarTheme.font(11f));
+        int room = width - 2 * PAD;
+        String blind = p.uncountable.isEmpty() ? ""
+                : "  \u00b7  " + p.uncountable.size() + " the game does not report";
+
+        if (!p.complete() && !p.missing.isEmpty() && p.missing.size() <= 3) {
+            String lead = "needs ";
+            int leadW = g.getFontMetrics().stringWidth(lead);
+            g.setColor(SonarTheme.FAINT);
+            g.drawString(lead, PAD, y + LINE_FOOT);
+            g.setColor(SonarTheme.alpha(SonarTheme.TEXT, 0.82));
+            g.drawString(SonarTheme.fit(join(p.missing) + blind, g.getFontMetrics(), room - leadW),
+                    PAD + leadW, y + LINE_FOOT);
+            return;
+        }
+
+        String line;
+        if (p.complete()) {
+            line = p.set.subtitle;
+            g.setColor(SonarTheme.FAINT);
+        } else if (p.missing.isEmpty()) {
+            line = p.set.subtitle + blind;
+            g.setColor(SonarTheme.MUTED);
+        } else {
+            line = p.missing.size() + " left" + blind + "  \u00b7  " + p.set.subtitle;
+            g.setColor(SonarTheme.MUTED);
+        }
+        g.drawString(SonarTheme.fit(line, g.getFontMetrics(), room), PAD, y + LINE_FOOT);
     }
 
     /** Every dungeon in the set, ticked or not. */
