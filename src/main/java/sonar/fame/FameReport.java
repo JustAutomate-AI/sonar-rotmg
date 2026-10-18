@@ -109,7 +109,12 @@ public final class FameReport {
             }
             if (shown == 0) b.append("  (nothing came back)\n");
 
-            b.append('\n').append("DUNGEONS AS DECODED\n");
+            int distinct = 0;
+            if (s.dungeonStats != null) for (int count : s.dungeonStats) if (count > 0) distinct++;
+            b.append('\n').append("DUNGEONS AS DECODED   (").append(distinct).append(" distinct");
+            if (s.dungeon_types_completed > 0) b.append("; the game counts ").append(s.dungeon_types_completed);
+            if (s.unnamedValues > 0) b.append("; ").append(s.unnamedValues).append(" read with no name");
+            b.append(")\n");
             int found = 0;
             if (s.dungeonStats != null) {
                 List<String> names = CharacterStatistics.DUNGEON_NAMES;

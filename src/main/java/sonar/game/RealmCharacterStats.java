@@ -145,6 +145,14 @@ public class RealmCharacterStats {
     public int[] regularStats;
     public int[] dungeonStats;
     public String pcStats;
+    /**
+     * How many values the blob carried that Sonar read correctly and had nowhere to put -
+     * a statistic id in the read order with no field behind it. Every one of them is a
+     * dungeon: the Neo wormholes and the legacy block are read so that the values after
+     * them stay aligned, and then dropped. The count is kept because it is the difference
+     * between a dungeon Sonar knowingly cannot name and one it has lost.
+     */
+    public int unnamedValues;
 
     private static boolean debugMessage = false;
 
@@ -431,6 +439,7 @@ public class RealmCharacterStats {
     };
 
     private void parseStats(BufferReader reader, boolean[] bitArray) {
+        unnamedValues = 0;
         prepareOrder();
         java.util.Map<Integer, java.lang.reflect.Field> byId = new java.util.HashMap<>();
         for (int i = 0; i < inOrder.length; i++) {
@@ -440,7 +449,10 @@ public class RealmCharacterStats {
             if (id >= bitArray.length || !bitArray[id]) continue;
             int value = reader.readCompressedInt();
             java.lang.reflect.Field field = byId.get(id);
-            if (field == null) continue;
+            if (field == null) {
+                unnamedValues++;
+                continue;
+            }
             try {
                 field.setInt(this, value);
             } catch (IllegalAccessException ignored) {

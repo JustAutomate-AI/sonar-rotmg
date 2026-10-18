@@ -3163,6 +3163,37 @@ class LiveView {
                         .contains("has not sent"));
         report.accept("and no report is asked to be built out of nothing at all",
                 !sonar.fame.FameReport.of(null).isEmpty());
+
+        // the one count in the blob that checks the rest of the blob: the game's own tally
+        // of distinct dungeons finished, held against how many actually came back
+        report.accept("the game's own count of dungeon types agreeing with the decode passes quietly",
+                typesCheck(2, new int[][]{{21, 3}, {8, 2}}, false).isEmpty());
+        report.accept("a dungeon lost on the way out is complained about",
+                typesCheck(4, new int[][]{{21, 3}, {8, 2}}, false).contains("2 dungeons unaccounted for"));
+        report.accept("but not the ones Sonar reads and drops on purpose",
+                typesCheck(3, new int[][]{{21, 3}, {8, 2}}, true).isEmpty());
+        report.accept("and more dungeons than the game counts is impossible, so it is said outright",
+                typesCheck(1, new int[][]{{21, 3}, {8, 2}}, false)
+                        .contains("came back finished where the game counts only 1"));
+    }
+
+    /**
+     * Builds a blob carrying some dungeon completions and the game's own count of how many
+     * distinct dungeons that is, and answers with whatever the decode check complained about.
+     *
+     * @param unnamed whether to include a dungeon the read order reads and has no field for
+     */
+    private static String typesCheck(int typesCompleted, int[][] dungeons, boolean unnamed) {
+        java.util.List<int[]> blob = new java.util.ArrayList<>();
+        for (int[] one : dungeons) blob.add(one);
+        blob.add(new int[]{36, typesCompleted});
+        // 155 is Neo Malogia: in the read order so that the values after it stay aligned,
+        // with no statistic of its own to land in
+        if (unnamed) blob.add(new int[]{155, 1});
+        sonar.game.RealmCharacterStats read = statsFrom(blob);
+        if (read == null) return "the blob did not build";
+        sonar.fame.FameEstimate e = sonar.fame.FameEstimate.of("Wizard 20", 1_000, read, null, null);
+        return e.decodeLooksWrong ? e.decodeComplaint : "";
     }
 
     /**
