@@ -15,11 +15,16 @@ import java.util.Map;
  * it rather than smoothed over.
  *
  * <h2>How a bonus is paid</h2>
- * Each category has five tiers. The tier the count has reached is the one that pays, and
- * the tiers below it do not pay again - a dungeon run a hundred times pays its Master
- * reward, not Scout plus Explorer plus Adventurer plus Conqueror plus Master. The top tier
- * is the only repeating one: it pays once more for every further whole multiple of its own
- * threshold, up to twenty payments in all.
+ * Each category has five tiers, and <strong>every tier the count has passed pays</strong> -
+ * a dungeon run a hundred times pays Scout and Explorer and Adventurer and Conqueror and
+ * Master, added together. The top tier pays once more for every further whole multiple of
+ * its own threshold, up to twenty payments in all.
+ * <p>
+ * This was read the other way round for a while, on an argument from how much the game's
+ * most fame-trained dead characters are worth. The game settled it directly: on a live
+ * character its own panel paid <em>Potions +70</em> for 113 potions drunk and
+ * <em>Ability +70</em> for 2,005 ability uses. Both counts sit in the second tier, whose
+ * reward is 50; 70 is 20 plus 50. Only the cumulative reading produces it.
  * <p>
  * That rule is the one thing here that is read rather than quoted, so it is worth saying
  * what it is read from. Deca's own notes for the rework describe "5 main tiers" of which
@@ -30,9 +35,9 @@ import java.util.Map;
  * paying only the reached tier puts them at ninety per cent of it, which is where the best
  * player in the game belongs.
  * <p>
- * An earlier version of this file paid every tier passed. That is why a character the game
- * valued in the thousands was shown a figure in the hundreds of thousands, and why the page
- * built on it was taken out of the app.
+ * The figure that got the old page removed was not caused by this rule at all: the
+ * statistics underneath it were being decoded from a bit array read sixteen bytes short,
+ * so the counts themselves were nonsense. The tier rule was never the fault.
  *
  * <h2>Percentages</h2>
  * Most bonuses are flat. Two families also pay a percentage of base fame: maxing a stat,
@@ -69,12 +74,16 @@ public final class FameRules {
      * @param rewards    what each tier pays
      */
     public static long reward(long count, long[] thresholds, long[] rewards) {
-        int tier = tier(count, thresholds);
-        if (tier < 0) return 0;
-        if (tier < 4) return rewards[tier];
+        if (count <= 0) return 0;
+        long total = 0;
+        for (int i = 0; i < 4; i++) {
+            if (count >= thresholds[i]) total += rewards[i];
+        }
         long top = thresholds[4];
-        if (top <= 0) return rewards[4];
-        return Math.min(count / top, MAX_TOP_TIER_REPEATS) * rewards[4];
+        if (top > 0 && count >= top) {
+            total += Math.min(count / top, MAX_TOP_TIER_REPEATS) * rewards[4];
+        }
+        return total;
     }
 
     /** Which tier a count has reached, 0 to 4, or -1 when it has not reached the first. */
@@ -104,10 +113,17 @@ public final class FameRules {
         return toNext(count, thresholds) > 0 ? rewards[4] : 0;
     }
 
-    /** A percentage of base fame in tenths of a percent, rounded down as the game's own lines are. */
+    /**
+     * A percentage of base fame in tenths of a percent, rounded up.
+     * <p>
+     * Up, not down, and the game said so itself. Its own panel paid Maxing 1,099 on a base
+     * fame of 2,271 for two vital stats and three others. Rounded down that is 1,094;
+     * rounded up it is exactly 1,099. The pre-rework wiki says down, and it is wrong, or at
+     * least no longer right.
+     */
     public static long percentOf(long baseFame, long tenths) {
         if (tenths <= 0 || baseFame <= 0) return 0;
-        return baseFame * tenths / 1000;
+        return (baseFame * tenths + 999) / 1000;
     }
 
     // ------------------------------------------------------------------
