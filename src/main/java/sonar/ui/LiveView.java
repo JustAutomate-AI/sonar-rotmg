@@ -2181,35 +2181,35 @@ class LiveView {
         // three of the hundred and twenty three reads took the wrong stat's number. A blob is
         // built here the way the server builds one and read back: the figures have to come out
         // of the fields they went into, whatever order those fields happen to be declared in.
-        // No statistic is read from the blob at all at the moment, and that is deliberate.
+        // The server writes the values in a fixed sequence of its own, which is not the
+        // order of the statistic ids. Reading them in id order does not fail - it hands
+        // every value to the wrong statistic, which is why a completion count once appeared
+        // to go down between two readings of the same character.
         //
-        // The ids were mapped against one snapshot of one character. Values that were tied
-        // in that snapshot - three dungeons all reading 1, two reading 2, two reading 3 -
-        // could not be told apart, and an ordering was chosen for them rather than proved.
-        // A later snapshot of the same character then disagreed: a count that had been 236
-        // came back as 180, and completion counts do not go down. That rules out tie-breaking
-        // as the only fault and puts the framing itself in doubt, so every id is withdrawn
-        // until two states of the same character agree on it.
-        //
-        // What this costs is the exactness of the fame total. What it does not cost is the
-        // part that matters: which dungeons a character has finished, and therefore which
-        // collections are complete, is recorded from what Sonar watched happen and from the
-        // player ticking one off. Neither needs an id.
-        int readable = 0;
-        for (sonar.game.enums.CharacterStatistics cs : sonar.game.enums.CharacterStatistics.values()) {
-            if (cs.getPcStatId() >= 0) readable++;
-        }
-        report.accept("no statistic is read under an id that has not been proved twice", readable == 0);
-
-        java.util.List<int[]> written = new java.util.ArrayList<>();
-        written.add(new int[]{10, 140357});
-        written.add(new int[]{17, 424783});
-        sonar.game.RealmCharacterStats read = statsFrom(written);
-        report.accept("so a blob yields nothing rather than something that might be wrong",
-                read != null && read.shots_fired == 0 && read.tiles_discovered == 0);
+        // This blob is the one a live character actually sent, and every figure below was
+        // read off that character's own statistics panel in the game at the same moment.
+        String live = "DvCtugAUX_8QqAAAA_xw4AD_j9IAAAAAAAAAAAAAAAAAAAAAh5ERk7oElR-AzDMhsQG_FpMGqgICCgknAQ"
+                + "GdAwECAQoCAwMDHagCrAO0ArYCtgKfAhWSAawBCrEBGC0glQEJChOHARatAqoBPRICCA==";
+        sonar.game.RealmCharacterStats read = new sonar.game.RealmCharacterStats();
+        read.decode(live);
+        report.accept("the general statistics come out as the game's own panel shows them",
+                read.shots_fired == 140359 && read.hits == 36499 && read.tiles_discovered == 422656);
+        report.accept("and so do the counters that sit between the dungeon batches",
+                read.minutes_active == 221 && read.dungeon_types_completed == 10
+                        && read.stat_potion_consumed == 113);
+        report.accept("the creature kills are not shuffled among themselves",
+                read.critter_kills == 236 && read.beast_kills == 180 && read.humanoid_kills == 182
+                        && read.undead_kills == 182 && read.nature_kills == 159);
+        report.accept("the biome kills land on their own biomes",
+                read.ruins_enemy_kills == 24 && read.dead_church_enemy_kills == 173
+                        && read.floral_escape_enemy_kills == 8);
+        report.accept("and the dungeons are counted under the right dungeons",
+                read.oryxs_sanctuary == 3 && read.wine_cellar == 3 && read.plagued_nest == 10
+                        && read.secluded_thicket == 1 && read.magic_woods == 2);
         int counted = 0;
-        if (read != null && read.dungeonStats != null) for (int c : read.dungeonStats) counted += c;
-        report.accept("and no dungeon completions either", counted == 0);
+        for (int c : read.dungeonStats) counted += c;
+        report.accept("with nothing left over on a dungeon the character has never entered",
+                counted == 1 + 2 + 1 + 10 + 1 + 2 + 3 + 3 + 3 + 1);
 
         // the enchant gems are the game's own sprites rather than shapes drawn here
         report.accept("the game's own enchant pictures are all found", EnchantSprites.known() > 800);
@@ -3053,8 +3053,8 @@ class LiveView {
 
         // a whole character, through the real parser, with counts a long-played one would have
         java.util.List<int[]> blob = new java.util.ArrayList<>();
-        blob.add(new int[]{17, 4_100_000});   // tiles discovered
-        blob.add(new int[]{20, 142_000});     // kills
+        blob.add(new int[]{27, 4_100_000});   // tiles discovered
+        blob.add(new int[]{30, 142_000});     // kills
         sonar.game.RealmCharacterStats played = statsFrom(blob);
         sonar.fame.FameEstimate worked = sonar.fame.FameEstimate.of("Wizard", 46_000, played, null, null);
         report.accept("a character's statistics are read into a working", worked != null && worked.known);
@@ -3065,8 +3065,10 @@ class LiveView {
         // the top monster-kill tier: 1,000. Neither pays the tiers beneath it.
         // tiles at 4.1m has passed Cartography's first three tiers: 20+100+400. Kills at
         // 142,000 has passed all five monster-kill tiers: 20+50+200+400+1,000.
-        report.accept("and nothing is paid for statistics that are not being read",
-                worked != null && worked.flatTotal() == 0);
+        // tiles at 4.1m has passed Cartography's first three tiers: 20+100+400. Kills at
+        // 142,000 has passed all five monster-kill tiers: 20+50+200+400+1,000.
+        report.accept("and each line pays every tier it has passed",
+                worked != null && worked.flatTotal() == 520 + 1_670);
         report.accept("with no percentage at all when nothing is maxed",
                 worked != null && worked.percentTenths() == 0 && worked.bonus() == worked.flatTotal());
         report.accept("so the figure stays near the base fame it was worked from",
@@ -3100,8 +3102,15 @@ class LiveView {
      */
     private static sonar.game.RealmCharacterStats statsFrom(java.util.List<int[]> stats) {
         try {
-            java.util.List<int[]> sorted = new java.util.ArrayList<>(stats);
-            sorted.sort((a, b) -> Integer.compare(a[0], b[0]));
+            // written in the server's own sequence, not sorted by id. Sorting was the fault
+            // this test is here to catch, so a builder that sorts proves nothing.
+            java.util.List<int[]> sorted = new java.util.ArrayList<>();
+            java.lang.reflect.Field orderField = sonar.game.RealmCharacterStats.class
+                    .getDeclaredField("READ_ORDER");
+            orderField.setAccessible(true);
+            for (int id : (int[]) orderField.get(null)) {
+                for (int[] one : stats) if (one[0] == id) sorted.add(one);
+            }
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
             // thirty-two, the same as the server writes; sixteen was the fault a live
             // character exposed, and a test encoder that repeats it proves nothing
@@ -3123,12 +3132,12 @@ class LiveView {
                     java.nio.ByteBuffer.wrap(out.toByteArray()).order(java.nio.ByteOrder.LITTLE_ENDIAN));
             sonar.game.RealmCharacterStats held = new sonar.game.RealmCharacterStats();
             java.lang.reflect.Method readBits = sonar.game.RealmCharacterStats.class
-                    .getDeclaredMethod("parseBits", sonar.packets.reader.BufferReader.class);
+                    .getDeclaredMethod("parseBits", sonar.packets.reader.BufferReader.class, int.class);
             java.lang.reflect.Method readStats = sonar.game.RealmCharacterStats.class
                     .getDeclaredMethod("parseStats", sonar.packets.reader.BufferReader.class, boolean[].class);
             readBits.setAccessible(true);
             readStats.setAccessible(true);
-            boolean[] flags = (boolean[]) readBits.invoke(held, reader);
+            boolean[] flags = (boolean[]) readBits.invoke(held, reader, 32);
             readStats.invoke(held, reader, flags);
             // the real decode finishes by gathering the dungeon counts; without it they are null
             java.lang.reflect.Method finish = sonar.game.RealmCharacterStats.class

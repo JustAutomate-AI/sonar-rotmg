@@ -162,7 +162,7 @@ public class RealmCharacterStats {
         int flag = reader.readInt();
         if (flag != 0) {
             try {
-                boolean[] bitArray = parseBits(reader);
+                boolean[] bitArray = parseBits(reader, widthOf(data));
                 if (debugMessage) {
                     for (int i = 0; i < bitArray.length; i++) {
                         if (CharacterStatistics.PC_NAME.get(i) == null && bitArray[i]) {
@@ -187,6 +187,38 @@ public class RealmCharacterStats {
         }
     }
 
+
+    /**
+     * Whether this blob uses the current thirty-two byte flag array or the sixteen-byte one
+     * that preceded it. Tries both and keeps whichever consumes the string: a width that is
+     * wrong leaves bytes unread or runs off the end, and only the right one comes out even.
+     */
+    private static int widthOf(byte[] data) {
+        int best = BIT_BYTES, bestLeft = Integer.MAX_VALUE;
+        for (int width : new int[]{BIT_BYTES, LEGACY_BIT_BYTES}) {
+            int left = leftoverWith(data, width);
+            if (left >= 0 && left < bestLeft) {
+                bestLeft = left;
+                best = width;
+            }
+        }
+        return best;
+    }
+
+    /** Bytes left unread after reading every set value at this width, or -1 if it overran. */
+    private static int leftoverWith(byte[] data, int width) {
+        try {
+            BufferReader reader = new BufferReader(ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN));
+            reader.readInt();
+            boolean[] bits = new RealmCharacterStats().parseBits(reader, width);
+            for (int id : READ_ORDER) {
+                if (id < bits.length && bits[id]) reader.readCompressedInt();
+            }
+            return reader.getRemainingBytes();
+        } catch (RuntimeException overran) {
+            return -1;
+        }
+    }
 
     /**
      * Each dungeon's completions, in the order {@link CharacterStatistics#DUNGEON_NAMES} lists
@@ -284,16 +316,14 @@ public class RealmCharacterStats {
     /**
      * Which statistics the blob carries: one bit each, least significant bit first.
      * <p>
-     * This read sixteen bytes until a live character proved it wrong. The server sends
-     * thirty-two, so the second half of the bit array was being eaten as if it were values -
-     * sixteen phantom statistics all reading zero - and every real figure after them landed
-     * one slot early. The byte accounting settles it beyond argument: at sixteen bytes the
-     * blob leaves twenty-one bytes unread and produces sixteen zeroes; at thirty-two it is
-     * consumed exactly, to the byte, with no statistic set to zero.
+     * The width is not fixed. A 2026 update grew the array from sixteen bytes to
+     * thirty-two, and a blob frozen on a character that died before that patch still
+     * carries the old width, so both have to be read. Which one a given blob uses is
+     * worked out by trying each and keeping the one that consumes the string.
      */
-    private boolean[] parseBits(BufferReader reader) {
-        boolean[] bitArray = new boolean[BIT_BYTES * 8];
-        for (int i = 0; i < BIT_BYTES; i++) {
+    private boolean[] parseBits(BufferReader reader, int bitBytes) {
+        boolean[] bitArray = new boolean[bitBytes * 8];
+        for (int i = 0; i < bitBytes; i++) {
             int j = i * 8;
             byte b = reader.readByte();
             bitArray[j] = (b & 0x1) > 0;
@@ -308,8 +338,9 @@ public class RealmCharacterStats {
         return bitArray;
     }
 
-    /** How many bytes of "which statistics are present" the server writes. */
-    private static final int BIT_BYTES = 32;
+    /** The current width of the "which statistics are present" array, and the one before it. */
+    private static final int BIT_BYTES = 32, LEGACY_BIT_BYTES = 16;
+
 
     /**
      * The order the server writes the statistics in: ascending stat id.
@@ -350,22 +381,63 @@ public class RealmCharacterStats {
      * then discarded, so the ones behind it stay aligned.
      */
     /**
-     * Reads one value per bit set, in ascending statistic id.
+     * Reads one value per bit set, in the order the server writes them.
      * <p>
-     * It used to walk Sonar's own list of known statistics instead, which works only while
-     * that list is complete. The moment the game sets a bit for a statistic Sonar has never
-     * heard of - a new counter in a new release - that value went unread, and every figure
-     * after it was taken from the wrong place. Walking the bits means an unknown statistic
-     * costs its own value and nothing else.
+     * That order is not the order of the statistic ids, and this is the whole of what was
+     * wrong here. The ids themselves were right all along; the values were being matched to
+     * them by walking the bits in numerical order, which is simply not how the server lays
+     * the string out. It writes in a fixed sequence of its own - the general statistics
+     * first, then dungeons in four batches with a few counters tucked between them, then
+     * the biome kills, then the seasonal dungeons, with a couple of late additions
+     * appended out of position at the very end.
+     * <p>
+     * Reading in the wrong order does not fail; it silently hands each value to the wrong
+     * statistic. That looked like a tie-breaking problem, then like a framing problem, and
+     * produced the impossible result of a completion count going down between two readings
+     * of the same character.
+     * <p>
+     * The sequence is taken from RealmHound, which worked it out against characters whose
+     * in-game statistics page was compared counter by counter.
      */
+    private static final int[] READ_ORDER = {
+            // general statistics
+            24, 25, 26, 27, 28, 29, 30, 31,
+            16, 17, 18, 19, 20,
+            // dungeons, first batch, with minutes active in the middle of it
+            21, 22, 23, 8, 9, 10, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7,
+            // second batch, with dungeon types completed in the middle
+            58, 59, 60, 61, 62, 63, 48, 49, 50, 51, 52, 53, 55,
+            40, 41, 42, 43, 44, 45, 46, 47, 32, 33, 34, 35, 36, 37, 38, 39,
+            // third batch, with the party and creature counters among it
+            88, 89, 90, 91, 92, 93, 94, 95, 80, 81, 82, 83, 84,
+            85, 86, 87, 72, 74, 75, 76, 77, 78, 79, 64, 65,
+            66, 67, 68, 69, 70, 71,
+            // fourth batch, with the stat potions counter
+            120, 121, 122, 123, 124, 125,
+            // biome kills
+            126, 127,
+            112, 113, 114, 115, 116, 117, 118, 119,
+            104, 105, 106, 107, 108, 109, 110, 111,
+            96, 97,
+            // seasonal and event dungeons, read last
+            98, 99, 100, 101, 102, 103,
+            // the Neo wormholes
+            155, 156, 157, 158,
+            // the legacy block. Ascending, except that Legacy Lair of Shaitan and Legacy
+            // The Shatters were added to the enum after their low slots and are written at
+            // the end, Shaitan first. Reading them in numerical position would shift every
+            // following legacy value by one and mislabel the whole block.
+            136, 144, 145, 146, 147, 148, 149, 150, 151, 159, 137, 138,
+    };
+
     private void parseStats(BufferReader reader, boolean[] bitArray) {
         prepareOrder();
         java.util.Map<Integer, java.lang.reflect.Field> byId = new java.util.HashMap<>();
         for (int i = 0; i < inOrder.length; i++) {
             if (fieldOf[i] != null) byId.put(inOrder[i].getPcStatId(), fieldOf[i]);
         }
-        for (int id = 0; id < bitArray.length; id++) {
-            if (!bitArray[id]) continue;
+        for (int id : READ_ORDER) {
+            if (id >= bitArray.length || !bitArray[id]) continue;
             int value = reader.readCompressedInt();
             java.lang.reflect.Field field = byId.get(id);
             if (field == null) continue;
