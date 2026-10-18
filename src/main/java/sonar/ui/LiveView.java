@@ -2408,18 +2408,24 @@ class LiveView {
                 c != null && Math.abs(c[0] - 60) < 0.01 && Math.abs(c[1] - 80) < 0.01
                         && me != null && Math.abs(me[0] - (-30)) < 0.01 && Math.abs(me[1] - 15) < 0.01);
 
-        // a map genuinely smaller than the view cannot scroll at all; it sits on its own middle
+        // A map smaller than the view is pinned to the frame's top left, which is what the game
+        // does: MiniMapImp asks whether the map's near edge has come inside the frame and, if so,
+        // shifts back until it is flush with it, so the first branch fires and the second never
+        // runs. This used to be asserted as sitting on its own middle, which is where Sonar put
+        // it rather than where the game does. In the game the case cannot arise at all - the most
+        // zoomed-out rung is chosen so the map always covers the frame - so the only way to reach
+        // it is a scale that is already wrong, and agreeing with the game costs nothing.
         placeForTest(30, 95, 100, 100);
         c = ShattersRadar.viewCentre(view, view);
         me = ShattersRadar.playerFromView(view, view);
-        report.accept("a map smaller than the view sits still and you roam inside it",
-                c != null && Math.abs(c[0] - 50) < 0.01 && Math.abs(c[1] - 50) < 0.01
-                        && me != null && Math.abs(me[0] - (-20)) < 0.01 && Math.abs(me[1] - 45) < 0.01);
+        report.accept("a map smaller than the view is pinned to the frame's edge, as the game pins it",
+                c != null && Math.abs(c[0] - 60) < 0.01 && Math.abs(c[1] - 60) < 0.01
+                        && me != null && Math.abs(me[0] - (-30)) < 0.01 && Math.abs(me[1] - 35) < 0.01);
 
         // and a mark is placed against the view, not against you
-        ShattersRadar.Mark m = ShattersRadar.markForTest(ShattersRadar.PORTAL, 50, 50);
+        ShattersRadar.Mark m = ShattersRadar.markForTest(ShattersRadar.PORTAL, 60, 60);
         double[] off = ShattersRadar.offsetFromView(m, view, view);
-        report.accept("a mark at the middle of a small map draws at the middle of the frame",
+        report.accept("a mark at the middle of the view draws at the middle of the frame",
                 off != null && Math.abs(off[0]) < 0.01 && Math.abs(off[1]) < 0.01);
         placeForTest(Float.NaN, Float.NaN, 0, 0);
     }
@@ -2479,21 +2485,61 @@ class LiveView {
      * nothing rather than as a scale being wrong.
      */
     private static void checkOverlayScale(java.util.function.BiConsumer<String, Boolean> report) {
-        double[] scales = new double[6];
-        for (int level = 0; level < 6; level++) {
-            scales[level] = ShattersOverlayWindow.defaultScaleForTest(level, 479);
+        // MiniMapImp.makeViewModel, transcribed, to check the real thing against rather than
+        // against numbers worked back out of it
+        java.util.function.BiFunction<int[], int[], double[]> theGame = (frame, map) -> {
+            double fit = Math.max(frame[0] / (double) map[0], frame[1] / (double) map[1]);
+            java.util.List<Double> out = new java.util.ArrayList<>();
+            for (double s = 4 * (frame[0] / 192.0); s > fit; s /= 2) out.add(s);
+            out.add(fit);
+            double[] a = new double[out.size()];
+            for (int i = 0; i < a.length; i++) a[i] = out.get(i);
+            return a;
+        };
+
+        // at its native size the ladder is the bare one the client's own source prints
+        double[] native192 = ShattersOverlayWindow.ladderFor(192, 192, 2048, 2048);
+        report.accept("at the size the game builds its minimap the top rung is 4 px per tile",
+                native192.length > 0 && Math.abs(native192[0] - 4) < 1e-9);
+        report.accept("and each rung below it is worth half the one above",
+                native192.length > 3 && Math.abs(native192[1] - 2) < 1e-9
+                        && Math.abs(native192[2] - 1) < 1e-9 && Math.abs(native192[3] - 0.5) < 1e-9);
+
+        // the last rung is always the one that fits the whole map in the frame
+        double[] small = ShattersOverlayWindow.ladderFor(192, 192, 120, 120);
+        report.accept("the last rung is the one that fits the whole map",
+                small.length > 0 && Math.abs(small[small.length - 1] - 192 / 120.0) < 1e-9);
+
+        // a smaller map offers fewer rungs, which is why a fixed six was never right
+        report.accept("a small map has fewer rungs than a large one",
+                small.length < native192.length);
+
+        // and the whole ladder agrees with the client's algorithm at several sizes
+        boolean agrees = true;
+        int[][] frames = {{192, 192}, {448, 448}, {450, 420}, {479, 479}};
+        int[][] maps = {{2048, 2048}, {1024, 1024}, {300, 300}, {120, 140}};
+        for (int[] f : frames) {
+            for (int[] mp : maps) {
+                double[] mine = ShattersOverlayWindow.ladderFor(f[0], f[1], mp[0], mp[1]);
+                double[] theirs = theGame.apply(f, mp);
+                if (mine.length != theirs.length) {
+                    agrees = false;
+                    continue;
+                }
+                for (int i = 0; i < mine.length; i++) {
+                    if (Math.abs(mine[i] - theirs[i]) > 1e-6) agrees = false;
+                }
+            }
         }
-        // each press of the game's zoom halves the tiles that fit, so the scale doubles
-        boolean doubling = true;
-        for (int i = 1; i < scales.length; i++) {
-            if (Math.abs(scales[i] - scales[i - 1] * 2) > 0.02) doubling = false;
-        }
-        report.accept("each zoom step is worth twice the one before it", doubling);
-        // a 479px window on the middle step measures 3.99 px per tile on a real minimap
-        report.accept("the middle step matches a measured minimap",
-                Math.abs(scales[2] - 3.99) < 0.05);
-        report.accept("the old flat 0.6 is nowhere near it, which is why marks were heaping up",
-                scales[2] > 3.0);
+        report.accept("the ladder matches the game's own algorithm at every size tried", agrees);
+
+        // the old model said 480 tiles across at the first step; the real base is 192, so on a
+        // frame the size of Jordan's minimap the two differ by about the factor measured off a
+        // screenshot of the Nexus - roughly 2.4
+        double real = ShattersOverlayWindow.defaultScaleForTest(0, 448, 2048, 2048);
+        double oldModel = 448 / 480.0;
+        report.accept("the top rung is far above what the old 480-tile model gave",
+                real / oldModel > 8);
     }
 
     /**

@@ -186,7 +186,7 @@ class ShattersOverlayWindow extends JWindow {
                 ? "you are not placed yet" : found + (found == 1 ? " mark" : " marks");
         String[] lines = {
                 String.format("%.2f px per tile", pixelsPerTile),
-                "zoom step " + (level + 1) + " of " + LEVELS,
+                "zoom step " + (level + 1) + " of " + rungCount(),
                 w + " x " + h + " window",
                 where,
                 lastFix.isEmpty() ? "right-click a mark's real icon to set the scale" : lastFix,
@@ -223,62 +223,113 @@ class ShattersOverlayWindow extends JWindow {
      * once and from then on stepping the overlay restores an exact figure
      * rather than a guess.
      */
-    private static final int LEVELS = 6;
     private int level = loadLevel();
 
+    /**
+     * Which rung the overlay is on. Zero is the most zoomed in, as it is in the game, and the
+     * game itself starts there - {@code MiniMapZoomButtons} is built with {@code zoomLevel = 0}.
+     */
     private static int loadLevel() {
-        return Math.max(0, Math.min(LEVELS - 1, getInt("sonar.shatters.zoomlevel", 2)));
+        return Math.max(0, getInt("sonar.shatters.zoomlevel", 0));
     }
 
     int zoomLevel() {
-        return level;
+        return Math.max(0, Math.min(rungCount() - 1, level));
     }
 
+    /**
+     * What one tile is worth on this rung.
+     * <p>
+     * The ladder is now derived from the game's own algorithm, so the stored figures are only
+     * an override for the case where the overlay's frame is not quite the size of the minimap
+     * it covers. They are kept under a new name: the values saved against the old model were
+     * calibrated to a ladder that was the wrong shape, and letting them win would hide the fix
+     * behind whatever had been dialled in to work around it.
+     */
     private static double loadScale(int level) {
         try {
-            String s = sonar.util.PropertiesManager.getProperty("sonar.shatters.scale." + level);
-            // a stored value identical to the old flat default was never actually calibrated - it is
-            // the number the overlay shipped with - so it gives way to the derived one
-            if (s != null) {
-                double v = Double.parseDouble(s);
-                if (Math.abs(v - OLD_FLAT_DEFAULT) > 1e-9) return Math.max(0.05, Math.min(MAX_SCALE, v));
-            }
+            String s = sonar.util.PropertiesManager.getProperty("sonar.shatters.rung." + level);
+            if (s != null) return clampScale(Double.parseDouble(s));
         } catch (RuntimeException ignored) {
-            // a damaged value just means it has not been calibrated yet
-        }
-        // the old single-scale setting becomes whichever step was in use when this arrived
-        if (level == loadLevel()) {
-            try {
-                String s = sonar.util.PropertiesManager.getProperty("sonar.shatters.scale");
-                if (s != null) {
-                    double v = Double.parseDouble(s);
-                    if (Math.abs(v - OLD_FLAT_DEFAULT) > 1e-9) return Math.max(0.05, Math.min(MAX_SCALE, v));
-                }
-            } catch (RuntimeException ignored) {
-                // falls through to the derived default
-            }
+            // a damaged value just means this rung has not been corrected by hand
         }
         return defaultScale(level);
     }
 
     /**
-     * What one tile is worth before a step has been calibrated.
-     * <p>
-     * The old default was a flat 0.6 px per tile at every size and every
-     * zoom, which on a 1440p screen was about six times too small - every
-     * mark collapsed into a heap around the middle, which reads exactly like
-     * the overlay failing to find anything.
-     * <p>
-     * Each press of the game's zoom halves how many tiles fit, so the steps
-     * run 480, 240, 120 ... tiles across. Dividing the overlay's own width by
-     * that gives the scale: a 479px window on the middle step works out at
-     * 3.99 px per tile, which is what measuring a real minimap gives.
+     * The size the game builds its minimap at: {@code new MiniMapImp(192, 192)} in HUDView.
+     * The zoom ladder below is in pixels per tile at that size, so a minimap drawn larger
+     * than this scales everything by the ratio between the two.
      */
-    private static double defaultScale(int level) {
+    private static final int NATIVE_MINIMAP = 192;
+
+    /** The most zoomed-in rung, in pixels per tile at the native size. */
+    private static final double TOP_RUNG = 4;
+
+    /** A map would have to be preposterous to need more rungs than this; a guard, not a limit. */
+    private static final int MOST_RUNGS = 24;
+
+    /**
+     * The game's own zoom ladder, for a minimap this size looking at a map this size.
+     * <p>
+     * This is {@code MiniMapImp.makeViewModel} transcribed. The client works out the scale at
+     * which the whole map just covers the frame, then counts down from four pixels per tile,
+     * halving, for as long as it is still more zoomed in than that, and finishes with the
+     * whole-map scale itself:
+     * <pre>
+     *     fit = max(width / mapWidth, height / mapHeight);
+     *     s = 4;
+     *     while (s &gt; fit) { push(s); s /= 2; }
+     *     push(fit);
+     * </pre>
+     * The same code appears unchanged in the last Flash build and in two later ones, so it is
+     * the game's settled behaviour rather than one build's quirk.
+     * <p>
+     * Three things follow, and Sonar had none of them right. The rungs are <b>pixels per
+     * tile</b>, not a count of tiles. There are <b>as many rungs as the map needs</b> - a small
+     * map has few - rather than a fixed six. And index <b>zero is the most zoomed in</b>, which
+     * is the order the game's own zoom buttons step through.
+     * <p>
+     * What Sonar had instead was 480 tiles across at the first step, halving. That is not a
+     * mis-tuned constant, it is a different shape of answer: the real ladder is 48, 96, 192,
+     * 384 tiles across, from a base of 192 rather than 480.
+     */
+    static double[] ladderFor(int widthPx, int heightPx, int mapW, int mapH) {
+        if (widthPx <= 0 || heightPx <= 0 || mapW <= 0 || mapH <= 0) {
+            // nothing known about the map yet; one middling rung so marks are drawn somewhere
+            return new double[]{clampScale(widthPx > 0 ? widthPx / 96.0 : 1)};
+        }
+        double fit = Math.max(widthPx / (double) mapW, heightPx / (double) mapH);
+        // the game draws its minimap at 192px; anything larger scales the whole ladder with it
+        double grown = widthPx / (double) NATIVE_MINIMAP;
+        java.util.List<Double> rungs = new java.util.ArrayList<>();
+        for (double s = TOP_RUNG * grown; s > fit && rungs.size() < MOST_RUNGS; s /= 2) rungs.add(s);
+        rungs.add(fit);
+        double[] out = new double[rungs.size()];
+        for (int i = 0; i < out.length; i++) out[i] = clampScale(rungs.get(i));
+        return out;
+    }
+
+    /** The ladder for the overlay as it currently sits, over the map currently loaded. */
+    private static double[] ladderNow() {
         Rectangle at = savedHome();
-        double px = at != null ? at.width : defaultBounds().width;
-        double tilesAcross = 480.0 / Math.pow(2, Math.max(0, level));
-        return Math.max(0.05, Math.min(MAX_SCALE, px / tilesAcross));
+        Rectangle box = at != null ? at : defaultBounds();
+        return ladderFor(box.width, box.height, ShattersRadar.mapWidth(), ShattersRadar.mapHeight());
+    }
+
+    /** How many rungs this map offers. The game's own zoom has exactly this many steps. */
+    static int rungCount() {
+        return ladderNow().length;
+    }
+
+    /** What one tile is worth at a given rung, before anything has been set by hand. */
+    private static double defaultScale(int level) {
+        double[] rungs = ladderNow();
+        return rungs[Math.max(0, Math.min(rungs.length - 1, level))];
+    }
+
+    private static double clampScale(double v) {
+        return Math.max(0.05, Math.min(MAX_SCALE, v));
     }
 
     /**
@@ -288,16 +339,15 @@ class ShattersOverlayWindow extends JWindow {
      */
     private static final double MAX_SCALE = 64;
 
-    /** Lets the self-test check the scale model without a window. */
-    static double defaultScaleForTest(int level, int widthPx) {
-        return Math.max(0.05, Math.min(MAX_SCALE, widthPx / (480.0 / Math.pow(2, Math.max(0, level)))));
+    /** Lets the self-test check the ladder without a window or a loaded map. */
+    static double defaultScaleForTest(int level, int widthPx, int mapW, int mapH) {
+        double[] rungs = ladderFor(widthPx, widthPx, mapW, mapH);
+        return rungs[Math.max(0, Math.min(rungs.length - 1, level))];
     }
 
-    /** What the scale was hardcoded to before it was derived; a saved value of exactly this was never set by hand. */
-    private static final double OLD_FLAT_DEFAULT = 0.6;
 
     private void saveScale() {
-        sonar.util.PropertiesManager.setProperties("sonar.shatters.scale." + level, String.valueOf(pixelsPerTile));
+        sonar.util.PropertiesManager.setProperties("sonar.shatters.rung." + level, String.valueOf(pixelsPerTile));
     }
 
     /**
@@ -305,7 +355,7 @@ class ShattersOverlayWindow extends JWindow {
      * zoom. Restores that level's calibrated scale if it has one.
      */
     void stepZoom(int by) {
-        int next = Math.max(0, Math.min(LEVELS - 1, level + by));
+        int next = Math.max(0, Math.min(rungCount() - 1, level + by));
         if (next == level) return;
         level = next;
         sonar.util.PropertiesManager.setProperties("sonar.shatters.zoomlevel", String.valueOf(level));
