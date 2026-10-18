@@ -2,6 +2,39 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.30.0
+
+**The Shatters overlay uses the game's own minimap zoom ladder**
+
+- The overlay's marks sat at roughly **two-fifths** of where they belonged. Measured against the game's own portal icons on a Nexus screenshot, the scale was out by a factor of **2.38** — and one portal of six was not being marked at all.
+- The scale model was the wrong *shape*, not a mis-tuned constant. It assumed the minimap shows **480 tiles across** at the first step and halves from there. The client's own code says otherwise, and says it identically in the last Flash build and in two later ones:
+  ```
+  fit = max(width / mapWidth, height / mapHeight);
+  s = 4;
+  while (s > fit) { push(s); s /= 2; }
+  push(fit);
+  ```
+- Three things follow that Sonar had wrong. The rungs are **pixels per tile**, not a count of tiles. There are **as many rungs as the map needs** — the Nexus gets three, a realm gets seven — rather than a fixed six. And **index zero is the most zoomed in**, which is the order the game's own zoom buttons step through.
+- The base is **192**, not 480: the client builds its minimap as `MiniMapImp(192, 192)`, so the real ladder is **48, 96, 192, 384** tiles across. A minimap drawn larger scales the whole ladder with it, which is where the rest of the error on a 1440p screen came from — the minimap measures about 448px there, and 448/192 is 2.33 against the 2.38 measured off the screenshot.
+- The ladder is checked against a transcription of the client's algorithm at **sixteen** frame and map sizes: rung count and every value.
+
+**The view clamp matches the game too**
+
+- The client shifts the map back until its near edge is flush with the frame, so a map smaller than the frame is **pinned to the corner**. Sonar centred it instead. In the game that case cannot arise — the last rung is chosen so the map always covers the frame — so it only showed when the scale was already wrong, which is exactly when it was least wanted.
+
+**Calibration is now a correction, not a requirement**
+
+- Stored per-step scales move to a new name. They were dialled in against a ladder of the wrong shape, and letting them win would have hidden the fix behind the workaround. The starting figure should now be close enough to read; right-clicking a portal's own icon still sets it exactly.
+- The minimap's zoom level remains unreadable — of the 315 settings the client stores, there is a rotation mode and two zoom *keybinds*, but no zoom level. The difference is that the rungs are now a known, finite set, so stepping lands on real values rather than invented ones.
+
+**The Fame page is measured rather than guessed at, and quieter**
+
+- The collections rows were drawn **6px taller than the card** that held them, so the "needs ..." line sat on its own bottom border. The row metrics are now stated once, beside the card height, instead of as a dozen unrelated magic numbers.
+- The right-hand column was a flat 150px. The price outgrew it on the wider sets while the completion ratio grew towards it from the other side, and on *Hero of the Nexus* `10/49` and `12.5% of base + 5,000` met in the middle. Both are measured now and the bar takes what is left.
+- Colour carries less of the work. The "needs ..." line was **alarm red** for the one piece of news on the page that is not a problem — a set with three left is a set nearly finished — so the hierarchy is brightness instead, leaving gold for worth and mint for done. A ledger line paying nothing was drawn in the same bold gold as one paying thousands; it steps down a level.
+- On the gold "finishes a collection" rows the sub-line kept the ink chosen for the dark surface and lost nearly all its contrast against the lighter one, which read as the line having been cut off halfway. It steps up with the surface.
+- The three panes shared no metrics — gutters of 11, 13 and 14, and two corner radii between them. One of each now, which is most of what makes them read as one page rather than three.
+
 ## 2.29.0
 
 **The statistics are read in the order the server writes them**
@@ -27,7 +60,7 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 
 **Under the hood**
 
-- The self-test's blob builder was **sorting its values by id** — the exact fault under test — so it could never have caught this no matter how many assertions were added. It writes in the server's order now, and the suite checks a real captured blob field by field. 312 assertions pass.
+- The self-test's blob builder was **sorting its values by id** — the exact fault under test — so it could never have caught this no matter how many assertions were added. It writes in the server's order now, and the suite checks a real captured blob field by field. 323 assertions pass.
 
 ## 2.28.0
 
