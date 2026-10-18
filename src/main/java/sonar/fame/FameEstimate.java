@@ -143,6 +143,14 @@ public final class FameEstimate {
     public final List<String> dungeonTop = new ArrayList<>();
     /** Dungeons known finished without reading the blob at all. */
     private final Set<String> cleared = new LinkedHashSet<>();
+    /**
+     * The statistics this was worked from, kept so the working can be handed over whole.
+     * A total that disagrees with the game is only diagnosable from the counts behind it
+     * and the blob they came out of; see {@link FameReport}.
+     */
+    public RealmCharacterStats stats;
+    /** The eight stats with equipment taken off, and the ceiling each can reach. */
+    public int[] statRaw, statCap;
 
     private FameEstimate(String character, long baseFame) {
         this.character = character;
@@ -232,7 +240,10 @@ public final class FameEstimate {
     public static FameEstimate of(String name, long baseFame, RealmCharacterStats s, int[] stat, int[] cap,
                                   Set<String> cleared) {
         FameEstimate e = new FameEstimate(name == null ? "" : name, Math.max(0, baseFame));
+        e.statRaw = stat;
+        e.statCap = cap;
         if (s == null) return e;
+        e.stats = s;
         e.known = true;
 
         e.add(FameRules.CARTOGRAPHY, s.tiles_discovered);

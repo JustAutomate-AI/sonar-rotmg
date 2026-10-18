@@ -36,6 +36,10 @@ class FamePane extends Pane {
     private final List<Rectangle> noteZones = new ArrayList<>();
     private final List<String> noteText = new ArrayList<>();
 
+    /** When the working was last put on the clipboard, so the button can say it happened. */
+    private long copiedAt;
+    private boolean copyFailed;
+
     FamePane() {
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
@@ -186,6 +190,7 @@ class FamePane extends Pane {
         g.setFont(SonarTheme.font(11f));
         g.setColor(SonarTheme.MUTED);
         g.drawString("IF THIS CHARACTER DIED NOW", left, y + 22);
+        int afterKicker = left + g.getFontMetrics().stringWidth("IF THIS CHARACTER DIED NOW");
 
         // The figure is shown whatever the working thinks of itself. What matters on this
         // page is which dungeons are done and which collections they finish - that part is a
@@ -226,7 +231,61 @@ class FamePane extends Pane {
         g.setColor(SonarTheme.FAINT);
         String split = tenths(e.percentTenths()) + " of base fame, plus " + SonarTheme.number(e.flatTotal()) + " flat";
         g.drawString(SonarTheme.fit(split, g.getFontMetrics(), width - left - PAD), left, y + 95);
+        copyButton(g, width, y, e, afterKicker);
         return y + 118;
+    }
+
+    /**
+     * The one control on the page: the whole working, on the clipboard, in one click.
+     * <p>
+     * A fame figure that disagrees with the game is the one fault that cannot be diagnosed
+     * from how it is reported. "Off by a hundred" names the symptom and none of the hundred
+     * and thirty counts behind it, and the counts are not the half that matters anyway -
+     * the blob they were decoded from is, because only that can be replayed. Asking for it
+     * has meant asking somebody to run the installer build with a system property set,
+     * which nobody is going to do. So it is a button.
+     */
+    private void copyButton(Graphics2D g, int width, int y, FameEstimate e, int clearOf) {
+        boolean recent = System.currentTimeMillis() - copiedAt < 1900;
+        String label = copyFailed && recent ? "failed" : recent ? "copied" : "copy";
+        g.setFont(SonarTheme.font(10.5f));
+        FontMetrics fm = g.getFontMetrics();
+        int h = 22, top = y + 12;
+        int w = fm.stringWidth(label) + 20;
+        // it shares a row with a sentence that is not shortened to make room, so on a pane
+        // too narrow to hold both the button goes rather than the sentence
+        int x = width - PAD - w;
+        if (x < clearOf + 12) return;
+        boolean over = hoverX >= x && hoverX < x + w && hoverY >= top && hoverY < top + h;
+        g.setColor(new Color(255, 255, 255, over ? 24 : 12));
+        g.fill(SonarTheme.round(x, top, w, h, 11));
+        g.setColor(over ? SonarTheme.alpha(SonarTheme.accent(), 0.7) : SonarTheme.LINE);
+        g.draw(SonarTheme.round(x + 0.5, top + 0.5, w - 1, h - 1, 11));
+        g.setColor(recent ? copyFailed ? SonarTheme.SALMON : SonarTheme.MINT
+                : over ? SonarTheme.accent() : SonarTheme.MUTED);
+        g.drawString(label, x + 10, top + 15);
+        zones.add(new Rectangle(x, top, w, h));
+        actions.add(() -> copyWorking(e));
+        note(new Rectangle(x, top, w, h),
+                "Copies this whole page as text - the figure, every line under it, the counts those "
+                        + "lines were worked from, and the statistics blob the game sent, which is the part "
+                        + "that lets the sum be checked by somebody who is not sitting here. No account or "
+                        + "player name is in it; the game does not send one with these.");
+    }
+
+    private void copyWorking(FameEstimate e) {
+        copyFailed = false;
+        try {
+            String report = sonar.fame.FameReport.of(e);
+            java.awt.datatransfer.StringSelection text = new java.awt.datatransfer.StringSelection(report);
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(text, text);
+        } catch (Throwable headless) {
+            copyFailed = true;
+        }
+        copiedAt = System.currentTimeMillis();
+        javax.swing.Timer back = new javax.swing.Timer(2000, ev -> repaint());
+        back.setRepeats(false);
+        back.start();
     }
 
     /** Every line that pays, largest first. */

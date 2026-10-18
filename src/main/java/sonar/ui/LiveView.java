@@ -3139,6 +3139,30 @@ class LiveView {
 
         report.accept("with no dungeon ids known, nothing is claimed about collections",
                 worked.collections.isEmpty() || worked.collections.get(0).have() == 0);
+
+        // the working handed over whole, which is the only form a disagreement with the
+        // game can be diagnosed from: the counts, and the blob they were decoded out of
+        played.pcStats = "AAAAAAAAtest";
+        sonar.fame.FameEstimate sendable = sonar.fame.FameEstimate.of("Wizard 20", 46_000, played,
+                new int[]{999, 999, 999, 999, 999, 999, 999, 999}, new int[]{1, 1, 1, 1, 1, 1, 1, 1});
+        String text = sonar.fame.FameReport.of(sendable);
+        report.accept("the whole working can be handed over as text",
+                text.startsWith("Sonar fame working") && text.contains("Wizard 20"));
+        report.accept("and it carries the figure it is arguing for",
+                text.contains(String.format("%,d", sendable.total())));
+        report.accept("and every line underneath it", text.contains("Monster kills")
+                && text.contains("Cartography") && text.contains("Maxed life"));
+        report.accept("and the counts those lines were worked from",
+                text.contains("142,000") && text.contains("4,100,000"));
+        report.accept("and the blob they were decoded out of, which is the part that can be replayed",
+                text.contains("AAAAAAAAtest"));
+        report.accept("and the stats against the ceiling the maxing test used",
+                text.contains("999 / 1"));
+        report.accept("a character whose statistics have not arrived says so rather than a total",
+                sonar.fame.FameReport.of(sonar.fame.FameEstimate.of("Wizard 20", 100, null, null, null))
+                        .contains("has not sent"));
+        report.accept("and no report is asked to be built out of nothing at all",
+                !sonar.fame.FameReport.of(null).isEmpty());
     }
 
     /**
