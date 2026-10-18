@@ -285,7 +285,9 @@ public final class FameRules {
         d("Mountain Temple", 150, 300, 600, 1_200, 3_000);
         d("Lair of Draconis", 175, 350, 700, 1_400, 3_500);
         d("The Third Dimension", 150, 300, 600, 1_200, 3_000);
-        d("Ice Citadel", 120, 250, 500, 1_000, 2_500);
+        // the published table prints 120 for the first tier; the game paid 125, and no sum of
+        // that table's own numbers makes 125, so the table is wrong and the game is not
+        d("Ice Citadel", 125, 250, 500, 1_000, 2_500);
         d("Ocean Trench", 175, 350, 700, 1_400, 3_500);
         d("Tomb of the Ancients", 200, 400, 800, 1_600, 4_000);
         d("The Shatters", 500, 1_000, 2_000, 4_000, 10_000);
