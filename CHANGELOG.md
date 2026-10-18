@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.31.0
+
+**The fame working can be handed over in one click**
+
+- A fame total that disagrees with the game is the one fault Sonar cannot diagnose from the way it gets reported. "Off by a hundred" names the symptom and none of the hundred and thirty counts behind it — and the counts are not even the half that matters, because only the **statistics blob** they were decoded from can be replayed offline against another build.
+- There has always been a full dump of exactly that, behind `-Dsonar.fame.dump=1`. Nobody running the installer is ever going to set a system property. So it is a button now: **copy**, on the fame card, which puts the whole working on the clipboard as plain text.
+- What goes on the clipboard: the figure and its two halves, every line of the breakdown with the count and tier behind it, how far each collection has got, every statistic and every dungeon completion **as Sonar decoded them**, the eight stats against the ceiling the maxing test used, and the blob itself.
+- Nothing in it identifies anybody. The game sends no name with these statistics and Sonar does not add one — a character is its class and level, which is what the page already calls it.
+- Eight assertions cover it, including that a character whose statistics have not arrived says so rather than quoting a total it cannot support.
+
 ## 2.30.0
 
 **The Shatters overlay uses the game's own minimap zoom ladder**
