@@ -58,14 +58,13 @@ class FamePane extends Pane {
      * finished is a separate question with a separate answer, and that part is not affected.
      */
     private static String why(FameEstimate e) {
-        StringBuilder b = new StringBuilder("This total is an estimate and is probably short. ");
-        b.append("The game works fame out in its own client and only sends the real figure when a ");
-        b.append("character dies. Sonar reads the counts behind it from the statistics the game sends ");
-        b.append("at character select, and the numbering of those statistics is the game's own - some ");
-        b.append("of it is not yet known, and nothing is read under an id that has not been proved, ");
-        b.append("so anything unknown is simply missing rather than guessed at. ");
-        b.append("Which dungeons you have finished, and which collections they complete, does not ");
-        b.append("depend on any of that.");
+        StringBuilder b = new StringBuilder("An estimate, because the game works fame out in its own ");
+        b.append("client and only sends the real figure when a character dies. Sonar reads the counts ");
+        b.append("behind it from the statistics the game sends at character select. Checked against a ");
+        b.append("live character with the game's own panel open beside it, every one of those counts ");
+        b.append("matched and the total came out exactly right - but the layout of those statistics ");
+        b.append("belongs to the game and has been changed before without notice, so this is still a ");
+        b.append("working rather than a quotation.");
         String record = FameTruth.record();
         if (!record.isEmpty()) b.append(" Against the game's own figure it has ").append(record).append('.');
         if (e.decodeLooksWrong && !e.decodeComplaint.isEmpty()) {
