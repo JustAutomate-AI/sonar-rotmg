@@ -159,9 +159,18 @@ public final class FameEstimate {
         return total;
     }
 
-    /** Bonus fame: every flat reward, plus every percentage applied once to base fame. */
+    /**
+     * Bonus fame: every line's own worth, added up.
+     * <p>
+     * Line by line rather than percentage-in-aggregate, because the game rounds each line on
+     * its own and rounding once at the end loses a point. Its panel paid Maxing 1,099 for one
+     * vital stat and five others, which is 314 plus five times 157 - each of those already
+     * rounded up before being added.
+     */
     public long bonus() {
-        return flatTotal() + FameRules.percentOf(baseFame, percentTenths());
+        long total = 0;
+        for (Line l : lines) total += l.worth(baseFame);
+        return total;
     }
 
     public long total() {

@@ -191,9 +191,14 @@ class FamePane extends Pane {
         g.setFont(SonarTheme.font(11f));
         if (!sane) {
             g.setColor(SonarTheme.DANGER);
-            String why = "The working claims " + tenths(e.percentTenths()) + " of base fame; the game cannot pay more than "
-                    + tenths(FameRules.MAX_PERCENT_TENTHS) + ". Not shown.";
+            // say which guard objected. Blaming the percentage when the counts are what is
+            // wrong sends anyone reading it to look in the wrong half of the program
+            String why = e.decodeLooksWrong
+                    ? "The game's statistics did not read sensibly: " + e.decodeComplaint + ". Not shown."
+                    : "The working claims " + tenths(e.percentTenths()) + " of base fame; the game cannot pay more than "
+                            + tenths(FameRules.MAX_PERCENT_TENTHS) + ". Not shown.";
             g.drawString(SonarTheme.fit(why, g.getFontMetrics(), width - PAD - left), left, y + 114);
+            note(new Rectangle(left, y + 103, width - left - PAD, 16), why);
         } else if (record.isEmpty()) {
             g.setColor(SonarTheme.FAINT);
             g.drawString("Estimate · the game only sends the real figure on death", left, y + 114);

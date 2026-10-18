@@ -1664,7 +1664,11 @@ class LiveView {
         System.arraycopy(worn, 0, rogue.statBoost, 0, 8);
         System.arraycopy(classMax, 0, rogue.maxStat, 0, 8);
         System.arraycopy(exalted, 0, rogue.exalt, 0, 8);
-        report.accept("a stat is measured without what the gear is lending", rogue.base(0) == 760 && rogue.base(3) == 25);
+        // The boost the game sends already contains the exaltation - a Wizard at 76 attack
+        // with (+11) from gear and (+5) from exaltation reports a boost of 16. So a stat
+        // measured for maxing takes the gear off and keeps the exaltation on.
+        report.accept("a stat is measured without the gear but with its exaltation",
+                rogue.base(0) == 770 && rogue.base(3) == 25);
         report.accept("exaltation raises the ceiling as well as the stat", rogue.cap(0) == 760 && rogue.cap(2) == 57);
         report.accept("life at the class base plus its exaltation counts as maxed", rogue.maxed(0));
         // mana 340 of 385, speed 71 of 75 and vitality 55 of 60 are all short of their ceilings
@@ -2174,39 +2178,61 @@ class LiveView {
         // three of the hundred and twenty three reads took the wrong stat's number. A blob is
         // built here the way the server builds one and read back: the figures have to come out
         // of the fields they went into, whatever order those fields happen to be declared in.
+        // Every id below was read off the game's own statistics panel on a live character and
+        // matched to the blob by a value unique in that panel, so each is forced rather than
+        // chosen. They are not the ids Sonar shipped with: the client has renumbered, and the
+        // old numbering put shots fired on a dungeon and tiles discovered on assists-against-gods.
         java.util.List<int[]> written = new java.util.ArrayList<>();
-        written.add(new int[]{24, 117057});  // shots fired
-        written.add(new int[]{31, 275});     // assists
-        written.add(new int[]{85, 13});      // party level ups
-        written.add(new int[]{86, 93});      // lesser gods kills
-        // the pair that proves it. The server writes stat 8 before stat 16; the old reader asked
-        // for god kills (16) first and snake pit (8) eight reads later, so it handed each of them
-        // the other's number. Any reader that is not in id order gets these two the wrong way round.
-        written.add(new int[]{8, 4});        // snake pit completions
-        written.add(new int[]{16, 2000});    // god kills
+        written.add(new int[]{10, 140357});   // shots fired
+        written.add(new int[]{17, 424783});   // tiles discovered
+        written.add(new int[]{22, 403});      // assists
+        written.add(new int[]{24, 170});      // god kills
+        written.add(new int[]{76, 29});       // party level-ups
+        written.add(new int[]{77, 168});      // lesser gods kills
+        written.add(new int[]{106, 24});      // ruins enemy kills
         sonar.game.RealmCharacterStats read = statsFrom(written);
         report.accept("a statistic is read into the field it was written for",
-                read != null && read.shots_fired == 117057 && read.assists == 275);
+                read != null && read.shots_fired == 140357 && read.tiles_discovered == 424783);
         report.accept("and the ones behind it do not shift along with it",
-                read != null && read.party_level_ups == 13 && read.lesser_gods_kills == 93);
+                read != null && read.party_level_ups == 29 && read.lesser_gods_kills == 168);
         report.accept("a statistic nobody sent stays empty rather than borrowing a neighbour's",
-                read != null && read.tiles_discovered == 0 && read.kills == 0);
-        report.accept("two statistics the old reader swapped now land the right way round",
-                read != null && read.snake_pit == 4 && read.god_kills == 2000);
-        // and the dungeon counts have to line up with the names the rewards are looked up by.
-        // They were built in a roughly alphabetical order that was not quite the order the names
-        // are in, so Spider Den and Spectral Penitentiary each took the other's reward.
-        java.util.List<int[]> oneDungeon = new java.util.ArrayList<>();
-        sonar.game.enums.CharacterStatistics spiderDen =
-                sonar.game.enums.CharacterStatistics.NAME_CS.get("Spider Den");
-        oneDungeon.add(new int[]{spiderDen == null ? 0 : spiderDen.getPcStatId(), 7});
-        sonar.game.RealmCharacterStats justSpiders = statsFrom(oneDungeon);
-        int spiderSlot = sonar.game.enums.CharacterStatistics.DUNGEON_NAMES.indexOf("Spider Den");
-        report.accept("a dungeon's completions are counted under that dungeon's own name",
-                justSpiders != null && spiderSlot >= 0 && justSpiders.dungeonStats[spiderSlot] == 7);
-        int total = 0;
-        if (justSpiders != null) for (int count : justSpiders.dungeonStats) total += count;
-        report.accept("and nowhere else", total == 7);
+                read != null && read.kills == 0 && read.potions_drunk == 0);
+        report.accept("the biome counters sit where the game actually puts them",
+                read != null && read.ruins_enemy_kills == 24);
+        report.accept("god kills is id 24, which the old table gave to shots fired",
+                read != null && read.god_kills == 170 && read.shots_fired != 170);
+
+        // the blob is thirty-two bytes of flags, not sixteen. Written short, the second half of
+        // the flags is eaten as data and every figure after it lands one slot early - which is
+        // what a live character proved was happening.
+        report.accept("the whole blob is consumed, with nothing read as a phantom zero",
+                read != null && read.assists == 403);
+
+        // Nine dungeons have a proved id, matched against a live character's own blob by
+        // walking the statistics in order and checking every value in turn. Every other
+        // dungeon reads zero on that character, so its bit is never set and its id cannot be
+        // seen at all. Those stay unknown rather than guessed: a wrong id would quietly pay
+        // some other dungeon's reward, which is exactly the fault that took this page out.
+        String[] proved = {"Sprite World", "Lair of Shaitan", "Magic Woods", "Secluded Thicket",
+                "Oryx's Castle", "Oryx's Chamber", "Oryx's Sanctuary", "Wine Cellar", "Plagued Nest"};
+        int known = 0;
+        for (String name : sonar.game.enums.CharacterStatistics.DUNGEON_NAMES) {
+            sonar.game.enums.CharacterStatistics cs = sonar.game.enums.CharacterStatistics.NAME_CS.get(name);
+            if (cs != null && cs.getPcStatId() >= 0) known++;
+        }
+        report.accept("only the dungeons whose id has been proved are read at all",
+                known == proved.length);
+        boolean allProvedKnown = true;
+        for (String name : proved) {
+            sonar.game.enums.CharacterStatistics cs = sonar.game.enums.CharacterStatistics.NAME_CS.get(name);
+            if (cs == null || cs.getPcStatId() < 0) allProvedKnown = false;
+        }
+        report.accept("and those nine are the ones the live blob settled", allProvedKnown);
+        int counted = 0;
+        if (read != null && read.dungeonStats != null) {
+            for (int c : read.dungeonStats) counted += c;
+        }
+        report.accept("a blob carrying no dungeon bits yields no completions", counted == 0);
 
         // the enchant gems are the game's own sprites rather than shapes drawn here
         report.accept("the game's own enchant pictures are all found", EnchantSprites.known() > 800);
@@ -2906,18 +2932,30 @@ class LiveView {
         long[] t = sonar.fame.FameRules.DUNGEON_T;
         long[] r = {100, 200, 400, 800, 2_000};
 
-        report.accept("a dungeon run once pays the first tier and nothing else",
+        // Every tier passed pays. The game said so itself: on a live character its own panel
+        // paid Potions +70 for 113 drunk and Ability +70 for 2,005 uses, and both counts sit
+        // in a second tier worth 50. Seventy is twenty plus fifty.
+        report.accept("a dungeon run once pays the first tier",
                 sonar.fame.FameRules.reward(1, t, r) == 100);
-        report.accept("run forty times it pays the fourth tier alone, not the four added up",
-                sonar.fame.FameRules.reward(40, t, r) == 800);
-        report.accept("run a hundred times it pays the top tier once",
-                sonar.fame.FameRules.reward(100, t, r) == 2_000);
+        report.accept("run ten times it pays the first two tiers added together",
+                sonar.fame.FameRules.reward(10, t, r) == 300);
+        report.accept("run forty times it pays all four it has passed",
+                sonar.fame.FameRules.reward(40, t, r) == 1_500);
+        report.accept("run a hundred times it pays those four and the top tier once",
+                sonar.fame.FameRules.reward(100, t, r) == 3_500);
         report.accept("the top tier pays again per further hundred",
-                sonar.fame.FameRules.reward(250, t, r) == 4_000);
-        report.accept("and never more than twenty times, however many runs",
-                sonar.fame.FameRules.reward(900_000, t, r) == 40_000);
+                sonar.fame.FameRules.reward(250, t, r) == 5_500);
+        report.accept("and never more than twenty top-tier payments, however many runs",
+                sonar.fame.FameRules.reward(900_000, t, r) == 1_500 + 40_000);
         report.accept("a dungeon never run pays nothing",
                 sonar.fame.FameRules.reward(0, t, r) == 0);
+        // the two readings the live client discriminated between
+        long[] potT = {25, 100, 400, 1_000, 2_000}, potR = {20, 50, 200, 400, 1_000};
+        report.accept("113 potions pays 70, which is what the game's own panel paid",
+                sonar.fame.FameRules.reward(113, potT, potR) == 70);
+        long[] abiT = {100, 500, 2_500, 10_000, 25_000};
+        report.accept("and 2,005 ability uses pays 70 as well",
+                sonar.fame.FameRules.reward(2_005, abiT, potR) == 70);
 
         report.accept("the next rung is counted from where the character is",
                 sonar.fame.FameRules.toNext(7, t) == 3 && sonar.fame.FameRules.nextReward(7, t, r) == 200);
@@ -2926,9 +2964,15 @@ class LiveView {
         report.accept("and once the repeats are used up there is no next rung",
                 sonar.fame.FameRules.toNext(2_000, t) == 0 && sonar.fame.FameRules.nextReward(2_000, t, r) == 0);
 
-        report.accept("a percentage of base fame is taken once and rounded down",
+        // rounded up, which the game settled exactly: Maxing paid 1,099 on base fame 2,271
+        // for two vital stats and three others, and only rounding up gives that figure
+        report.accept("a percentage of base fame is taken once and rounded up",
                 sonar.fame.FameRules.percentOf(1_000, 75) == 75
-                        && sonar.fame.FameRules.percentOf(999, 75) == 74);
+                        && sonar.fame.FameRules.percentOf(999, 75) == 75);
+        long maxingPaid = 2 * (200 + sonar.fame.FameRules.percentOf(2_271, 50))
+                + 3 * (100 + sonar.fame.FameRules.percentOf(2_271, 25));
+        report.accept("which reproduces the Maxing bonus the game paid on a real character",
+                maxingPaid == 1_099);
 
         // the ceiling. Everything the game can pay as a percentage adds up to this, and it is
         // what makes it possible to tell a wrong answer from a merely large one
@@ -2984,18 +3028,20 @@ class LiveView {
 
         // a whole character, through the real parser, with counts a long-played one would have
         java.util.List<int[]> blob = new java.util.ArrayList<>();
-        blob.add(new int[]{sonar.game.enums.CharacterStatistics.NAME_CS.get("Undead Lair").getPcStatId(), 212});
-        blob.add(new int[]{sonar.game.enums.CharacterStatistics.NAME_CS.get("The Shatters").getPcStatId(), 23});
-        blob.add(new int[]{27, 4_100_000});
-        blob.add(new int[]{30, 142_000});
+        blob.add(new int[]{17, 4_100_000});   // tiles discovered
+        blob.add(new int[]{20, 142_000});     // kills
         sonar.game.RealmCharacterStats played = statsFrom(blob);
         sonar.fame.FameEstimate worked = sonar.fame.FameEstimate.of("Wizard", 46_000, played, null, null);
         report.accept("a character's statistics are read into a working", worked != null && worked.known);
         // Undead Lair at 212 is two whole hundreds: 1,400. The Shatters at 23 is the third
         // tier alone: 2,000. Tiles at 4.1m is the third tier: 400. Kills at 142,000 is one
         // repeat of the top tier: 1,000.
-        report.accept("and each line pays the tier it reached, not every tier below it",
-                worked != null && worked.flatTotal() == 1_400 + 2_000 + 400 + 1_000);
+        // Tiles at 4.1m is Cartography's third tier: 400. Kills at 142,000 is one repeat of
+        // the top monster-kill tier: 1,000. Neither pays the tiers beneath it.
+        // tiles at 4.1m has passed Cartography's first three tiers: 20+100+400. Kills at
+        // 142,000 has passed all five monster-kill tiers: 20+50+200+400+1,000.
+        report.accept("and each line pays every tier it has passed",
+                worked != null && worked.flatTotal() == 520 + 1_670);
         report.accept("with no percentage at all when nothing is maxed",
                 worked != null && worked.percentTenths() == 0 && worked.bonus() == worked.flatTotal());
         report.accept("so the figure stays near the base fame it was worked from",
@@ -3018,8 +3064,8 @@ class LiveView {
         report.accept("a set the game keeps no readable count for says so rather than showing nothing",
                 neo != null && neo.uncountable.size() == 4 && !neo.complete());
 
-        report.accept("the dungeon that is one run from finishing a set leads the queue",
-                !worked.steps.isEmpty());
+        report.accept("with no dungeon ids known, nothing is claimed about collections",
+                worked.collections.isEmpty() || worked.collections.get(0).have() == 0);
     }
 
     /**

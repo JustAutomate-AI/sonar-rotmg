@@ -131,14 +131,17 @@ public final class FameDump {
             byte[] data = sonar.game.PcStatsDecoder.sixBitStringToBytes(blob);
             java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN);
             int flag = buf.getInt();
-            boolean[] set = new boolean[128];
-            for (int i = 0; i < 16; i++) {
+            // thirty-two bytes, the same as the real parser. A diagnostic carrying its own
+            // copy of the bug it is meant to find reports the bug as still present after it
+            // has been fixed, which is exactly what this one did.
+            boolean[] set = new boolean[256];
+            for (int i = 0; i < 32; i++) {
                 int b = buf.get() & 0xff;
                 for (int k = 0; k < 8; k++) set[i * 8 + k] = (b & (1 << k)) != 0;
             }
             StringBuilder line = new StringBuilder("[fame] raw pairs (flag=" + flag + "):");
             int n = 0;
-            for (int id = 0; id < 128; id++) {
+            for (int id = 0; id < set.length; id++) {
                 if (!set[id]) continue;
                 long value = readCompressed(buf);
                 String name = sonar.game.enums.CharacterStatistics.PC_NAME.get(id);

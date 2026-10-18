@@ -153,8 +153,18 @@ final class LiveModel {
         /** What equipment adds to each stat; {@link #stat} already includes it, so maxing is judged without it. */
         final int[] statBoost = new int[8];
         /** The stat the character actually owns, with equipment taken off: what "maxed" is judged on. */
+        /**
+         * The character's own stat: what equipment lends taken off, what exaltation gave kept.
+         * <p>
+         * The game's boost stat already carries the exaltation inside it - a Wizard shown as
+         * 76 attack with (+11) from gear and (+5) from exaltation reports a boost of 16, not
+         * 11. Subtracting the whole boost therefore removed the exaltation as well, while
+         * {@link #cap(int)} added it to the ceiling, so an exalted stat was pushed below its
+         * own maximum from both ends at once. Only a stat with no exaltation at all could
+         * still read as maxed, which is why a character with six maxed stats was paid for one.
+         */
         int base(int i) {
-            return Math.max(0, stat[i] - statBoost[i]);
+            return Math.max(0, stat[i] - statBoost[i] + Math.max(0, exalt[i]));
         }
 
         /** True when this stat is at its class maximum, ignoring anything equipment is lending it. */
