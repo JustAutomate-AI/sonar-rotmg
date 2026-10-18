@@ -2,6 +2,33 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.29.0
+
+**The statistics are read in the order the server writes them**
+
+- The fame total in 2.28.0 was wrong, and this is the fix. On a live character the game paid **10,181** where 2.28.0 worked out **11,951** — over by 1,770, with the flat bonuses carrying all of the error.
+- The cause was not the fame arithmetic, the ids, or the bit array. It was the **order**. The server writes the values in a fixed sequence of its own — the general statistics first, then dungeons in four batches with a few counters tucked between them, then the biome kills, then the seasonal dungeons, with two late additions appended out of position at the very end. Sonar walked the bits in **ascending id** instead, which is simply not how the string is laid out.
+- Reading in the wrong order does not fail. It silently hands every value to the wrong statistic. That is why it presented as a tie-breaking problem, then as a framing problem, and why it once produced the impossible result of a completion count going **down** between two readings of the same character.
+- The sequence comes from [RealmHound](https://github.com/pillarzz/RealmHound), whose `pcstats.rs` states it outright: *"Values are stored in a hardcoded read order, NOT in bit order."*
+
+**The ids were right all along**
+
+- 2.28.0 withdrew most of the statistic ids as unproved and shipped a page that deliberately read almost nothing, on the belief that the numbering was stale. It was not. Sonar's **original id table was correct from the first commit**, and every id derived to replace it was derived under a broken model. The original table is restored.
+- With the order and the ids both right, the decode is exact rather than approximately right: **49 of 49 statistics match the game's own Attributes panel**, every biome kill and every dungeon completion included.
+- Fame on death on the character it was checked against: Sonar **5,675**, the game **5,675**. 2.28.0 managed 5,640 on the same character and called the missing 35 an unknown dungeon. It was not an unknown dungeon.
+
+**Blobs from before the 2026 patch still read**
+
+- The bit array is **sixteen bytes or thirty-two**. A 2026 update grew it, and a blob frozen on a character that died before that patch still carries the old width. Sonar now works out which a given blob uses by trying both and keeping the one that consumes the string exactly.
+
+**The damage board opens on the last boss**
+
+- A finished run opened on **Whole instance**, which averages the trash across the fight that actually mattered. It now opens on the last boss the run reached, falling back to the last miniboss and then to the whole run. Picking a fight yourself still sticks until the instance changes.
+
+**Under the hood**
+
+- The self-test's blob builder was **sorting its values by id** — the exact fault under test — so it could never have caught this no matter how many assertions were added. It writes in the server's order now, and the suite checks a real captured blob field by field. 312 assertions pass.
+
 ## 2.28.0
 
 **The Fame tab, and arithmetic that can be checked**
