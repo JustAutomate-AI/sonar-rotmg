@@ -52,6 +52,17 @@ public final class CharacterCache {
         int skin = -1, dyeMain, dyeAccessory;
         String petName = "";
         int petRarity;
+        /**
+         * The character's own packed statistics, exactly as the game sent them.
+         * <p>
+         * This is where every fame bonus is counted from, and the game hands it over once,
+         * at character select, in the packet that says which object in the world is you. A
+         * character not currently being played would otherwise have nothing behind its fame
+         * at all, so the blob is kept rather than only its decoding - it is one short string,
+         * and keeping the original means a later correction to the parser applies to every
+         * character already remembered instead of only the one being played.
+         */
+        String pcStats = "";
         /** When this character was last seen, so the newest is listed first. */
         long lastSeen;
         /**
@@ -198,6 +209,26 @@ public final class CharacterCache {
     }
 
     /**
+     * The packed statistics of a character just loaded, kept until the roster entry for it
+     * exists. The game sends these before anything else about the character, so there is
+     * usually no entry to put them on yet.
+     */
+    private static final Map<Integer, String> PENDING_STATS = new LinkedHashMap<>();
+
+    /** The statistics blob the game sent for a character at select, kept against its id. */
+    public static synchronized void statsFor(int charId, String pcStats) {
+        if (charId <= 0 || pcStats == null || pcStats.isEmpty()) return;
+        load();
+        Entry e = CHARACTERS.get(charId);
+        if (e != null) {
+            e.pcStats = pcStats;
+            save();
+            return;
+        }
+        PENDING_STATS.put(charId, pcStats);
+    }
+
+    /**
      * Records the character being played right now. Called on the packet
      * thread each tick; writes to disk at most once every few seconds.
      */
@@ -252,6 +283,9 @@ public final class CharacterCache {
         e.dyeMain = statOf(me, StatType.TEX1_STAT);
         e.dyeAccessory = statOf(me, StatType.TEX2_STAT);
         e.lastSeen = System.currentTimeMillis();
+        String waiting = PENDING_STATS.remove(id);
+        if (waiting != null) e.pcStats = waiting;
+
         // re-inserting keeps the most recently played character last in the file
         CHARACTERS.remove(id);
         CHARACTERS.put(id, e);

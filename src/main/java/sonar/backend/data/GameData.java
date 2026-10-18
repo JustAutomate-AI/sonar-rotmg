@@ -234,6 +234,10 @@ public class GameData {
         this.worldPlayerId = objectId;
         this.charId = charId;
         updateDungeonStats(charId, str);
+        // the same blob is what every fame bonus is counted from, and this is the only time
+        // the game sends it, so it is written down against the character rather than lost
+        // the moment another one is played
+        sonar.ui.CharacterCache.statsFor(charId, str);
     }
 
     public void petYardCheck(String displayName) {

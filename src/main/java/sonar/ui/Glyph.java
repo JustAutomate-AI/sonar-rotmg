@@ -58,6 +58,20 @@ final class Glyph {
                 p.moveTo(5, 6.5);
                 p.curveTo(5, 2.5, 15, 2.5, 15, 6.5);
                 break;
+            case "Fame":
+                // a cup: what the fame bonuses are, which is a prize for what the character did
+                line(p, 5, 3, 15, 3);
+                p.moveTo(5, 3);
+                p.curveTo(5, 11, 7.5, 12.5, 10, 12.5);
+                p.curveTo(12.5, 12.5, 15, 11, 15, 3);
+                p.moveTo(5, 5);
+                p.curveTo(1.5, 5, 1.5, 9.5, 5.2, 9.8);
+                p.moveTo(15, 5);
+                p.curveTo(18.5, 5, 18.5, 9.5, 14.8, 9.8);
+                line(p, 10, 12.5, 10, 15.5);
+                line(p, 6.5, 17.5, 13.5, 17.5);
+                line(p, 8, 15.5, 12, 15.5);
+                break;
             case "Party finder":
                 // three figures side by side, the party the finder is for
                 g2.draw(new Ellipse2D.Double(2.2, 4.4, 5, 5));

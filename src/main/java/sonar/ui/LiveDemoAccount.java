@@ -36,14 +36,32 @@ final class LiveDemoAccount {
      * impressive - one fully maxed, one seasonal, one freshly rolled, one dead.
      */
     private static final Object[][] ROSTER = {
-            // class, level, fame, exp, how far stats are to maxed (0-1), pet, rarity, seasonal, dead
-            {"Wizard", 20, 4812L, 1_650_000L, 1.00, "Pudding", 4, false, false},
-            {"Necromancer", 20, 2630L, 1_210_000L, 0.92, "Mister Mordecai", 3, false, false},
-            {"Paladin", 20, 1184L, 980_000L, 0.78, "Sir Barks", 3, false, false},
-            {"Huntress", 20, 640L, 820_000L, 0.61, "Tangerine", 2, true, false},
-            {"Samurai", 14, 96L, 94_000L, 0.22, "", 0, false, false},
-            {"Knight", 20, 1902L, 1_010_000L, 0.85, "Olive", 3, false, true},
+            // class, level, exp, how far stats are to maxed (0-1), pet, rarity, seasonal, dead
+            {"Wizard", 20, 92_000_000L, 1.00, "Pudding", 4, false, false},
+            {"Necromancer", 20, 36_800_000L, 0.92, "Mister Mordecai", 3, false, false},
+            {"Paladin", 20, 18_200_000L, 0.78, "Sir Barks", 3, false, false},
+            {"Huntress", 20, 8_600_000L, 0.61, "Tangerine", 2, true, false},
+            {"Samurai", 14, 94_000L, 0.22, "", 0, false, false},
+            {"Knight", 20, 25_200_000L, 0.85, "Olive", 3, false, true},
     };
+
+    /** The experience the busiest character has, which everything else is a fraction of. */
+    private static final long BUSIEST_EXP = 92_000_000L;
+
+    /**
+     * Base fame from experience, by the game's own conversion: one fame per 900 experience
+     * up to level 20, one per 2,000 after it.
+     * <p>
+     * Worked out rather than written down, because the two were written down separately
+     * before and had drifted apart - the account's best character carried the fame of a
+     * fortnight's play and the kill counts of a thousand hours, which made every fame figure
+     * derived from it look like a fault in the arithmetic rather than a fault in the demo.
+     */
+    static long baseFameFor(long exp) {
+        long toTwenty = 18_050L;
+        if (exp <= toTwenty) return exp / 900;
+        return toTwenty / 900 + (exp - toTwenty) / 2000;
+    }
 
     /**
      * Dungeon completions for the account's best character, as a player with a few
@@ -51,35 +69,92 @@ final class LiveDemoAccount {
      * in the dozens, the newest in single figures.
      */
     private static void dungeons(RealmCharacterStats s) {
+        // the early realm, run into the ground over the years
+        s.pirate_cave = 310;
+        s.forest_maze = 288;
+        s.forbidden_jungle = 274;
+        s.spider_den = 265;
+        s.the_hive = 198;
+        s.snake_pit = 240;
+        s.sprite_world = 164;
+        s.cave_of_thousand_treasures = 121;
+        s.ancient_ruins = 143;
+        s.magic_woods = 136;
+        s.candyland_hunting_grounds = 92;
+        s.undead_lair = 212;
+        s.abyss_of_demons = 188;
+        s.manor_of_the_immortals = 83;
+        s.toxic_sewers = 151;
+        s.puppet_masters_theatre = 118;
+        s.cursed_library = 35;
+        s.mad_lab = 104;
+        s.haunted_cemetery = 77;
+        s.parasite_chambers = 46;
+        s.sulfurous_wetlands = 58;
+        s.spectral_penitentiary = 19;
+
+        // the middle of the game
+        s.davy_jones_locker = 88;
+        s.ocean_trench = 64;
+        s.the_crawling_depths = 71;
+        s.woodland_labyrinth = 69;
+        s.deadwater_docks = 62;
+        s.mountain_temple = 26;
+        s.lair_of_draconis = 47;
+        s.the_third_dimension = 33;
+        s.ice_citadel = 28;
+        s.tomb_of_the_ancients = 96;
+        s.the_nest = 64;
+        s.fungal_cavern = 57;
         s.the_shatters = 23;
         s.lost_halls = 41;
         s.cultist_hideout = 38;
         s.the_void = 29;
-        s.oryxs_sanctuary = 12;
-        s.the_nest = 64;
-        s.fungal_cavern = 57;
-        s.the_crawling_depths = 71;
-        s.ice_tomb = 44;
-        s.tomb_of_the_ancients = 96;
-        s.undead_lair = 212;
-        s.abyss_of_demons = 188;
-        s.snake_pit = 240;
-        s.sprite_world = 164;
-        s.manor_of_the_immortals = 83;
-        s.toxic_sewers = 151;
-        s.puppet_masters_encore = 18;
-        s.moonlight_village = 9;
-        s.secluded_thicket = 31;
-        s.lair_of_draconis = 47;
-        s.mountain_temple = 26;
-        s.cursed_library = 35;
         s.kogbold_steamworks = 22;
         s.advanced_kogbold_steamworks = 6;
+        s.moonlight_village = 9;
+        s.the_tavern = 14;
+        s.plagued_nest = 4;
+
+        // the court
+        s.lair_of_shaitan = 21;
+        s.puppet_masters_encore = 18;
+        s.cnidarian_reef = 26;
+        s.secluded_thicket = 31;
+        s.high_tech_terror = 12;
+
+        // the castle. The Wine Cellar is deliberately left at nothing: it is the one dungeon
+        // standing between this character and Tunnel Rat, which is the state the page exists
+        // to make visible, and leaving it empty is the only way the demo ever shows it
+        s.oryxs_castle = 74;
+        s.oryxs_chamber = 68;
+        s.oryxs_sanctuary = 12;
+
+        // seasonal, run when it was on
+        s.malogia = 15;
+        s.untaris = 13;
+        s.forax = 11;
+        s.katalund = 12;
+        s.belladonnas_garden = 7;
+        s.ice_tomb = 44;
+        s.mad_god_mayhem = 9;
+        s.battle_for_the_nexus = 6;
+        s.rainbow_road = 4;
+        s.beachzone = 3;
+
+        // finished once each, with no published reward, so the page says the total is a floor
+        s.legacy_heroic_undead_lair = 2;
+        s.white_snake_invasion_i = 1;
     }
 
-    /** Everything a character's fame is worked out from, scaled to how far along it is. */
-    private static RealmCharacterStats stats(double along, boolean best) {
+    /**
+     * Everything a character's fame is worked out from, scaled by how much it has played
+     * rather than by how maxed it is. Those are two different axes: a character can be 8/8
+     * in a weekend and still have shot nothing.
+     */
+    private static RealmCharacterStats stats(double played, boolean best) {
         RealmCharacterStats s = new RealmCharacterStats();
+        double along = played;
         s.tiles_discovered = (int) (4_100_000 * along);
         s.quests_completed = (int) (1_480 * along);
         s.shots_fired = (int) (980_000 * along);
@@ -115,6 +190,8 @@ final class LiveDemoAccount {
         s.wither_enemy_kills = (int) (3_800 * along);
         // only the account's best character has run the hard dungeons enough to matter
         if (best) dungeons(s);
+        // the fields were set by hand rather than decoded, so the derived arrays are gathered here
+        s.refresh();
         return s;
     }
 
@@ -130,7 +207,7 @@ final class LiveDemoAccount {
             int classId = CharacterClass.idByName(cls);
             if (classId < 0) continue;
 
-            double along = (Double) spec[4];
+            double along = (Double) spec[3];
             boolean best = i == 0;
 
             RealmCharacter c = new RealmCharacter();
@@ -138,13 +215,15 @@ final class LiveDemoAccount {
             c.classNum = (short) classId;
             c.classString = cls;
             c.level = (Integer) spec[1];
-            c.fame = (Long) spec[2];
-            c.exp = (Long) spec[3];
-            c.seasonal = (Boolean) spec[7];
+            c.exp = (Long) spec[2];
+            // never typed in beside the experience it has to agree with
+            c.fame = baseFameFor(c.exp);
+            c.seasonal = (Boolean) spec[6];
             c.skin = LiveDemo.skinFor(cls, i * 3 + 1);
-            c.petName = (String) spec[5];
-            c.petRarity = (Integer) spec[6];
-            c.charStats = stats(along, best);
+            c.petName = (String) spec[4];
+            c.petRarity = (Integer) spec[5];
+            double played = Math.min(1, c.exp / (double) BUSIEST_EXP);
+            c.charStats = stats(played, best);
 
             int[] kit = LiveDemo.kitFor(cls);
             c.equipment = new int[]{kit[0], kit[1], kit[2], kit[3], -1, -1, -1, -1,
@@ -186,7 +265,7 @@ final class LiveDemoAccount {
             s.exp = c.exp;
             s.seasonal = c.seasonal;
             s.current = best;
-            s.lost = (Boolean) spec[8] ? System.currentTimeMillis() - 86_400_000L * 3 : 0;
+            s.lost = (Boolean) spec[7] ? System.currentTimeMillis() - 86_400_000L * 3 : 0;
             s.skin = c.skin;
             int[] worn = LiveDemo.dyesFor(i * 3 + 1);
             s.dyeMain = worn[0];
@@ -211,6 +290,25 @@ final class LiveDemoAccount {
 
             // everything worn counts towards what the account holds
             for (int id : kit) m.ownForDemo(id, 1);
+
+            // the fame page reads the same statistics the live path reads, through the same
+            // working, so what the demo shows is what a real account of this size would show
+            int[] raw = new int[8], ceiling = new int[8];
+            for (int k = 0; k < 8; k++) {
+                raw[k] = s.base(k);
+                ceiling[k] = s.cap(k);
+            }
+            sonar.fame.FameEstimate fame = sonar.fame.FameEstimate.of(cls + " " + c.level, c.fame,
+                    c.charStats, raw, ceiling);
+            fame.charId = c.charId;
+            fame.current = best;
+            fame.lost = (Boolean) spec[7];
+            fame.seasonal = c.seasonal;
+            fame.classId = classId;
+            fame.skin = c.skin;
+            fame.dyeMain = worn[0];
+            fame.dyeAccessory = worn[1];
+            m.fame.add(fame);
         }
 
         collections(m);

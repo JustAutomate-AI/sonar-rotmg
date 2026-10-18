@@ -80,6 +80,12 @@ public class PacketCapture implements Controller {
         } else if (packet instanceof sonar.packets.incoming.IncomingPartyMemberInfoPacket) {
             sonar.packets.incoming.IncomingPartyMemberInfoPacket party = (sonar.packets.incoming.IncomingPartyMemberInfoPacket) packet;
             sonar.ui.PartyFinder.sawMembers(party.partyId, party.partyPlayers);
+        } else if (packet instanceof DeathPacket) {
+            // the one moment the game says what a character was actually worth, and what every
+            // bonus paid. It was arriving and being dropped, which is why the fame page had
+            // nothing to check its own arithmetic against
+            sonar.fame.FameTruth.died((DeathPacket) packet);
+            data.logPacket(packet);
         } else if (packet instanceof PlayerHitPacket) {
             PlayerHitPacket p = (PlayerHitPacket) packet;
             data.userDamage(p);

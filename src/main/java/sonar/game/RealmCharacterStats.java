@@ -214,6 +214,18 @@ public class RealmCharacterStats {
         return counts;
     }
 
+    /**
+     * Gathers the derived arrays after the fields have been set by hand rather than decoded.
+     * <p>
+     * Only the demo account needs this. Everything real arrives as the packed blob and is
+     * gathered by {@link #decode(String)}; a demo that sets the fields directly would
+     * otherwise carry null dungeon counts, which reads on screen as a character that has
+     * never finished anything.
+     */
+    public void refresh() {
+        updateStats();
+    }
+
     private void updateStats() {
         regularStats = new int[]{
                 shots_fired,

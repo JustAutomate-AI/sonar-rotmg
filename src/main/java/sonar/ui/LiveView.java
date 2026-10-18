@@ -14,13 +14,18 @@ import java.util.List;
  */
 class LiveView {
 
-    static final String LIVE = "Live", PLAYERS = "Players", INSTANCE = "Instance", ANALYSIS = "Analysis", VAULT = "Vault", CHARACTERS = "Characters", EXALTATION = "Exaltation", PUZZLE = "Puzzle", COLLECTION = "Collection", PARTYFINDER = "Party finder", WARDROBE = "Wardrobe";
+    static final String LIVE = "Live", PLAYERS = "Players", INSTANCE = "Instance", ANALYSIS = "Analysis", VAULT = "Vault", CHARACTERS = "Characters", EXALTATION = "Exaltation", PUZZLE = "Puzzle", COLLECTION = "Collection", FAME = "Fame", PARTYFINDER = "Party finder", WARDROBE = "Wardrobe";
 
     // eight pages: the fight, the people in it, the place it happens in, the deeper-dive tools, your
     // account-wide storage, your roster of characters, their exaltation progress, and the Shatters puzzle
-    private final Workspace livePage = new Workspace(), playersPage = new Workspace(), instancePage = new Workspace(), analysisPage = new Workspace(), vaultPage = new Workspace(), charactersPage = new Workspace(), exaltationPage = new Workspace(), puzzlePage = new Workspace(), collectionPage = new Workspace(), partyFinderPage = new Workspace(), wardrobePage = new Workspace();
+    private final Workspace livePage = new Workspace(), playersPage = new Workspace(), instancePage = new Workspace(), analysisPage = new Workspace(), vaultPage = new Workspace(), charactersPage = new Workspace(), exaltationPage = new Workspace(), puzzlePage = new Workspace(), collectionPage = new Workspace(), famePage = new Workspace(), partyFinderPage = new Workspace(), wardrobePage = new Workspace();
     /** What each dungeon drops against what the account already holds. */
     private final CollectionPane collectionPane = new CollectionPane();
+    /** Fame on death, the collections it turns on, and what to run for the next of it. */
+    private final FamePane famePane = new FamePane();
+    private final FameCollectionsPane fameCollections = new FameCollectionsPane();
+    private final FameNextPane fameNext = new FameNextPane();
+    private final FloatWindow fameWindow, fameSetsWindow, fameNextWindow;
     private final FloatWindow collectionWindow;
     /**
      * The runs you and the selected player have both been in - the Instances list, filtered
@@ -258,6 +263,11 @@ class LiveView {
         collectionPane.onSideChange = this::refreshCollections;
         partyFinderWindow = window(partyFinderPage, "partyfinder", "Party finder", partyFinderPane, null,
                 0.006, 0.006, 0.988, 0.988, 320, 240);
+        // three columns, all full height: what the character is worth, the sets that are the
+        // only thing paying a share of it, and the single next run worth making
+        fameWindow = window(famePage, "fame", "Fame on death", famePane, null, 0.006, 0.006, 0.30, 0.988, 270, 240);
+        fameSetsWindow = window(famePage, "famesets", "Collections", fameCollections, null, 0.312, 0.006, 0.40, 0.988, 280, 240);
+        fameNextWindow = window(famePage, "famenext", "Worth running next", fameNext, null, 0.718, 0.006, 0.276, 0.988, 230, 200);
         // the breakdown sits under the enemies as a card, and opens over the page when it is wanted
         breakdownWindow = window(instancePage, "breakdown", "Damage breakdown", breakdownBody(), breakdownAccessory(),
                 0.642, 0.006, 0.352, 0.988, 240, 150);
@@ -322,6 +332,7 @@ class LiveView {
         pages.put(EXALTATION, exaltationPage);
         pages.put(WARDROBE, wardrobePage);
         pages.put(COLLECTION, collectionPage);
+        pages.put(FAME, famePage);
         pages.put(PARTYFINDER, partyFinderPage);
         pages.put(PUZZLE, puzzlePage);
         return pages;
@@ -2874,11 +2885,142 @@ class LiveView {
         report.accept("making one leaves the live interface drawing as it did", Glyph.exportScale == 0);
         report.accept("so does one that fails", exportFlagAfterFailure() == 0);
 
+        fameSelfTest(report);
+
         report.accept("the void dressing is drawn quieter than what you are hunting",
                 ShattersRadar.tier(0xb6b1) == ShattersRadar.VOID
                         && ShattersRadar.tier(ShattersRadar.STONE_IDOL) == ShattersRadar.OBJECTIVE);
     }
 
+
+    /**
+     * Fame on death: the arithmetic, the tables it reads, and the guard that stops the page
+     * showing a figure the game could not possibly pay.
+     * <p>
+     * The first version of this page was removed because it showed six figures for a
+     * character worth four. Two faults did that, and both are asserted against here: it paid
+     * every tier a count had passed rather than only the one it had reached, and it had
+     * nothing at all to check the answer against.
+     */
+    private static void fameSelfTest(java.util.function.BiConsumer<String, Boolean> report) {
+        long[] t = sonar.fame.FameRules.DUNGEON_T;
+        long[] r = {100, 200, 400, 800, 2_000};
+
+        report.accept("a dungeon run once pays the first tier and nothing else",
+                sonar.fame.FameRules.reward(1, t, r) == 100);
+        report.accept("run forty times it pays the fourth tier alone, not the four added up",
+                sonar.fame.FameRules.reward(40, t, r) == 800);
+        report.accept("run a hundred times it pays the top tier once",
+                sonar.fame.FameRules.reward(100, t, r) == 2_000);
+        report.accept("the top tier pays again per further hundred",
+                sonar.fame.FameRules.reward(250, t, r) == 4_000);
+        report.accept("and never more than twenty times, however many runs",
+                sonar.fame.FameRules.reward(900_000, t, r) == 40_000);
+        report.accept("a dungeon never run pays nothing",
+                sonar.fame.FameRules.reward(0, t, r) == 0);
+
+        report.accept("the next rung is counted from where the character is",
+                sonar.fame.FameRules.toNext(7, t) == 3 && sonar.fame.FameRules.nextReward(7, t, r) == 200);
+        report.accept("past the top rung the next one is another whole multiple away",
+                sonar.fame.FameRules.toNext(140, t) == 60 && sonar.fame.FameRules.nextReward(140, t, r) == 2_000);
+        report.accept("and once the repeats are used up there is no next rung",
+                sonar.fame.FameRules.toNext(2_000, t) == 0 && sonar.fame.FameRules.nextReward(2_000, t, r) == 0);
+
+        report.accept("a percentage of base fame is taken once and rounded down",
+                sonar.fame.FameRules.percentOf(1_000, 75) == 75
+                        && sonar.fame.FameRules.percentOf(999, 75) == 74);
+
+        // the ceiling. Everything the game can pay as a percentage adds up to this, and it is
+        // what makes it possible to tell a wrong answer from a merely large one
+        long collectionPercent = 0;
+        for (sonar.fame.FameRules.Collection set : sonar.fame.FameRules.collections()) {
+            collectionPercent += set.percentTenths;
+        }
+        long maxing = 0;
+        for (int i = 0; i < 8; i++) maxing += sonar.fame.FameRules.maxedPercentTenths(i);
+        report.accept("every collection in the game comes to 120% of base fame", collectionPercent == 1_200);
+        report.accept("and eight maxed stats to 25%", maxing == 250);
+        report.accept("which is the whole of what the game can pay as a percentage",
+                collectionPercent + maxing == sonar.fame.FameRules.MAX_PERCENT_TENTHS);
+
+        report.accept("there are thirteen collections", sonar.fame.FameRules.collections().size() == 13);
+        boolean everyMemberPriced = true;
+        for (sonar.fame.FameRules.Collection set : sonar.fame.FameRules.collections()) {
+            for (String d : set.dungeons) {
+                if (sonar.fame.FameRules.dungeonRewards(d) == null) everyMemberPriced = false;
+            }
+        }
+        report.accept("every dungeon named in a collection has a published reward", everyMemberPriced);
+
+        sonar.fame.FameRules.Collection tunnelRat = null;
+        for (sonar.fame.FameRules.Collection set : sonar.fame.FameRules.collections()) {
+            if (set.name.equals("Tunnel Rat")) tunnelRat = set;
+        }
+        report.accept("Tunnel Rat is twelve dungeons, not the ten the Flash-era pages still say",
+                tunnelRat != null && tunnelRat.dungeons.size() == 12);
+        report.accept("and it takes the whole castle with it",
+                tunnelRat != null && tunnelRat.dungeons.contains("Wine Cellar")
+                        && tunnelRat.dungeons.contains("Oryx's Chamber"));
+
+        // the one number in the published table that breaks its own shape
+        long[] madLab = sonar.fame.FameRules.dungeonRewards("Mad Lab");
+        report.accept("the Mad Lab's third tier keeps the ladder's shape rather than the table's typo",
+                madLab != null && madLab[2] == 200);
+
+        // names are matched on their letters, so punctuation cannot stop a dungeon paying
+        report.accept("a dungeon is found however it is punctuated",
+                sonar.fame.FameRules.dungeonRewards("Cave of A Thousand Treasures") != null
+                        && sonar.fame.FameRules.dungeonRewards("Santas Workshop") != null
+                        && sonar.fame.FameRules.dungeonRewards("Davy Jones Locker") != null);
+
+        // how much of the game's own dungeon list Sonar can actually count
+        int priced = 0, blind = 0;
+        for (String name : sonar.game.enums.CharacterStatistics.DUNGEON_NAMES) {
+            if (sonar.fame.FameRules.dungeonRewards(name) != null) priced++;
+            else blind++;
+        }
+        report.accept("most of the dungeons the game counts have a published reward", priced >= 69);
+        report.accept("and the few that do not are known about rather than paid at a guess", blind == 6);
+
+        // a whole character, through the real parser, with counts a long-played one would have
+        java.util.List<int[]> blob = new java.util.ArrayList<>();
+        blob.add(new int[]{sonar.game.enums.CharacterStatistics.NAME_CS.get("Undead Lair").getPcStatId(), 212});
+        blob.add(new int[]{sonar.game.enums.CharacterStatistics.NAME_CS.get("The Shatters").getPcStatId(), 23});
+        blob.add(new int[]{27, 4_100_000});
+        blob.add(new int[]{30, 142_000});
+        sonar.game.RealmCharacterStats played = statsFrom(blob);
+        sonar.fame.FameEstimate worked = sonar.fame.FameEstimate.of("Wizard", 46_000, played, null, null);
+        report.accept("a character's statistics are read into a working", worked != null && worked.known);
+        // Undead Lair at 212 is two whole hundreds: 1,400. The Shatters at 23 is the third
+        // tier alone: 2,000. Tiles at 4.1m is the third tier: 400. Kills at 142,000 is one
+        // repeat of the top tier: 1,000.
+        report.accept("and each line pays the tier it reached, not every tier below it",
+                worked != null && worked.flatTotal() == 1_400 + 2_000 + 400 + 1_000);
+        report.accept("with no percentage at all when nothing is maxed",
+                worked != null && worked.percentTenths() == 0 && worked.bonus() == worked.flatTotal());
+        report.accept("so the figure stays near the base fame it was worked from",
+                worked != null && worked.total() < 46_000 * 2);
+        report.accept("a working inside the game's ceiling is shown", worked != null && worked.sane());
+
+        sonar.fame.FameEstimate maxed = sonar.fame.FameEstimate.of("Nobody", 1_000, played,
+                new int[]{999, 999, 999, 999, 999, 999, 999, 999}, new int[]{1, 1, 1, 1, 1, 1, 1, 1});
+        report.accept("maxed stats pay a quarter of base fame between them",
+                maxed.percentTenths() == 250);
+        report.accept("and that is still inside what the game can pay", maxed.sane());
+
+        sonar.fame.FameEstimate.CollectionProgress firstSteps = null, neo = null;
+        for (sonar.fame.FameEstimate.CollectionProgress p : worked.collections) {
+            if (p.set.name.equals("First Steps")) firstSteps = p;
+            if (p.set.name.equals("Farther Out")) neo = p;
+        }
+        report.accept("a collection nothing has been run for shows everything missing",
+                firstSteps != null && firstSteps.have() == 0 && firstSteps.missing.size() == 5);
+        report.accept("a set the game keeps no readable count for says so rather than showing nothing",
+                neo != null && neo.uncountable.size() == 4 && !neo.complete());
+
+        report.accept("the dungeon that is one run from finishing a set leads the queue",
+                !worked.steps.isEmpty());
+    }
 
     /**
      * Builds a statistics blob the way the server builds one - a bit per
@@ -3249,6 +3391,20 @@ class LiveView {
         int exalted = 0;
         for (LiveModel.ExaltSummary e : live.exaltClasses) if (e.totalLevel > 0) exalted++;
         exaltationWindow.setNote(exalted == 0 ? "" : exalted + " of " + live.exaltClasses.size() + " started");
+        famePane.show(live.fame);
+        sonar.fame.FameEstimate fameChar = famePane.shown();
+        fameCollections.show(fameChar);
+        fameNext.show(fameChar);
+        fameWindow.setNote(fameChar == null || !fameChar.sane() ? "" : SonarTheme.compact(fameChar.total()));
+        if (fameChar == null) {
+            fameSetsWindow.setNote("");
+            fameNextWindow.setNote("");
+        } else {
+            int finished = 0;
+            for (sonar.fame.FameEstimate.CollectionProgress p : fameChar.collections) if (p.complete()) finished++;
+            fameSetsWindow.setNote(finished + " of " + fameChar.collections.size());
+            fameNextWindow.setNote(fameChar.steps.isEmpty() ? "" : fameChar.steps.get(0).dungeon);
+        }
         leaderboard.show(m, leaderboardTab.selected());
         leaderboardWindow.setNote(m.topOverall.isEmpty() ? "" : m.completionKnown ? "" : "completion unknown");
 
