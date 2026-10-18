@@ -129,6 +129,12 @@ final class LiveModel {
     final List<CharSummary> chars = new ArrayList<>();
     /** Account-wide exaltation progress and proficiency, one entry per class the game knows about. */
     final List<ExaltSummary> exaltClasses = new ArrayList<>();
+    /**
+     * What each character would be paid if it died now, worked out from its own packed
+     * statistics. Empty until a character has been played in front of Sonar at least once,
+     * since that is when the game hands those statistics over.
+     */
+    final List<sonar.fame.FameEstimate> fame = new ArrayList<>();
 
     /** One character on the account, for the Characters page. */
     static final class CharSummary {
@@ -841,7 +847,45 @@ final class LiveModel {
             s.petName = c.petName;
             s.petRarity = c.petRarity;
             m.chars.add(s);
+
+            // where that character's fame would come from. Maxing is judged on the stat with
+            // equipment taken back off, against a ceiling exaltation has already raised, which
+            // is exactly what the Characters page means by maxed
+            if (c.pcStats != null && !c.pcStats.isEmpty()) {
+                sonar.game.RealmCharacterStats read = new sonar.game.RealmCharacterStats();
+                try {
+                    read.decode(c.pcStats);
+                } catch (RuntimeException unreadable) {
+                    read = null;
+                }
+                if (read != null) {
+                    int[] raw = new int[8], ceiling = new int[8];
+                    for (int i = 0; i < 8; i++) {
+                        raw[i] = s.base(i);
+                        ceiling[i] = s.cap(i);
+                    }
+                    String who = s.className + (s.level > 0 ? " " + s.level : "");
+                    sonar.fame.FameEstimate estimate = sonar.fame.FameEstimate.of(who, c.fame, read, raw, ceiling);
+                    estimate.charId = c.id;
+                    estimate.current = s.current;
+                    estimate.lost = c.died > 0;
+                    estimate.seasonal = c.seasonal;
+                    estimate.classId = classId;
+                    estimate.skin = c.skin;
+                    estimate.dyeMain = c.dyeMain;
+                    estimate.dyeAccessory = c.dyeAccessory;
+                    m.fame.add(estimate);
+                    // kept against the live character so that a death has something to check
+                    if (s.current) sonar.fame.FameTruth.working(c.id, estimate.total(), c.fame);
+                }
+            }
         }
+        // the character being played leads, then the rest by what they are worth
+        m.fame.sort((a, b) -> {
+            if (a.current != b.current) return a.current ? -1 : 1;
+            if (a.lost != b.lost) return a.lost ? 1 : -1;
+            return Long.compare(b.total(), a.total());
+        });
         // storage counts towards what the account holds, the same as anything carried
         for (VaultStack v : m.vault) m.own(v.itemId, v.count);
         for (VaultStack v : m.gifts) m.own(v.itemId, v.count);

@@ -12,15 +12,15 @@ public class FameData implements Serializable {
     /**
      * Name of the achievement.
      */
-    String achievement;
+    public String achievement;
     /**
      * Fame level
      */
-    int fameLevel;
+    public int fameLevel;
     /**
      * Fame
      */
-    int fameAdded;
+    public int fameAdded;
 
     public FameData deserialize(BufferReader buffer) {
         achievement = buffer.readString();

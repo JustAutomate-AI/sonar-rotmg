@@ -2,6 +2,35 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.28.0
+
+**The Fame tab, and arithmetic that can be checked**
+
+- Sonar has a **Fame** page again. It was taken out in 2.7.2 because the figure on it could not be trusted: a character the game valued in the thousands was shown a total in the hundreds of thousands. The cause was a rule, not a typo. The old working paid **every tier a count had passed** — Scout *plus* Explorer *plus* Adventurer *plus* Conqueror *plus* Master — when the game pays only **the tier actually reached**, with the top tier repeating once per further multiple of itself up to twenty times. On a long-played character that single mistake roughly doubles the answer, and compounds across seventy dungeons and forty categories.
+- The tables behind it are the published ones, checked against each other rather than copied once: thirteen dungeon collections, seventy-six per-dungeon completion ladders, and every counted category from Cartography to Runic Tundra kills. The one place the published table contradicts its own shape — the Mad Lab's third tier, printed as `+20` where every other dungeon follows `1 / 2 / 4 / 8 / 20` — is read as the typo it is, and said so in the source.
+- Percentages are added once to base fame and never compounded, which has been the game's behaviour since Exalt 1.2.0.0 (Oct 2020). Only two families pay them at all: maxing a stat, and finishing a collection. Together they come to **145% of base fame** at the absolute most, and that ceiling is now a **guard**: a working claiming more than the game could possibly pay is refused rather than displayed. The old page had nothing of the kind.
+
+**A receipt, not just a claim**
+
+- The game works fame on death out in its own client and never sends the answer while a character is alive — but it sends it in full the moment one dies: the total, and a line for every bonus with the tier it reached and the fame it added. **That packet was arriving and being thrown away.**
+- `DeathPacket` is now read. Every death is kept alongside what Sonar had worked out for that character, so the page can state plainly how its arithmetic has done: *"Estimate · matched the game on all 3 deaths seen"*. Until a death has been watched it says *estimate* and nothing stronger.
+
+**Collections, which is the part worth planning around**
+
+- Thirteen named sets, **closest to finished first**, each showing what it is still missing by name and what finishing it would pay **this character, in fame** — not as a percentage of a number you then have to go and look up. *Tunnel Rat · 11/12 · needs Wine Cellar · +6,450.*
+- Tunnel Rat is **twelve dungeons**, not the ten still named by the Flash-era pages that lead most searches, and it takes the whole castle with it: Oryx's Castle, Oryx's Chamber and the Wine Cellar.
+- **Worth running next** ranks every dungeon by what one run is actually worth — the prize divided by the runs still needed for it. A run that is the last one missing from a set carries that whole set's reward, which is why a single Wine Cellar can be worth more than seventeen Shatters.
+- Where the game keeps no completion count Sonar can read — the Neo wormholes and Stromwell's Rifts have no statistic in the client's own list — the page says so rather than showing a set as permanently unfinished.
+- `Realm of the Mad God` is marked as approximate on purpose. Its description says every dungeon in the game while the list published beside it is a stale copy of another set, still naming Ice Cave two renames after it became the Ice Citadel.
+
+**Where the counts come from**
+
+- Every fame bonus is counted from the character's own packed statistics, which the game hands over at character select in `CreateSuccessPacket` — a field Sonar's own packet class described as `Unknown`. Those statistics are now **kept against the character**, so the page works for every character on the account rather than only the one being played, and survives a restart.
+
+**The demo account stopped contradicting itself**
+
+- The made-up account carried the fame of a fortnight's play and the kill counts of a thousand hours, because the two were typed in beside each other and had drifted. Base fame is now **derived from experience** by the game's own conversion — one per 900 before level 20, one per 2,000 after — so they cannot drift again, and the activity counts scale with experience rather than with how maxed the character is. Those are two different axes.
+
 ## 2.27.4
 
 **The shared cards count per minute too**
