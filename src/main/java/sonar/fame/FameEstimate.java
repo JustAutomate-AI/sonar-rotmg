@@ -307,12 +307,6 @@ public final class FameEstimate {
      * has been run six figures of times by anybody.
      */
     private void checkPlausible(RealmCharacterStats s) {
-        // deliberately not keyed on "dungeon types completed". That counter could mean the
-        // number of distinct dungeons cleared at least once, which is bounded by how many
-        // dungeons exist, or the total number of clears across all of them, which is not
-        // bounded by anything - and a guard built on the first reading would refuse a
-        // heavily played character under the second. The per-dungeon counts below carry no
-        // such ambiguity.
         if (s.dungeonStats == null) return;
         for (int i = 0; i < s.dungeonStats.length && i < CharacterStatistics.DUNGEON_NAMES.size(); i++) {
             if (s.dungeonStats[i] <= MOST_RUNS) continue;
@@ -320,6 +314,48 @@ public final class FameEstimate {
             decodeComplaint = String.format("%,d", s.dungeonStats[i]) + " completions of "
                     + CharacterStatistics.DUNGEON_NAMES.get(i) + " is not a number anybody has";
             return;
+        }
+        checkDungeonsAgainstTheGamesOwnCount(s);
+    }
+
+    /**
+     * The game's own count of distinct dungeons finished, against how many came back.
+     * <p>
+     * This was left alone for a long time because "dungeon types completed" could have meant
+     * either the number of distinct dungeons cleared at least once or the total clears across
+     * all of them, and a guard built on the first reading would have refused a heavily played
+     * character under the second. A character settled it: the game reported 21, and 21
+     * distinct dungeons came out of the same blob, against 101 clears between them. It is
+     * distinct types.
+     * <p>
+     * That makes it the one thing in the blob that checks the rest of the blob. Every other
+     * count is a number only the server knows; this one the decode can be held against.
+     * A dungeon silently lost to a renumbering is the fault that shows up as fame quietly
+     * short - exactly the kind nobody reports, because a plausible total looks like a right
+     * one. With this, Sonar notices before anybody has to.
+     * <p>
+     * Two directions, read differently. More dungeons decoded than the game counts is
+     * impossible and is said so outright. Fewer is only wrong when it cannot be accounted
+     * for: the blob carries dungeons Sonar deliberately reads and drops - the Neo wormholes
+     * and the legacy block, which have no statistic of their own to land in - so a shortfall
+     * is allowed up to that many and complained about beyond it.
+     */
+    private void checkDungeonsAgainstTheGamesOwnCount(RealmCharacterStats s) {
+        int reported = s.dungeon_types_completed;
+        if (reported <= 0) return;
+        int decoded = 0;
+        for (int count : s.dungeonStats) if (count > 0) decoded++;
+        if (decoded > reported) {
+            decodeLooksWrong = true;
+            decodeComplaint = decoded + " dungeons came back finished where the game counts only " + reported;
+            return;
+        }
+        int unexplained = reported - decoded - s.unnamedValues;
+        if (unexplained > 0) {
+            decodeLooksWrong = true;
+            decodeComplaint = "the game counts " + reported + " dungeon types finished and only "
+                    + decoded + " came back, which is " + unexplained
+                    + (unexplained == 1 ? " dungeon" : " dungeons") + " unaccounted for";
         }
     }
 

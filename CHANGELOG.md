@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.32.0
+
+**The blob now checks itself**
+
+- The game sends a count of **dungeon types completed** alongside the per-dungeon numbers. Sonar has always decoded it and never used it, because it was not clear whether it meant distinct dungeons cleared at least once or total clears across all of them — and a guard built on the first reading would have refused a heavily played character under the second.
+- A real character settled it. The game reported **21**, and **21** distinct dungeons came out of the same blob, against **101** clears between them. It is distinct types.
+- That makes it the one number in the blob that can check the rest of the blob. Every other count is something only the server knows; this one the decode can be held against. A dungeon silently lost to a renumbering is the fault that shows up as fame quietly *short* — the kind nobody reports, because a plausible total looks like a right one. Sonar now notices it itself.
+- The two directions are read differently. **More** dungeons decoded than the game counts is impossible, and is said outright. **Fewer** is only wrong when it cannot be accounted for: the blob carries dungeons Sonar deliberately reads and drops — the Neo wormholes and the legacy block, which have no statistic of their own to land in — so a shortfall is allowed up to that many and complained about beyond it.
+- The copied working states it either way, so a report carries the check rather than needing it run again: `DUNGEONS AS DECODED   (21 distinct; the game counts 21)`.
+- Four assertions cover it: agreement passes quietly, a lost dungeon is named, the deliberately dropped ones do not trip it, and an impossible excess is called impossible.
+
 ## 2.31.0
 
 **The fame working can be handed over in one click**
