@@ -63,6 +63,17 @@ public final class CharacterCache {
          * character already remembered instead of only the one being played.
          */
         String pcStats = "";
+        /**
+         * Which dungeons this character has finished at least once.
+         * <p>
+         * The collections only ever ask a yes or no question - has this character cleared
+         * the Wine Cellar - and that answer is worth keeping separately from the counts in
+         * the statistics blob, because it survives everything that has gone wrong with
+         * reading those counts. It is written to by what Sonar watches happen and by the
+         * player ticking a dungeon off, and nothing here depends on knowing which statistic
+         * id belongs to which dungeon.
+         */
+        java.util.Set<String> cleared = new java.util.LinkedHashSet<>();
         /** When this character was last seen, so the newest is listed first. */
         long lastSeen;
         /**
@@ -214,6 +225,26 @@ public final class CharacterCache {
      * usually no entry to put them on yet.
      */
     private static final Map<Integer, String> PENDING_STATS = new LinkedHashMap<>();
+
+    /** Marks a dungeon finished, or not finished, for one character. Returns true if it changed. */
+    public static synchronized boolean setCleared(int charId, String dungeon, boolean done) {
+        if (charId <= 0 || dungeon == null || dungeon.isEmpty()) return false;
+        load();
+        Entry e = CHARACTERS.get(charId);
+        if (e == null) return false;
+        if (e.cleared == null) e.cleared = new java.util.LinkedHashSet<>();
+        boolean changed = done ? e.cleared.add(dungeon) : e.cleared.remove(dungeon);
+        if (changed) save();
+        return changed;
+    }
+
+    /** Which dungeons a character is known to have finished. Never null. */
+    public static synchronized java.util.Set<String> cleared(int charId) {
+        load();
+        Entry e = CHARACTERS.get(charId);
+        if (e == null || e.cleared == null) return java.util.Collections.emptySet();
+        return new java.util.LinkedHashSet<>(e.cleared);
+    }
 
     /** The statistics blob the game sent for a character at select, kept against its id. */
     public static synchronized void statsFor(int charId, String pcStats) {

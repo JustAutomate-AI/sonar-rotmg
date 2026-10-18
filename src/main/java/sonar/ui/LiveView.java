@@ -2178,61 +2178,35 @@ class LiveView {
         // three of the hundred and twenty three reads took the wrong stat's number. A blob is
         // built here the way the server builds one and read back: the figures have to come out
         // of the fields they went into, whatever order those fields happen to be declared in.
-        // Every id below was read off the game's own statistics panel on a live character and
-        // matched to the blob by a value unique in that panel, so each is forced rather than
-        // chosen. They are not the ids Sonar shipped with: the client has renumbered, and the
-        // old numbering put shots fired on a dungeon and tiles discovered on assists-against-gods.
+        // No statistic is read from the blob at all at the moment, and that is deliberate.
+        //
+        // The ids were mapped against one snapshot of one character. Values that were tied
+        // in that snapshot - three dungeons all reading 1, two reading 2, two reading 3 -
+        // could not be told apart, and an ordering was chosen for them rather than proved.
+        // A later snapshot of the same character then disagreed: a count that had been 236
+        // came back as 180, and completion counts do not go down. That rules out tie-breaking
+        // as the only fault and puts the framing itself in doubt, so every id is withdrawn
+        // until two states of the same character agree on it.
+        //
+        // What this costs is the exactness of the fame total. What it does not cost is the
+        // part that matters: which dungeons a character has finished, and therefore which
+        // collections are complete, is recorded from what Sonar watched happen and from the
+        // player ticking one off. Neither needs an id.
+        int readable = 0;
+        for (sonar.game.enums.CharacterStatistics cs : sonar.game.enums.CharacterStatistics.values()) {
+            if (cs.getPcStatId() >= 0) readable++;
+        }
+        report.accept("no statistic is read under an id that has not been proved twice", readable == 0);
+
         java.util.List<int[]> written = new java.util.ArrayList<>();
-        written.add(new int[]{10, 140357});   // shots fired
-        written.add(new int[]{17, 424783});   // tiles discovered
-        written.add(new int[]{22, 403});      // assists
-        written.add(new int[]{24, 170});      // god kills
-        written.add(new int[]{76, 29});       // party level-ups
-        written.add(new int[]{77, 168});      // lesser gods kills
-        written.add(new int[]{106, 24});      // ruins enemy kills
+        written.add(new int[]{10, 140357});
+        written.add(new int[]{17, 424783});
         sonar.game.RealmCharacterStats read = statsFrom(written);
-        report.accept("a statistic is read into the field it was written for",
-                read != null && read.shots_fired == 140357 && read.tiles_discovered == 424783);
-        report.accept("and the ones behind it do not shift along with it",
-                read != null && read.party_level_ups == 29 && read.lesser_gods_kills == 168);
-        report.accept("a statistic nobody sent stays empty rather than borrowing a neighbour's",
-                read != null && read.kills == 0 && read.potions_drunk == 0);
-        report.accept("the biome counters sit where the game actually puts them",
-                read != null && read.ruins_enemy_kills == 24);
-        report.accept("god kills is id 24, which the old table gave to shots fired",
-                read != null && read.god_kills == 170 && read.shots_fired != 170);
-
-        // the blob is thirty-two bytes of flags, not sixteen. Written short, the second half of
-        // the flags is eaten as data and every figure after it lands one slot early - which is
-        // what a live character proved was happening.
-        report.accept("the whole blob is consumed, with nothing read as a phantom zero",
-                read != null && read.assists == 403);
-
-        // Nine dungeons have a proved id, matched against a live character's own blob by
-        // walking the statistics in order and checking every value in turn. Every other
-        // dungeon reads zero on that character, so its bit is never set and its id cannot be
-        // seen at all. Those stay unknown rather than guessed: a wrong id would quietly pay
-        // some other dungeon's reward, which is exactly the fault that took this page out.
-        String[] proved = {"Sprite World", "Lair of Shaitan", "Magic Woods", "Secluded Thicket",
-                "Oryx's Castle", "Oryx's Chamber", "Oryx's Sanctuary", "Wine Cellar", "Plagued Nest"};
-        int known = 0;
-        for (String name : sonar.game.enums.CharacterStatistics.DUNGEON_NAMES) {
-            sonar.game.enums.CharacterStatistics cs = sonar.game.enums.CharacterStatistics.NAME_CS.get(name);
-            if (cs != null && cs.getPcStatId() >= 0) known++;
-        }
-        report.accept("only the dungeons whose id has been proved are read at all",
-                known == proved.length);
-        boolean allProvedKnown = true;
-        for (String name : proved) {
-            sonar.game.enums.CharacterStatistics cs = sonar.game.enums.CharacterStatistics.NAME_CS.get(name);
-            if (cs == null || cs.getPcStatId() < 0) allProvedKnown = false;
-        }
-        report.accept("and those nine are the ones the live blob settled", allProvedKnown);
+        report.accept("so a blob yields nothing rather than something that might be wrong",
+                read != null && read.shots_fired == 0 && read.tiles_discovered == 0);
         int counted = 0;
-        if (read != null && read.dungeonStats != null) {
-            for (int c : read.dungeonStats) counted += c;
-        }
-        report.accept("a blob carrying no dungeon bits yields no completions", counted == 0);
+        if (read != null && read.dungeonStats != null) for (int c : read.dungeonStats) counted += c;
+        report.accept("and no dungeon completions either", counted == 0);
 
         // the enchant gems are the game's own sprites rather than shapes drawn here
         report.accept("the game's own enchant pictures are all found", EnchantSprites.known() > 800);
@@ -3066,8 +3040,8 @@ class LiveView {
         // the top monster-kill tier: 1,000. Neither pays the tiers beneath it.
         // tiles at 4.1m has passed Cartography's first three tiers: 20+100+400. Kills at
         // 142,000 has passed all five monster-kill tiers: 20+50+200+400+1,000.
-        report.accept("and each line pays every tier it has passed",
-                worked != null && worked.flatTotal() == 520 + 1_670);
+        report.accept("and nothing is paid for statistics that are not being read",
+                worked != null && worked.flatTotal() == 0);
         report.accept("with no percentage at all when nothing is maxed",
                 worked != null && worked.percentTenths() == 0 && worked.bonus() == worked.flatTotal());
         report.accept("so the figure stays near the base fame it was worked from",

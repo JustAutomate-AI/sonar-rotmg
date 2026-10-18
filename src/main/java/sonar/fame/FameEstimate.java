@@ -141,6 +141,8 @@ public final class FameEstimate {
      * wall; the five that matter, named, is.
      */
     public final List<String> dungeonTop = new ArrayList<>();
+    /** Dungeons known finished without reading the blob at all. */
+    private final Set<String> cleared = new LinkedHashSet<>();
 
     private FameEstimate(String character, long baseFame) {
         this.character = character;
@@ -217,6 +219,18 @@ public final class FameEstimate {
      * @param cap      the ceiling each of those stats can reach for this class, or null
      */
     public static FameEstimate of(String name, long baseFame, RealmCharacterStats s, int[] stat, int[] cap) {
+        return of(name, baseFame, s, stat, cap, java.util.Collections.emptySet());
+    }
+
+    /**
+     * @param cleared dungeons known to be finished by other means than the statistics blob -
+     *                what Sonar watched happen, and what the player ticked off. The
+     *                collections only ask whether a dungeon has been done at all, and that
+     *                answer does not need the blob's numbering to be understood, which is
+     *                the whole reason it is kept separately.
+     */
+    public static FameEstimate of(String name, long baseFame, RealmCharacterStats s, int[] stat, int[] cap,
+                                  Set<String> cleared) {
         FameEstimate e = new FameEstimate(name == null ? "" : name, Math.max(0, baseFame));
         if (s == null) return e;
         e.known = true;
@@ -269,6 +283,7 @@ public final class FameEstimate {
             }
         }
 
+        e.cleared.addAll(cleared == null ? java.util.Collections.<String>emptySet() : cleared);
         e.dungeons(s);
         e.collectionsFrom(s);
         e.checkPlausible(s);
@@ -356,7 +371,13 @@ public final class FameEstimate {
             CollectionProgress p = new CollectionProgress(set);
             for (String d : set.dungeons) {
                 String key = FameRules.key(d);
-                if (!countable.contains(key)) {
+                boolean known = false;
+                for (String done : cleared) {
+                    if (FameRules.key(done).equals(key)) known = true;
+                }
+                if (known) {
+                    p.done.add(d);
+                } else if (!countable.contains(key)) {
                     // the game keeps no statistic Sonar can read for this one, so it can never be
                     // ticked off. Said out loud rather than shown as permanently missing.
                     p.uncountable.add(d);

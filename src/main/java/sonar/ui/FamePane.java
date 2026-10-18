@@ -45,6 +45,35 @@ class FamePane extends Pane {
         repaint();
     }
 
+    /** The disclosure itself: as few letters as will carry the meaning. */
+    private static final String APPROX = "approx.";
+
+    /**
+     * What the marker says when the pointer is on it, and only then.
+     * <p>
+     * The honest version, not a hedge. The fame total leans on knowing which statistic id
+     * holds which dungeon, and that numbering is the game's, not Sonar's - it has been
+     * changed once already without announcement. Where an id is not proved, nothing is read
+     * for it and the total is short by whatever that dungeon was worth. Which dungeons are
+     * finished is a separate question with a separate answer, and that part is not affected.
+     */
+    private static String why(FameEstimate e) {
+        StringBuilder b = new StringBuilder("This total is an estimate and is probably short. ");
+        b.append("The game works fame out in its own client and only sends the real figure when a ");
+        b.append("character dies. Sonar reads the counts behind it from the statistics the game sends ");
+        b.append("at character select, and the numbering of those statistics is the game's own - some ");
+        b.append("of it is not yet known, and nothing is read under an id that has not been proved, ");
+        b.append("so anything unknown is simply missing rather than guessed at. ");
+        b.append("Which dungeons you have finished, and which collections they complete, does not ");
+        b.append("depend on any of that.");
+        String record = FameTruth.record();
+        if (!record.isEmpty()) b.append(" Against the game's own figure it has ").append(record).append('.');
+        if (e.decodeLooksWrong && !e.decodeComplaint.isEmpty()) {
+            b.append(" The statistics also did not read sensibly: ").append(e.decodeComplaint).append('.');
+        }
+        return b.toString();
+    }
+
     /** The character on screen: the one picked, else the first - which is the one being played. */
     FameEstimate shown() {
         for (FameEstimate e : all) if (e.charId == picked) return e;
@@ -60,7 +89,7 @@ class FamePane extends Pane {
     int contentHeight() {
         FameEstimate e = shown();
         if (e == null) return 0;
-        int head = chipRows(width()) * (CHIP_H + 10) + 136;
+        int head = chipRows(width()) * (CHIP_H + 10) + 118;
         return head + 26 + e.lines.size() * ROW + 40;
     }
 
@@ -141,9 +170,9 @@ class FamePane extends Pane {
     /** The figure itself, with the two halves it is made of underneath. */
     private int headline(Graphics2D g, int width, int y, FameEstimate e) {
         g.setColor(SonarTheme.SURFACE);
-        g.fill(SonarTheme.round(0, y, width, 126, 12));
+        g.fill(SonarTheme.round(0, y, width, 108, 12));
         g.setColor(SonarTheme.LINE);
-        g.draw(SonarTheme.round(0.5, y + 0.5, width - 1, 125, 12));
+        g.draw(SonarTheme.round(0.5, y + 0.5, width - 1, 107, 12));
 
         int left = PAD;
         if (e.classId >= 0) {
@@ -158,17 +187,29 @@ class FamePane extends Pane {
         g.setColor(SonarTheme.MUTED);
         g.drawString("IF THIS CHARACTER DIED NOW", left, y + 22);
 
-        boolean sane = e.sane();
-        String figure = sane ? SonarTheme.number(e.total()) : "—";
+        // The figure is shown whatever the working thinks of itself. What matters on this
+        // page is which dungeons are done and which collections they finish - that part is a
+        // yes or no and does not depend on the arithmetic at all. A fame total that may be
+        // short is still worth seeing, as long as it does not pretend to be exact.
+        String figure = SonarTheme.number(e.total());
         g.setFont(SonarTheme.bold(34f));
-        Color ink = sane ? SonarTheme.GOLD : SonarTheme.DANGER;
-        SonarTheme.glow(g, figure, left, y + 58, ink);
-        g.setColor(ink);
+        SonarTheme.glow(g, figure, left, y + 58, SonarTheme.GOLD);
+        g.setColor(SonarTheme.GOLD);
         g.drawString(figure, left, y + 58);
         int after = left + g.getFontMetrics().stringWidth(figure) + 10;
         g.setFont(SonarTheme.font(12f));
         g.setColor(SonarTheme.FAINT);
         g.drawString("fame", after, y + 58);
+
+        // the disclosure: small, quiet, and it says nothing until the pointer is on it
+        int markX = after + g.getFontMetrics().stringWidth("fame") + 8;
+        g.setFont(SonarTheme.font(9.5f));
+        FontMetrics small = g.getFontMetrics();
+        boolean overMark = hoverX >= markX - 4 && hoverX < markX + small.stringWidth(APPROX) + 6
+                && hoverY >= y + 44 && hoverY < y + 62;
+        g.setColor(overMark ? SonarTheme.SALMON : SonarTheme.alpha(SonarTheme.FAINT, 0.85));
+        g.drawString(APPROX, markX, y + 57);
+        note(new Rectangle(markX - 4, y + 44, small.stringWidth(APPROX) + 10, 18), why(e));
 
         // the two halves, so the percentage side is never mistaken for the flat side
         g.setFont(SonarTheme.font(11.5f));
@@ -185,37 +226,7 @@ class FamePane extends Pane {
         g.setColor(SonarTheme.FAINT);
         String split = tenths(e.percentTenths()) + " of base fame, plus " + SonarTheme.number(e.flatTotal()) + " flat";
         g.drawString(SonarTheme.fit(split, g.getFontMetrics(), width - left - PAD), left, y + 95);
-
-        // what the figure is worth believing
-        String record = FameTruth.record();
-        g.setFont(SonarTheme.font(11f));
-        if (!sane) {
-            g.setColor(SonarTheme.DANGER);
-            // say which guard objected. Blaming the percentage when the counts are what is
-            // wrong sends anyone reading it to look in the wrong half of the program
-            String why = e.decodeLooksWrong
-                    ? "The game's statistics did not read sensibly: " + e.decodeComplaint + ". Not shown."
-                    : "The working claims " + tenths(e.percentTenths()) + " of base fame; the game cannot pay more than "
-                            + tenths(FameRules.MAX_PERCENT_TENTHS) + ". Not shown.";
-            g.drawString(SonarTheme.fit(why, g.getFontMetrics(), width - PAD - left), left, y + 114);
-            note(new Rectangle(left, y + 103, width - left - PAD, 16), why);
-        } else if (record.isEmpty()) {
-            g.setColor(SonarTheme.FAINT);
-            g.drawString("Estimate · the game only sends the real figure on death", left, y + 114);
-            note(new Rectangle(left, y + 103, width - left - PAD, 16),
-                    "Sonar works this out from the character's own statistics. When a character dies the game "
-                            + "sends what it actually paid, line by line, and Sonar checks itself against it.");
-        } else {
-            g.setColor(SonarTheme.MINT);
-            g.drawString("Estimate · " + record, left, y + 114);
-            FameTruth.Death last = FameTruth.lastCompared();
-            if (last != null) {
-                note(new Rectangle(left, y + 103, width - left - PAD, 16),
-                        "Last check: the game paid " + SonarTheme.number(last.totalFame)
-                                + " and Sonar had worked out " + SonarTheme.number(last.estimated) + ".");
-            }
-        }
-        return y + 136;
+        return y + 118;
     }
 
     /** Every line that pays, largest first. */

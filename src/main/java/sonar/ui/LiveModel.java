@@ -875,7 +875,8 @@ final class LiveModel {
                         ceiling[i] = s.cap(i);
                     }
                     String who = s.className + (s.level > 0 ? " " + s.level : "");
-                    sonar.fame.FameEstimate estimate = sonar.fame.FameEstimate.of(who, c.fame, read, raw, ceiling);
+                    sonar.fame.FameEstimate estimate = sonar.fame.FameEstimate.of(who, c.fame, read, raw, ceiling,
+                            CharacterCache.cleared(c.id));
                     estimate.charId = c.id;
                     estimate.current = s.current;
                     estimate.lost = c.died > 0;
