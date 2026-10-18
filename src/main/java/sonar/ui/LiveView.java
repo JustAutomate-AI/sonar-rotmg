@@ -2911,6 +2911,32 @@ class LiveView {
         report.accept("making one leaves the live interface drawing as it did", Glyph.exportScale == 0);
         report.accept("so does one that fails", exportFlagAfterFailure() == 0);
 
+        // Dragging the window between monitors. The old code worked each new position out
+        // from the window's current one, so it read the frame's position back on every mouse
+        // event - and across two differently scaled screens that reading jumps when the
+        // window crosses the join, which the next setLocation then writes out. A user
+        // reported the window snapping back to where the drag began the moment it crossed.
+        // Anchoring never reads the frame's position, so there is nothing to jump.
+        java.awt.Point pointer = new java.awt.Point(3000, 400);
+        java.awt.Point grip = new java.awt.Point(120, 14);
+        java.awt.Point placed = WindowChrome.anchored(pointer, grip);
+        report.accept("a dragged window is placed so the grabbed point sits under the pointer",
+                placed.x == 2880 && placed.y == 386);
+        report.accept("and the same pointer always gives the same place, however often it is asked",
+                WindowChrome.anchored(pointer, grip).equals(placed)
+                        && WindowChrome.anchored(pointer, grip).equals(placed));
+        java.awt.Point moved = WindowChrome.anchored(new java.awt.Point(3040, 400), grip);
+        report.accept("moving the pointer forty across moves the window forty, not forty plus a drift",
+                moved.x - placed.x == 40 && moved.y == placed.y);
+        // the frame's own position is never consulted, so it cannot carry a jump into the answer
+        report.accept("where the window currently is has no bearing on where a drag puts it",
+                WindowChrome.anchored(pointer, grip).equals(placed));
+        java.awt.Rectangle desktop = SonarShell.desktopBounds();
+        java.awt.Rectangle primary = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+                .getMaximumWindowBounds();
+        report.accept("a saved size is measured against every monitor, not just the first",
+                desktop.width >= primary.width && desktop.height >= primary.height);
+
         fameSelfTest(report);
 
         report.accept("the void dressing is drawn quieter than what you are hunting",
