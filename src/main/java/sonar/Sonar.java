@@ -38,6 +38,8 @@ public class Sonar {
     private static RootController rootController;
 
     public static void main(String[] args) {
+        // first of all, so that everything after it is recorded
+        sonar.util.RunLog.start();
         // before anything reads a setting: PropertiesManager caches the file as its class loads
         sonar.ui.Settings.migrate();
         sonar.ui.WindowsShell.identify();
