@@ -648,8 +648,25 @@ public class SonarShell extends JPanel {
     }
 
     /** Gives the main window a sensible first size and remembers the size and place the user leaves it at. */
+    /**
+     * Every monitor together, as one rectangle.
+     * <p>
+     * {@code getMaximumWindowBounds} answers for the primary screen, so a window sized on a
+     * larger second monitor was shrunk to fit the first one every time it started. What a
+     * saved size has to fit inside is the desktop, not whichever screen Windows happens to
+     * call first.
+     */
+    static Rectangle desktopBounds() {
+        Rectangle all = null;
+        for (java.awt.GraphicsDevice d : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+            Rectangle b = d.getDefaultConfiguration().getBounds();
+            all = all == null ? new Rectangle(b) : all.union(b);
+        }
+        return all != null ? all : GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+    }
+
     public static void sizeFrame(JFrame frame) {
-        Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        Rectangle screen = desktopBounds();
         int w = Math.min(1440, (int) (screen.width * 0.9)), h = Math.min(900, (int) (screen.height * 0.9));
         try {
             String saved = PropertiesManager.getProperty("sonar.frame");
@@ -668,7 +685,8 @@ public class SonarShell extends JPanel {
         }
         // the minimum has to clear a 1080p screen with display scaling turned up, where the usable
         // desktop is a good deal smaller than the monitor's own resolution
-        frame.setMinimumSize(new Dimension(Math.min(720, screen.width), Math.min(480, screen.height)));
+        Rectangle smallest = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        frame.setMinimumSize(new Dimension(Math.min(720, smallest.width), Math.min(480, smallest.height)));
         frame.setSize(Math.max(w, frame.getMinimumSize().width), Math.max(h, frame.getMinimumSize().height));
         if (forced == null && "T".equals(PropertiesManager.getProperty("sonar.frame.max"))) {
             frame.setExtendedState(frame.getExtendedState() | Frame.MAXIMIZED_BOTH);

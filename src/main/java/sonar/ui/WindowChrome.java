@@ -115,18 +115,48 @@ final class WindowChrome extends JComponent {
 
     // ---- dragging and resizing, which the system bar used to do ----
 
+    /**
+     * Where a window being dragged belongs: directly under the pointer, at the same place in
+     * the window the pointer took hold of.
+     * <p>
+     * This used to work out each new position from the window's current one:
+     * {@code setLocation(frame.getX() + howFarThePointerMoved)}. That reads the frame's
+     * position back on every single mouse event, and across two monitors the frame's
+     * position is not a stable thing to read. Windows gives each screen its own scaling, and
+     * when a dragged window crosses the join its position starts being reported against the
+     * other screen's coordinates - so {@code getX()} jumps although nobody moved anything,
+     * and the next {@code setLocation} writes that jump straight back out. The window leaps
+     * away from the pointer, back towards where it came from. A user reported exactly that:
+     * the window snaps back to where the drag started the moment it crosses to the other
+     * monitor.
+     * <p>
+     * Anchoring never reads the frame's position at all. The new place is the pointer minus
+     * the point inside the window that was grabbed, so there is nothing for a coordinate
+     * jump to propagate through.
+     */
+    static Point anchored(Point pointerOnScreen, Point heldAt) {
+        return new Point(pointerOnScreen.x - heldAt.x, pointerOnScreen.y - heldAt.y);
+    }
+
     /** Makes a header component drag the window, and double-clicking it maximise. */
     static void dragWindowBy(JComponent header, JFrame frame) {
-        final Point[] grab = {null};
+        // where in the window the pointer took hold, not where the pointer was last seen
+        final Point[] heldAt = {null};
         MouseAdapter m = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                grab[0] = e.getLocationOnScreen();
+                heldAt[0] = grip(e);
+            }
+
+            private Point grip(MouseEvent e) {
+                Point p = e.getLocationOnScreen();
+                Point at = frame.getLocationOnScreen();
+                return new Point(p.x - at.x, p.y - at.y);
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                grab[0] = null;
+                heldAt[0] = null;
             }
 
             @Override
@@ -136,18 +166,16 @@ final class WindowChrome extends JComponent {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                if (grab[0] == null) return;
+                if (heldAt[0] == null) return;
                 Point now = e.getLocationOnScreen();
                 // dragging a maximised window restores it first, under the pointer, as Windows does
                 if (isMaximised(frame)) {
-                    double across = (now.x - frame.getX()) / (double) Math.max(1, frame.getWidth());
+                    double across = heldAt[0].x / (double) Math.max(1, frame.getWidth());
                     frame.setExtendedState(Frame.NORMAL);
-                    frame.setLocation(now.x - (int) (frame.getWidth() * across), now.y - 20);
-                    grab[0] = now;
-                    return;
+                    // the restored window is a different size, so the grip moves with it
+                    heldAt[0] = new Point((int) (frame.getWidth() * across), Math.min(heldAt[0].y, 20));
                 }
-                frame.setLocation(frame.getX() + now.x - grab[0].x, frame.getY() + now.y - grab[0].y);
-                grab[0] = now;
+                frame.setLocation(anchored(now, heldAt[0]));
             }
         };
         header.addMouseListener(m);
