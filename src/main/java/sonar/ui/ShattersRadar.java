@@ -239,16 +239,27 @@ final class ShattersRadar {
     static double[] viewCentre(double tilesWide, double tilesHigh) {
         if (Float.isNaN(playerX) || Float.isNaN(playerY)) return null;
         double cx = playerX, cy = playerY;
+        // The game's own rule, from MiniMapImp: after centring on the player it checks whether
+        // either edge of the map has come inside the frame and, if so, shifts back until it is
+        // flush with it. A map narrower than the frame therefore ends up pinned to the frame's
+        // left edge, not floating in the middle of it - the first branch fires and the second
+        // never gets a chance to.
+        //
+        // Sonar used to centre it instead. In the game that difference can never show, because
+        // the most zoomed-out rung is chosen so the map always covers the frame; it only shows
+        // when Sonar's own scale is too small, which is precisely when everything else is wrong
+        // too. Matching the game exactly costs nothing and removes a way to be subtly wrong.
+        //
+        // Clamping alone gives that behaviour: with a map narrower than the view, mapWidth - half
+        // is below half, so the inner min picks it and the outer max returns half - the frame's
+        // left edge sitting on tile zero. No special case is needed.
         if (mapWidth > 0 && tilesWide > 0) {
             double half = tilesWide / 2;
-            // a map narrower than the view cannot be scrolled at all; it just sits in the middle
-            if (mapWidth <= tilesWide) cx = mapWidth / 2.0;
-            else cx = Math.max(half, Math.min(mapWidth - half, cx));
+            cx = Math.max(half, Math.min(mapWidth - half, cx));
         }
         if (mapHeight > 0 && tilesHigh > 0) {
             double half = tilesHigh / 2;
-            if (mapHeight <= tilesHigh) cy = mapHeight / 2.0;
-            else cy = Math.max(half, Math.min(mapHeight - half, cy));
+            cy = Math.max(half, Math.min(mapHeight - half, cy));
         }
         return new double[]{cx, cy};
     }
