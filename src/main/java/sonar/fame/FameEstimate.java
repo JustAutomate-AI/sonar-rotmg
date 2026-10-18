@@ -178,8 +178,23 @@ public final class FameEstimate {
      * reason it showed six figures for a character worth four.
      */
     public boolean sane() {
-        return percentTenths() <= FameRules.MAX_PERCENT_TENTHS;
+        return percentTenths() <= FameRules.MAX_PERCENT_TENTHS && !decodeLooksWrong;
     }
+
+    /**
+     * True when the statistics themselves cannot be what the game meant, whatever the
+     * arithmetic does with them afterwards.
+     * <p>
+     * Added after the first live test against a real character. The ceiling on percentages
+     * was the only guard, and it passed: the working claimed 2.5% of base fame, which is
+     * perfectly legal. Everything wrong was on the flat side, because the counts feeding it
+     * were impossible - four hundred thousand Secluded Thickets and thirty-six thousand Lairs
+     * of Shaitan on a character with under two thousand base fame. A guard that only bounds
+     * the arithmetic cannot catch a bad decode; this bounds the input.
+     */
+    public boolean decodeLooksWrong;
+    /** What made the statistics implausible, for the page to say out loud. */
+    public String decodeComplaint = "";
 
     // ------------------------------------------------------------------
 
@@ -247,8 +262,34 @@ public final class FameEstimate {
 
         e.dungeons(s);
         e.collectionsFrom(s);
+        e.checkPlausible(s);
         return e;
     }
+
+    /**
+     * The handful of counts whose impossible values are unmistakable. A character cannot
+     * have completed more distinct dungeon types than the game has, and no single dungeon
+     * has been run six figures of times by anybody.
+     */
+    private void checkPlausible(RealmCharacterStats s) {
+        // deliberately not keyed on "dungeon types completed". That counter could mean the
+        // number of distinct dungeons cleared at least once, which is bounded by how many
+        // dungeons exist, or the total number of clears across all of them, which is not
+        // bounded by anything - and a guard built on the first reading would refuse a
+        // heavily played character under the second. The per-dungeon counts below carry no
+        // such ambiguity.
+        if (s.dungeonStats == null) return;
+        for (int i = 0; i < s.dungeonStats.length && i < CharacterStatistics.DUNGEON_NAMES.size(); i++) {
+            if (s.dungeonStats[i] <= MOST_RUNS) continue;
+            decodeLooksWrong = true;
+            decodeComplaint = String.format("%,d", s.dungeonStats[i]) + " completions of "
+                    + CharacterStatistics.DUNGEON_NAMES.get(i) + " is not a number anybody has";
+            return;
+        }
+    }
+
+    /** Beyond this many runs of one dungeon, the reading is wrong rather than the player remarkable. */
+    private static final int MOST_RUNS = 50_000;
 
     private void add(FameRules.Ladder ladder, long count) {
         if (count <= 0) return;
