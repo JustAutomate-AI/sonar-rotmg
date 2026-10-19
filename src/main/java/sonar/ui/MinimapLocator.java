@@ -159,6 +159,11 @@ final class MinimapLocator {
         boolean GetWindowRect(com.sun.jna.Pointer window, int[] rect);
     }
 
+    /** Where the game's window is on screen, for anything that wants to know it is being aimed at. */
+    static Rectangle gameWindow() {
+        return windowRect();
+    }
+
     private static Rectangle windowRect() {
         try {
             com.sun.jna.Pointer hwnd = User32.INSTANCE.FindWindowW(null, WINDOW);

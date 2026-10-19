@@ -105,8 +105,8 @@ class ShattersOverlayWindow extends JWindow {
             if (calibrating) zoom(e.getWheelRotation(), e.isShiftDown());
         });
         ShattersRadar.setDrawingMap(drawMap);
-        setClickThrough(true);
-        setHiddenFromCapture();
+        // the window styles are NOT set here: they need a native window to set them on, and
+        // there is not one until the peer is made. See addNotify.
         repaintTimer.start();
         inputTimer.start();
         syncTimer.start();
@@ -160,6 +160,38 @@ class ShattersOverlayWindow extends JWindow {
         }, "sonar-minimap-sync");
         t.setDaemon(true);
         t.start();
+    }
+
+    /**
+     * Where the window styles are actually applied.
+     * <p>
+     * They used to be applied in the constructor, which cannot work and quietly did not: both
+     * need a native window handle, there is no native window until the peer is made, and
+     * {@code Native.getWindowID} throws on a window that is not displayable yet. The throw was
+     * caught and ignored as a nicety that had failed, so the overlay ran its whole life with
+     * <b>click-through never switched on</b> - and the one thing it absolutely had to do was
+     * let a click reach the game.
+     * <p>
+     * It looked like it was working. The game draws its own tooltip when the pointer is over a
+     * player on the minimap, because it reads the pointer's position from the system rather
+     * than from the messages the window receives - so hovering behaved exactly as it should
+     * while every actual click was being eaten by a transparent window on top.
+     */
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        applyWindowStyles();
+    }
+
+    @Override
+    public void setVisible(boolean show) {
+        super.setVisible(show);
+        if (show) applyWindowStyles();
+    }
+
+    private void applyWindowStyles() {
+        setClickThrough(!calibrating);
+        setHiddenFromCapture();
     }
 
     private void paintOverlay(Graphics2D g) {
@@ -446,6 +478,7 @@ class ShattersOverlayWindow extends JWindow {
                 where,
                 "blue people, red foes, purple ways out, gold you",
                 MinimapSync.state(),
+                clickLine(),
                 lastFix.isEmpty() ? "right-click a mark's real icon to set the scale" : lastFix,
                 "shift-drag to aim, shift-scroll to scale"};
         g.setFont(SonarTheme.font(10f));
@@ -1098,14 +1131,49 @@ class ShattersOverlayWindow extends JWindow {
      */
     private void wheeled(int screenX, int screenY, int notches) {
         if (calibrating || !isVisible()) return;
-        Rectangle box = getBounds();
-        if (!box.contains(screenX, screenY)) return;
+        if (!wheelIsForUs(gameBox(), getBounds(), screenX, screenY)) return;
         // away from you is a lower rung, the same direction the plus button goes
         int by = notches > 0 ? -1 : 1;
         int steps = Math.min(Math.abs(notches), 8);
         javax.swing.SwingUtilities.invokeLater(() -> {
             for (int i = 0; i < steps; i++) stepZoom(by);
         });
+    }
+
+    /**
+     * Whether a scroll anywhere on the screen was meant for the minimap.
+     * <p>
+     * It used to count only a scroll with the pointer actually over the minimap, which is
+     * where the game puts its own wheel zoom - but it is a bad place to need the pointer. In
+     * a fight the pointer is where you are aiming, and taking it to the corner of the screen
+     * to change zoom costs more than the zoom is worth. Anywhere in the game's window does
+     * now.
+     * <p>
+     * The game's window and not the whole screen, because a scroll aimed at another program
+     * is that program's: scrolling a browser on the other monitor should not quietly rezoom a
+     * minimap. When the window cannot be found, the overlay's own frame is the fallback, which
+     * is where it came in.
+     */
+    static boolean wheelIsForUs(Rectangle gameWindow, Rectangle overlay, int x, int y) {
+        if (gameWindow != null && gameWindow.width > 0) return gameWindow.contains(x, y);
+        return overlay != null && overlay.contains(x, y);
+    }
+
+    /** The game's window, looked up rarely: a wheel event must not wait on a window search. */
+    private Rectangle gameBox;
+    private long gameBoxAt;
+
+    private Rectangle gameBox() {
+        long now = System.currentTimeMillis();
+        if (now - gameBoxAt > 2000) {
+            gameBoxAt = now;
+            try {
+                gameBox = MinimapLocator.gameWindow();
+            } catch (Throwable e) {
+                gameBox = null;
+            }
+        }
+        return gameBox;
     }
 
     /** True if the key went down since the previous call, even if it is already back up. */
@@ -1171,14 +1239,41 @@ class ShattersOverlayWindow extends JWindow {
     private static final int GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x00080000, WS_EX_TRANSPARENT = 0x00000020;
 
     /** Lets clicks fall through to whatever is beneath (the game) while not calibrating. */
+    private boolean clickThroughOn;
+    private String styleTrouble = "not applied yet";
+
+    /**
+     * Reads the style back rather than assuming it took.
+     * <p>
+     * This is not a nicety and must not fail quietly. An overlay sitting on the minimap that
+     * does not let clicks through has taken the minimap away: no teleporting to anyone, no
+     * player menu, nothing. If it cannot be switched on, the readout says so, because the
+     * alternative is a person clicking a player over and over and nothing happening.
+     */
     private void setClickThrough(boolean through) {
         try {
-            com.sun.jna.Pointer hwnd = new com.sun.jna.Pointer(com.sun.jna.Native.getWindowID(this));
+            long id = com.sun.jna.Native.getWindowID(this);
+            if (id == 0) {
+                clickThroughOn = false;
+                styleTrouble = "no window handle yet";
+                return;
+            }
+            com.sun.jna.Pointer hwnd = new com.sun.jna.Pointer(id);
             int style = User32.INSTANCE.GetWindowLongW(hwnd, GWL_EXSTYLE);
             style = through ? (style | WS_EX_LAYERED | WS_EX_TRANSPARENT) : (style & ~WS_EX_TRANSPARENT);
             User32.INSTANCE.SetWindowLongW(hwnd, GWL_EXSTYLE, style);
+            clickThroughOn = (User32.INSTANCE.GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_TRANSPARENT) != 0;
+            styleTrouble = clickThroughOn == through ? "" : "Windows refused the style";
         } catch (Throwable e) {
-            // click-through is a Windows-only nicety; without it the overlay is simply clickable too
+            clickThroughOn = false;
+            styleTrouble = e.getClass().getSimpleName();
         }
+    }
+
+    /** What the readout says about clicks: the one thing that must not fail silently. */
+    private String clickLine() {
+        if (calibrating) return "calibrating: the overlay is taking clicks";
+        if (clickThroughOn) return "clicks pass through to the game";
+        return "CLICKS ARE BEING EATEN" + (styleTrouble.isEmpty() ? "" : " (" + styleTrouble + ")");
     }
 }
