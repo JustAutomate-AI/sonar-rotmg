@@ -2602,6 +2602,21 @@ class LiveView {
         report.accept("and each one stepped the count exactly once",
                 ShattersRadar.mapGeneration() - before == 3);
 
+        // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
+        // scroll towards you comes out a large positive number and the overlay zooms the wrong
+        // way - so the sign is the thing worth pinning down
+        report.accept("a notch away from you reads as one notch forward",
+                MouseWheelWatch.notchesFrom(120 << 16) == 1);
+        report.accept("and a notch towards you reads as one notch back, not as 65416",
+                MouseWheelWatch.notchesFrom((-120 & 0xFFFF) << 16) == -1);
+        report.accept("a wheel that sends several notches at once is read as several",
+                MouseWheelWatch.notchesFrom(360 << 16) == 3
+                        && MouseWheelWatch.notchesFrom((-360 & 0xFFFF) << 16) == -3);
+        // the low half carries which buttons were down, and must not reach the travel
+        report.accept("the buttons held while scrolling do not change the travel",
+                MouseWheelWatch.notchesFrom((120 << 16) | 0xFFFF) == 1
+                        && MouseWheelWatch.notchesFrom(0) == 0);
+
         // a frame with no size yet must not answer at all, or the overlay steps on every click
         report.accept("a frame with no size on it answers nothing",
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
