@@ -58,6 +58,16 @@ final class MinimapView {
     private static volatile boolean judged;
 
     /**
+     * The votes split by what the wire said the square was, for an approximate map.
+     * <p>
+     * A walked strip is mostly land, and a render's coast is drawn thick, so the squares along
+     * a beach disagree with any render however right it is. Counted plainly that can outvote
+     * everything else; counted as two recalls and averaged it cannot, which is exactly how the
+     * map was recognised in the first place.
+     */
+    private static volatile int waterSeen, waterAgreed, landSeen, landAgreed;
+
+    /**
      * Whether the recalled map is a render rather than a recording.
      * <p>
      * A layout Sonar ships is somebody's picture of the realm, not a copy of Sonar's own tile
@@ -140,7 +150,7 @@ final class MinimapView {
             }
         }
         recalled = recording;
-        agreed = disagreed = 0;
+        agreed = disagreed = waterSeen = waterAgreed = landSeen = landAgreed = 0;
         judged = false;
         painted += laid;
         return laid;
@@ -171,7 +181,7 @@ final class MinimapView {
         }
         MinimapView.laid = mine;
         recalled = recording;
-        agreed = disagreed = 0;
+        agreed = disagreed = waterSeen = waterAgreed = landSeen = landAgreed = 0;
         judged = false;
         painted += laid;
         return laid;
@@ -218,6 +228,28 @@ final class MinimapView {
     }
 
     /**
+     * A still copy of only what is this person's own: the wire and their earlier recordings,
+     * never a shipped render.
+     * <p>
+     * A recording written from the whole picture quietly absorbed every square a shipped map
+     * had laid down, so the file that was supposed to be ground truth about the game came
+     * back part-render. Then the render was aligned against it, and agreed with itself.
+     */
+    static synchronized BufferedImage copyOwn() {
+        BufferedImage out = copy();
+        if (out == null) return null;
+        java.util.BitSet put = laid, seen = wire;
+        if (put == null) return out;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int bit = x + y * width;
+                if (put.get(bit) && !(seen != null && seen.get(bit))) out.setRGB(x, y, 0);
+            }
+        }
+        return out;
+    }
+
+    /**
      * Paints one tile, in the colour that tile is drawn as on a minimap.
      * <p>
      * The colour comes from the extracted sprite sheet, where every sprite carries its most
@@ -246,9 +278,20 @@ final class MinimapView {
         if (memory != null && x < memory.getWidth() && y < memory.getHeight()) {
             int remembered = memory.getRGB(x, y);
             if ((remembered >>> 24) != 0) {
-                boolean alike = approximate
-                        ? MinimapCache.isWater(remembered) == MinimapCache.isWater(rgb)
-                        : (remembered & 0xFFFFFF) == (rgb & 0xFFFFFF);
+                boolean alike;
+                if (approximate) {
+                    boolean mine = MinimapCache.isWater(rgb);
+                    alike = MinimapCache.isWater(remembered) == mine;
+                    if (mine) {
+                        waterSeen++;
+                        if (alike) waterAgreed++;
+                    } else {
+                        landSeen++;
+                        if (alike) landAgreed++;
+                    }
+                } else {
+                    alike = (remembered & 0xFFFFFF) == (rgb & 0xFFFFFF);
+                }
                 if (alike) agreed++;
                 else disagreed++;
             }
@@ -265,7 +308,18 @@ final class MinimapView {
         }
         if (!judged && memory != null && agreed + disagreed >= ENOUGH_TO_JUDGE) {
             judged = true;
-            if (disagreed > agreed) forgetRecalled();
+            boolean wrong;
+            if (approximate && waterSeen > 0 && landSeen > 0) {
+                double balanced = 0.5 * (waterAgreed / (double) waterSeen + landAgreed / (double) landSeen);
+                wrong = balanced < 0.60;
+                System.out.println(String.format("[map] recalled map judged by the coast: water %d/%d, land %d/%d, balanced %.0f%% -> %s",
+                        waterAgreed, waterSeen, landAgreed, landSeen, 100 * balanced, wrong ? "DROPPED" : "kept"));
+            } else {
+                wrong = disagreed > agreed;
+                System.out.println("[map] recalled map judged: " + agreed + " agree, " + disagreed + " disagree -> "
+                        + (wrong ? "DROPPED" : "kept"));
+            }
+            if (wrong) forgetRecalled();
         }
     }
 

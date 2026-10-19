@@ -194,7 +194,12 @@ final class MinimapCache {
     static int terrainOf(int argb) {
         if ((argb >>> 24) == 0) return UNKNOWN;
         int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
-        if (b > r + 25 && b > g + 15) return WATER;
+        // Sea is a bright blue. A biome chart draws its dark forest in navy and purple, which
+        // is "more blue than red or green" and nothing like water; measured, that rule called
+        // twenty-three thousand forest squares sea and voted a correct realm map off the
+        // screen. The floor sits between the chart's forest (blue 64) and the dimmest water
+        // tile Sonar has recorded (blue 91).
+        if (b >= 85 && b > r + 25 && b > g + 15) return WATER;
         int brightest = Math.max(r, Math.max(g, b));
         if (brightest < 95) return DARK;
         // Olive plains - green no brighter than red - are the commonest ground in a render of
@@ -393,7 +398,9 @@ final class MinimapCache {
         triedShipped = true;
         Thread t = new Thread(() -> {
             try {
-                BufferedImage live = MinimapView.copy();
+                // only what came off the wire or out of this person's own runs: a shipped map
+                // already laid must not be allowed to recognise itself
+                BufferedImage live = MinimapView.copyOwn();
                 if (live == null) return;
                 java.util.List<File> layouts = matchedLayout != 0
                         ? java.util.Collections.<File>emptyList()   // already using one of mine
@@ -437,8 +444,11 @@ final class MinimapCache {
                         }
                     }
                     if (worldNo == 0) {
-                        trouble = known == 0 ? "this layout has not been seen before"
-                                : "none of the " + known + " known worlds matched (best was "
+                        // No world library for a map this size is not a finding about this map;
+                        // a Nexus with its own shipped layout already down was being told it
+                        // had never been seen before.
+                        if (known == 0) return;
+                        trouble = "none of the " + known + " known worlds matched (best was "
                                         + bestOfAny + " of " + comparedOfAny + ")";
                         System.out.println("[map] " + trouble + " for " + mapName + " with "
                                 + MinimapView.fromWire() + " tiles off the wire");
@@ -561,6 +571,14 @@ final class MinimapCache {
             return 0;
         }
         int primed = MinimapView.prime(recorded);
+        // The one shipped realm goes under a recording too, on arrival. It used to wait to be
+        // recognised from walked ground first, which took a sight-disc of tiles and a thread,
+        // and meant the realm was the one map that was not whole the moment you arrived.
+        if (shipped == null && shippedCount(w, h) == 1) {
+            shipped = shippedLayout(w, h, 1);
+            matchedShipped = 1;
+            triedShipped = true;
+        }
         if (shipped != null && shipped.getWidth() == w && shipped.getHeight() == h) {
             // the whole map under what has been walked; a render, so the coast votes on it
             MinimapView.setRecalledIsApproximate(true);
@@ -614,7 +632,7 @@ final class MinimapCache {
         keptAtTiles = seen;
         final String name = openName;
         final int w = openW, h = openH;
-        final BufferedImage snap = MinimapView.copy();
+        final BufferedImage snap = MinimapView.copyOwn();
         if (snap == null) return;
         Thread t = new Thread(() -> write(name, w, h, into, snap), "sonar-map-keep");
         t.setDaemon(true);
@@ -641,7 +659,7 @@ final class MinimapCache {
         matchedLayout = 0;
         if (into <= 0) return;
         if (MinimapView.fromWire() <= 0) return;   // nothing new was seen; the file already says it
-        final BufferedImage snap = MinimapView.copy();
+        final BufferedImage snap = MinimapView.copyOwn();
         if (snap == null) return;
         if (inline) {
             write(name, w, h, into, snap);

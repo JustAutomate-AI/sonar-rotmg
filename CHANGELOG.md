@@ -2,6 +2,20 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.53.1
+
+**The realm lines up, and stays up**
+
+Reported from play: the realm was recognised, laid down, and gone again; the Nexus was whole but the wrong size. Both were alignment, as the report said.
+
+- **The realm chart is re-fitted against a denser recording of the spawn beach**: scale 1.023 × 1.020, offset (−406, −196) — 74 tiles west of the previous fit. Checked over every recorded square, not a sample: **balanced 90.8%, water 91%, land 91%**. The previous fit scored 69% on land over the same ground.
+- **The Nexus is the right size.** The Halloween Nexus render was baked at 2.98 pixels a tile against a recording that had itself absorbed an earlier render; re-fitted by full-colour correlation against a clean recording it is 4.1 pixels a tile, origin (18, 11) - a single, unambiguous peak. Confirmed in play: 32,298 squares laid down on arrival, and the first 1,200 live tiles voted 1,200 agree, 0 disagree.
+- **The Vault, confirmed in play:** the whole island the moment the portal opens, 4,293 squares, 1,961 of them from the wire.
+- **It no longer votes itself off the screen.** The chart draws its dark forest in navy, and "more blue than red or green" called twenty-three thousand forest squares water, so every forest beside the beach voted against the map until it was discarded. Water now needs a blue channel of at least 85 — between the chart's forest at 64 and the dimmest sea tile Sonar has recorded at 91. And the online judgement is balanced, like the recognition: water and land counted separately and averaged, so a thick drawn coastline under a walked beach cannot outvote everything else. The verdict is logged either way.
+- **It is laid down on arrival even when you have a recording.** It used to wait to be recognised from walked ground first, which took a sight-disc of tiles and a thread.
+- **Your recordings stay yours.** A recording written from the whole picture absorbed every square a shipped map had laid down, so the file that was supposed to be ground truth about the game came back part-render — and the render was then aligned against it. Recordings are written from the wire and your earlier runs only, and matching reads only those too, so a shipped map can never recognise itself.
+- A map with its own shipped layout is no longer told it "has not been seen before" because there is no world library for its size.
+
 ## 2.53.0
 
 **The Nexus and the Vault are whole the moment you arrive**
