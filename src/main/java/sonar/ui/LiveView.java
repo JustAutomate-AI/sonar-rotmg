@@ -151,7 +151,7 @@ class LiveView {
     private boolean shattersEnabled = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.enabled"));
     private boolean shattersCalibrating;
     private final SonarButton shattersRecentre = new SonarButton("Find minimap", false, this::recentreShatters);
-    private final SonarButton shattersMap = new SonarButton("Map: off", false, this::toggleShattersMap);
+    private final SonarButton shattersMap = new SonarButton("Minimap: off", false, this::toggleShattersMap);
     /** Marks portals anywhere, so calibration can be checked without waiting for a Shatters. */
     private final SonarButton shattersPortals = new SonarButton("Portals: off", false, this::togglePortalTest);
     private ShattersOverlayWindow shattersOverlay;
@@ -1026,30 +1026,39 @@ class LiveView {
     private javax.swing.JComponent shattersAccessory() {
         javax.swing.Box nav = javax.swing.Box.createHorizontalBox();
         nav.add(shattersToggle);
-        shattersToggle.setToolTipText("Sonar's own minimap over the game's: the ground it has seen and remembers, "
-                + "the people, what can be fought, the ways out and you");
+        shattersToggle.setToolTipText("Marks the things worth finding on your own minimap - the Void Phantasm, "
+                + "the Stone Idol, the Derelict Monument and the void cracks - and covers nothing else");
+        nav.add(javax.swing.Box.createHorizontalStrut(6));
+        nav.add(shattersMap);
+        shattersMap.setToolTipText("Replaces your minimap with Sonar's own: the ground it has seen and remembers, "
+                + "the people, what can be fought, the ways out and you, at a zoom you set with the wheel");
         syncShattersButtons();
         return nav;
     }
 
     /**
-     * One button, because there is one thing to decide.
+     * Two buttons, because there are two different things somebody wants.
      * <p>
-     * There were five. Each arrived to work around something that did not work on its own:
-     * <b>Map</b> because covering the minimap was a gamble worth being able to take back,
-     * <b>Calibrate</b> and <b>Find minimap</b> because the overlay could not reliably find the
-     * minimap, <b>Portals</b> because a by-hand line-up needed something to line up against.
-     * Every one of those has since been fixed rather than worked around - the minimap is found
-     * by its own colours, the zoom is measured off the screen rather than set by hand, and the
-     * map draws nothing until it has ground worth showing. A button whose reason to exist has
-     * been fixed is a button that only makes the decision harder.
+     * 2.42.1 collapsed five buttons into one, and one was too few. The five were right to go -
+     * each worked around something that has since been fixed rather than worked around - but
+     * folding the last two together threw away a real choice, and removing the control for it
+     * stranded anyone it was already switched off for.
      * <p>
-     * The escape hatches are still there for anyone who finds a case these do not cover, as
-     * {@code sonar.shatters.drawmap} and {@code sonar.shatters.sync}. They are settings now
-     * rather than controls, which is what they always were.
+     * The two that remain are genuinely different pictures, not a setting and its inverse:
+     * <ul>
+     *   <li><b>Overlay</b> marks the things worth finding - the Void Phantasm, the Stone Idol,
+     *       the Derelict Monument and the void cracks - on the game's own minimap, and covers
+     *       nothing else. The minimap stays the game's.</li>
+     *   <li><b>Minimap</b> replaces it with Sonar's: the ground it has seen and remembers, the
+     *       people, what can be fought, the ways out and you, at a zoom of your own.</li>
+     * </ul>
+     * The second only means anything while the first is on, so it is only offered then.
      */
     private void syncShattersButtons() {
-        shattersMap.setVisible(false);
+        boolean on = shattersOverlay != null && shattersOverlay.drawMap();
+        shattersMap.setText(on ? "Minimap: on" : "Minimap: off");
+        shattersMap.setPrimary(on);
+        shattersMap.setVisible(shattersEnabled);
         shattersCalibrate.setVisible(false);
         shattersRecentre.setVisible(false);
         shattersPortals.setVisible(false);
@@ -1495,17 +1504,21 @@ class LiveView {
             return;
         }
 
-        // The overlay offers one decision, so it offers one button.
+        // Two buttons: mark the objectives on the game's minimap, or replace the minimap.
         //
-        // There were five. Each worked around something that did not work on its own, and each
-        // of those has since been fixed rather than worked around - so this asserts the count
-        // to stop them creeping back the next time something does not work.
+        // There were five, and then for one release there was one, which was too few - it
+        // folded away a real choice and stranded anyone the folded-away setting was off for.
+        // The count is asserted so neither mistake creeps back.
         javax.swing.JComponent bar = shattersAccessory();
-        int showing = 0;
+        int buttons = 0, showing = 0;
         for (java.awt.Component c : bar.getComponents()) {
-            if (c instanceof SonarButton && c.isVisible()) showing++;
+            if (!(c instanceof SonarButton)) continue;
+            buttons++;
+            if (c.isVisible()) showing++;
         }
-        report.accept("the Shatters panel offers one button, not five", showing == 1);
+        report.accept("the Shatters panel offers two buttons, not five", buttons == 2);
+        report.accept("and with the overlay off, only the one that turns it on",
+                shattersEnabled ? showing == 2 : showing == 1);
 
         // the windows keep their places: a drag on the title bar or the corner does nothing at all
         Rectangle home = damageWindow.getBounds();
