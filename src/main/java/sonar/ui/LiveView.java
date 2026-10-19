@@ -3127,6 +3127,23 @@ class LiveView {
     }
 
     /**
+     * A mark stays findable as the map widens under it.
+     * <p>
+     * Drawn at a fixed number of pixels, a mark keeps the same size at every zoom - which
+     * sounds right and is not. Zoomed out, the ground beneath it is a whole realm, and a mark
+     * that was legible over forty tiles is lost over two thousand.
+     */
+    private static void checkMarksGrowWithTheView(java.util.function.BiConsumer<String, Boolean> report) {
+        int close = ShattersOverlayWindow.faceSizeFor(48);
+        int mid = ShattersOverlayWindow.faceSizeFor(192);
+        int wide = ShattersOverlayWindow.faceSizeFor(2304);
+        report.accept("zoomed right in, a mark is its plain size",
+                close > 0 && close == ShattersOverlayWindow.faceSizeFor(96));
+        report.accept("and it grows as the view widens", mid > close && wide >= mid);
+        report.accept("but never past twice, so it cannot swallow the map", wide <= close * 2);
+    }
+
+    /**
      * Telling the shipped worlds apart from a strip of walked ground.
      * <p>
      * A realm is one of a known set of layouts and the game never says which. Sonar ships a
@@ -3379,6 +3396,7 @@ class LiveView {
         checkMapStartsOverBeforeTheTiles(report);
         checkLayoutRecognition(report);
         checkWorldRecognition(report);
+        checkMarksGrowWithTheView(report);
         checkKeptAsLearned(report);
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);
