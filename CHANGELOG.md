@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.42.1
+
+**One button**
+
+The Shatters panel had five: **Overlay**, **Map**, **Calibrate**, **Find minimap** and **Portals**.
+
+- **It has one now.** Overlay on or off, and that is the whole decision.
+- Every one of the others existed to work around something that did not work on its own — `Map` because covering the minimap was a gamble worth being able to take back, `Calibrate` and `Find minimap` because the overlay could not reliably find the minimap, `Portals` because a by-hand line-up needed something to line up against. All four have since been fixed rather than worked around: the minimap is found by its own colours, the zoom is measured off the screen instead of set by hand, and the map draws nothing until it has ground worth showing. A button whose reason to exist has been fixed only makes the remaining decision harder.
+- The escape hatches are still there as settings, which is what they always were: `sonar.shatters.drawmap` and `sonar.shatters.sync`.
+- The count is asserted now, so they cannot creep back the next time something does not work.
+
 ## 2.42.0
 
 **The overlay measures the game's zoom instead of guessing it**
