@@ -50,7 +50,7 @@ final class ShattersRadar {
      * The things a minimap shows, for when Sonar is drawing one rather than marking somebody
      * else's. Negative so they can never collide with a real object type.
      */
-    static final int SELF = -4, ALLY = -5, FOE = -6, DOOR = -7;
+    static final int SELF = -4, ALLY = -5, FOE = -6, DOOR = -7, EVENT = -8;
 
     /** How many of the nearest enemies the test mode marks, so a realm is not a wall of dots. */
     private static final int MOVERS = 10;
@@ -315,8 +315,25 @@ final class ShattersRadar {
      * map - walls, decoration, loot bags - the game leaves off, and so does this.
      */
     static int kindOf(String clazz, boolean isAnotherPlayer) {
+        return kindOf(clazz, null, isAnotherPlayer);
+    }
+
+    /**
+     * What an object counts as on a minimap, by its class and its name.
+     * <p>
+     * The name is needed because the realm's event beacons are not one thing in the data.
+     * Twenty-two of them are their own class, {@code Beacon}, and the biome ones - Arid,
+     * Oceanic, Sanguine and the rest - are plain {@code GameObject}s that happen to be called
+     * "... Beacon". The game's own minimap draws the lot as gold diamonds, which is most of
+     * what is on a realm minimap and was entirely missing here.
+     * <p>
+     * A dungeon {@code Entrance} counts as a way out for the same reason a {@code Portal}
+     * does: it is a door, and which side of it you are standing on is not the map's business.
+     */
+    static int kindOf(String clazz, String name, boolean isAnotherPlayer) {
         if (isAnotherPlayer) return ALLY;
-        if (isPortal(clazz)) return DOOR;
+        if ("Beacon".equals(clazz) || (name != null && name.endsWith(" Beacon"))) return EVENT;
+        if (isPortal(clazz) || "Entrance".equals(clazz)) return DOOR;
         if ("Character".equals(clazz)) return FOE;
         return 0;
     }
@@ -332,8 +349,14 @@ final class ShattersRadar {
             if (e == null || e.pos == null) continue;
             // the entity list is a record and keeps the dead; a map wants only what is there
             if (!data.stillInWorld(e.id)) continue;
-            int kind = kindOf(sonar.assets.IdToAsset.getClazz(e.objectType),
-                    data.playerListUpdated.containsKey(e.id));
+            String clazz = sonar.assets.IdToAsset.getClazz(e.objectType);
+            String name = null;
+            try {
+                name = sonar.assets.IdToAsset.objectName(e.objectType);
+            } catch (RuntimeException unknown) {
+                // an id the assets do not name; the class alone still decides
+            }
+            int kind = kindOf(clazz, name, data.playerListUpdated.containsKey(e.id));
             if (kind != 0) found.add(new Mark(kind, e.pos.x, e.pos.y));
         }
         if (!Float.isNaN(playerX)) found.add(new Mark(SELF, playerX, playerY));

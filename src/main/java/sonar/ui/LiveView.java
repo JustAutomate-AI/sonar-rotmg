@@ -2935,6 +2935,18 @@ class LiveView {
         report.accept("walls, loot and decoration are left off, as the game leaves them off",
                 ShattersRadar.kindOf("Wall", false) == 0 && ShattersRadar.kindOf("Container", false) == 0
                         && ShattersRadar.kindOf(null, false) == 0);
+        // the realm's event beacons: twenty-two are their own class and the biome ones are
+        // plain GameObjects that happen to be named for it. The game draws both as gold
+        // diamonds, and they are most of what is on a realm minimap.
+        report.accept("an event beacon is marked whether it is a Beacon or a GameObject named one",
+                ShattersRadar.kindOf("Beacon", "Hell Beacon", false) == ShattersRadar.EVENT
+                        && ShattersRadar.kindOf("GameObject", "Arid Beacon", false) == ShattersRadar.EVENT);
+        report.accept("an ordinary GameObject is still left off",
+                ShattersRadar.kindOf("GameObject", "Cave Wall", false) == 0);
+        report.accept("a dungeon entrance is a way out, the same as a portal",
+                ShattersRadar.kindOf("Entrance", "Undead Lair", false) == ShattersRadar.DOOR);
+        report.accept("and a player standing on a beacon is still a player",
+                ShattersRadar.kindOf("Beacon", "Hell Beacon", true) == ShattersRadar.ALLY);
         // the four drawn kinds must not collide with each other or with a real object type
         java.util.Set<Integer> kinds = new java.util.HashSet<>(java.util.Arrays.asList(
                 ShattersRadar.SELF, ShattersRadar.ALLY, ShattersRadar.FOE, ShattersRadar.DOOR,

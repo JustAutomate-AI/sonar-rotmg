@@ -110,7 +110,17 @@ class ShattersOverlayWindow extends JWindow {
         repaintTimer.start();
         inputTimer.start();
         syncTimer.start();
-        MouseWheelWatch.start(this::wheeled);
+        MouseWheelWatch.start(new MouseWheelWatch.Listener() {
+            @Override
+            public void wheel(int x, int y, int notches) {
+                wheeled(x, y, notches);
+            }
+
+            @Override
+            public void clicked(int x, int y) {
+                clickedAt(x, y);
+            }
+        });
     }
 
     /**
@@ -200,6 +210,8 @@ class ShattersOverlayWindow extends JWindow {
     private void paintOverlay(Graphics2D g) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         int w = getWidth(), h = getHeight();
+        // a menu the game drew under us is more use than anything we would draw over it
+        if (standingAside()) return;
         if (calibrating) {
             g.setColor(new Color(255, 255, 255, 70));
             g.setStroke(new BasicStroke(2f));
@@ -450,15 +462,49 @@ class ShattersOverlayWindow extends JWindow {
                 paintReticle(g, x, y, w, h);
                 continue;
             }
-            Color c = m.type == ShattersRadar.ALLY ? new Color(110, 170, 255)
-                    : m.type == ShattersRadar.DOOR ? new Color(190, 130, 255)
-                    : new Color(255, 110, 110);
-            int r = m.type == ShattersRadar.DOOR ? 4 : 3;
-            g.setColor(new Color(0, 0, 0, 150));
-            g.fillOval(x - r - 1, y - r - 1, r * 2 + 2, r * 2 + 2);
-            g.setColor(c);
-            g.fillOval(x - r, y - r, r * 2, r * 2);
+            paintMark(g, m.type, x, y);
         }
+    }
+
+    /**
+     * One mark, in the shape the game's own minimap uses for that kind of thing.
+     * <p>
+     * Everything used to be a coloured dot, which is readable only if you already know what
+     * the colours mean - and reported, fairly, as a minimap missing all of the icons the real
+     * one has. The game draws people as triangles and the realm's event beacons as gold
+     * diamonds, and those two shapes are most of what is on a realm minimap. Matching them
+     * costs nothing and means the picture can be read by somebody who has never been told how.
+     */
+    private void paintMark(Graphics2D g, int kind, int x, int y) {
+        if (kind == ShattersRadar.ALLY) {
+            fillShape(g, triangle(x, y, 5), new Color(90, 160, 255));
+        } else if (kind == ShattersRadar.EVENT) {
+            fillShape(g, diamond(x, y, 5), new Color(255, 210, 70));
+        } else if (kind == ShattersRadar.DOOR) {
+            fillShape(g, diamond(x, y, 4), new Color(200, 140, 255));
+        } else {
+            g.setColor(new Color(0, 0, 0, 150));
+            g.fillOval(x - 4, y - 4, 8, 8);
+            g.setColor(new Color(255, 110, 110));
+            g.fillOval(x - 3, y - 3, 6, 6);
+        }
+    }
+
+    private static java.awt.Polygon triangle(int x, int y, int r) {
+        return new java.awt.Polygon(new int[]{x, x - r, x + r}, new int[]{y - r, y + r, y + r}, 3);
+    }
+
+    private static java.awt.Polygon diamond(int x, int y, int r) {
+        return new java.awt.Polygon(new int[]{x, x + r, x, x - r}, new int[]{y - r, y, y + r, y}, 4);
+    }
+
+    /** Drawn with a dark edge, so a mark stays visible on ground its own colour. */
+    private static void fillShape(Graphics2D g, java.awt.Polygon p, Color fill) {
+        g.setColor(new Color(0, 0, 0, 170));
+        g.setStroke(new BasicStroke(3f));
+        g.drawPolygon(p);
+        g.setColor(fill);
+        g.fillPolygon(p);
     }
 
     /**
@@ -1252,6 +1298,38 @@ class ShattersOverlayWindow extends JWindow {
      * program does it and the way the game does it too. A notch is a rung, and a wheel that
      * sends several at once steps several.
      */
+    /**
+     * Steps out of the way of the menu a click just opened.
+     * <p>
+     * The game draws its player menu over the minimap, and the overlay is over the minimap
+     * too. The click passes through and the teleport works, but the menu it opens is behind an
+     * opaque map and cannot be read - so the one thing the overlay exists to make easier is
+     * the thing it makes impossible.
+     * <p>
+     * Nothing in a packet says a menu is open, and there is no asking the game. What is known
+     * is that somebody just clicked on the minimap, which is the only reason that menu ever
+     * appears. So the overlay hides for a few seconds and comes back. Clicking again while it
+     * is away starts the wait over, so reading a long list is not interrupted halfway.
+     */
+    private void clickedAt(int screenX, int screenY) {
+        if (calibrating || !isVisible()) return;
+        if (!getBounds().contains(screenX, screenY)) return;
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            standAsideUntil = System.currentTimeMillis() + STAND_ASIDE_MS;
+            repaint();
+        });
+    }
+
+    /** How long to leave the game's own menu unobstructed after a click on the minimap. */
+    private static final long STAND_ASIDE_MS = 4000;
+
+    private volatile long standAsideUntil;
+
+    /** Whether the overlay is currently keeping out of the way of a menu. */
+    private boolean standingAside() {
+        return System.currentTimeMillis() < standAsideUntil;
+    }
+
     private void wheeled(int screenX, int screenY, int notches) {
         if (calibrating || !isVisible()) return;
         if (!wheelIsForUs(gameBox(), getBounds(), screenX, screenY)) return;

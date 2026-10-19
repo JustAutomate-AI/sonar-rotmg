@@ -2,7 +2,24 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
-## 2.44.1
+## 2.45.0
+
+**Icons, menus, and the sniffer**
+
+**The overlay steps aside for the game's menu**
+
+Clicking a player teleported, but the menu that click opens is drawn over the minimap — underneath the thing that was covering it. The click worked; the list of who to teleport to could not be read. The overlay exists to make that easier and was making it impossible.
+
+- Nothing in a packet says a menu is open. What is known is that somebody just clicked on the minimap, which is the only reason that menu appears — so the overlay hides for four seconds and comes back. Clicking again while it is away starts the wait over, so reading a long list is not interrupted halfway.
+
+**The marks are the shapes the game uses**
+
+Reported as a minimap lacking all the icons the real one has, which it was.
+
+- **Event beacons are drawn, as gold diamonds.** They were missing entirely, and they are most of what is on a realm minimap. They are not one thing in the data: twenty-two are their own `Beacon` class and the biome ones — Arid, Oceanic, Sanguine and the rest — are plain `GameObject`s that happen to be named for it. Both are drawn now.
+- **Dungeon entrances count as ways out**, the same as portals. Forty-one of them were being left off.
+- **People are triangles, beacons and doors are diamonds, anything fightable is a dot** — the shapes the game's own minimap uses. Everything was a coloured dot before, which is readable only if you already know what the colours mean.
+
 
 **The overlay says when the sniffer is off**
 
