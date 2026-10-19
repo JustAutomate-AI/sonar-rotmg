@@ -3199,6 +3199,29 @@ class LiveView {
 
         checkMapStartsOverBeforeTheTiles(report);
         checkZoomIsMeasured(report);
+        checkDeadAreNotDrawn(report);
+    }
+
+    /**
+     * What has been killed comes off the map.
+     * <p>
+     * The entity list is never pruned and must not be: the damage tracker reads it long after
+     * a fight to say who hit what, and a boss removed on death would take its own damage
+     * breakdown with it. It is a record, not a census. Everything drawing the world wants the
+     * census, and asking the record instead is why the overlay showed every enemy killed since
+     * the instance loaded, scattered across ground that had been cleared.
+     */
+    private static void checkDeadAreNotDrawn(java.util.function.BiConsumer<String, Boolean> report) {
+        sonar.backend.data.GameData data = new sonar.backend.data.GameData();
+        report.accept("an entity nobody has seen die is still in the world", data.stillInWorld(7001));
+
+        sonar.packets.incoming.UpdatePacket gone = new sonar.packets.incoming.UpdatePacket();
+        gone.tiles = new sonar.packets.data.GroundTileData[0];
+        gone.newObjects = new sonar.packets.data.ObjectData[0];
+        gone.drops = new int[]{7001};
+        data.update(gone);
+        report.accept("one that the game has dropped is not", !data.stillInWorld(7001));
+        report.accept("and dropping one says nothing about the others", data.stillInWorld(7002));
     }
 
     /**

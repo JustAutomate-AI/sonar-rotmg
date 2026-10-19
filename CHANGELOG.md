@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.42.2
+
+**The dead come off the map**
+
+Reported from a dungeon: the overlay kept drawing enemies on ground that had been cleared, so a room fought through stayed covered in red.
+
+- **Everything killed since the instance loaded was still being drawn.** The entity list the overlay was reading is never pruned, and must not be — the damage tracker reads it long after a fight to say who hit what, and a boss removed on death would take its own damage breakdown with it. It is a record, not a census.
+- **The map asks for the census now.** Anything the game has dropped from the world is left off: enemies, objectives and portals alike.
+- Three assertions on the distinction, since it is the kind of thing that reads as correct in either direction until you see it on a map.
+
 ## 2.42.1
 
 **One button**

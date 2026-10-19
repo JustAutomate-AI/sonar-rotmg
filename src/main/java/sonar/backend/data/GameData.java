@@ -167,6 +167,22 @@ public class GameData {
 
     public static volatile MapSink mapSink;
 
+    /**
+     * Whether an entity is still in the world, as opposed to still in the records.
+     * <p>
+     * {@link #entityList} is never pruned, and must not be: the damage tracker reads it long
+     * after a fight to say who hit what, and a boss removed on death would take its own
+     * damage breakdown with it. Everything that despawns is noted in {@link #dropList}
+     * instead, so the list grows and nothing in it is ever a lie - it is a record, not a
+     * census.
+     * <p>
+     * Anything drawing the world rather than reporting on it wants the census. Without this
+     * a minimap shows every enemy killed since the instance loaded, which is what it did.
+     */
+    public boolean stillInWorld(int id) {
+        return !dropList.containsKey(id);
+    }
+
     public void setNewRealm(MapInfoPacket map) {
         clear();
         petYardCheck(map.displayName);

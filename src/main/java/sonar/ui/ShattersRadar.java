@@ -319,6 +319,8 @@ final class ShattersRadar {
         ArrayList<Mark> found = new ArrayList<>();
         for (Entity e : data.entityList.values()) {
             if (e == null || e.pos == null) continue;
+            // the entity list is a record and keeps the dead; a map wants only what is there
+            if (!data.stillInWorld(e.id)) continue;
             int kind = kindOf(sonar.assets.IdToAsset.getClazz(e.objectType),
                     data.playerListUpdated.containsKey(e.id));
             if (kind != 0) found.add(new Mark(kind, e.pos.x, e.pos.y));
@@ -452,6 +454,7 @@ final class ShattersRadar {
         ArrayList<Mark> found = new ArrayList<>();
         for (Entity e : data.entityList.values()) {
             if (e == null || e.pos == null) continue;
+            if (!data.stillInWorld(e.id)) continue;   // an objective that has been killed is not an objective
             for (int id : ids) {
                 if (e.objectType == id) {
                     found.add(new Mark(e.objectType, e.pos.x, e.pos.y));
@@ -495,6 +498,7 @@ final class ShattersRadar {
         ArrayList<Entity> movers = new ArrayList<>();
         for (Entity e : data.entityList.values()) {
             if (e == null || e.pos == null) continue;
+            if (!data.stillInWorld(e.id)) continue;
             String kind = sonar.assets.IdToAsset.getClazz(e.objectType);
             if (isPortal(kind)) {
                 found.add(new Mark(PORTAL, e.pos.x, e.pos.y));
