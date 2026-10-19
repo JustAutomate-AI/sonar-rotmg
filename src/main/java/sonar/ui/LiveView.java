@@ -3175,17 +3175,23 @@ class LiveView {
         report.accept("Sonar ships a realm layout", worlds.size() >= 1);
         if (worlds.isEmpty()) return;
 
-        // with one world there is nothing to recognise: it goes down the moment a realm loads,
-        // under what is already known, and the coast votes on whether it stays
+        // With one world there is nothing to recognise, so it goes down the moment a realm
+        // loads. With several, nothing goes down until the coast has said which - laying down
+        // the wrong one is worse than laying down none.
         MinimapView.reset(2048, 2048);
         for (int i = 0; i < 300; i++) MinimapView.paintForTest(600 + i, 1500, 0xFFD8CFA0);
         int before = MinimapView.painted();
         int laid = MinimapCache.recall("Realm of the Mad God", 2048, 2048);
-        report.accept("the realm is laid down the moment you arrive, with nothing to wait for", laid > 100000);
-        report.accept("and under the ground already walked, never over it",
-                MinimapView.image().getRGB(650, 1500) == 0xFFD8CFA0 && MinimapView.painted() == before + laid);
-        report.accept("it is marked as a render, so the coast votes on it rather than the colours",
-                MinimapView.recalling());
+        if (worlds.size() == 1) {
+            report.accept("the one realm is laid down the moment you arrive, with nothing to wait for", laid > 100000);
+            report.accept("and under the ground already walked, never over it",
+                    MinimapView.image().getRGB(650, 1500) == 0xFFD8CFA0 && MinimapView.painted() == before + laid);
+            report.accept("it is marked as a render, so the coast votes on it rather than the colours",
+                    MinimapView.recalling());
+        } else {
+            report.accept("with " + worlds.size() + " realms to choose from, none is laid down before it is recognised",
+                    laid == 0 && MinimapView.painted() == before);
+        }
         MinimapView.clear();
 
         // the coast is the one thing every map of the realm agrees on
@@ -3211,7 +3217,7 @@ class LiveView {
             }
             int bestAt = -1, bestAgreed = -1, runnerUp = -1;
             for (int j = 0; j < worlds.size(); j++) {
-                int[] score = MinimapCache.agreementByTerrain(walked, worlds.get(j));
+                int[] score = MinimapCache.agreementByCoast(walked, worlds.get(j));
                 if (!MinimapCache.recognises(score[0], score[1])) continue;
                 if (score[0] > bestAgreed) {
                     runnerUp = bestAgreed;
