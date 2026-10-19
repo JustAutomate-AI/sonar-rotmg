@@ -2712,6 +2712,7 @@ class LiveView {
         checkHistorySaves(report);
         checkOverlayOutsideShatters(report);
         checkPuzzleResetsPerInstance(report);
+        checkQuietUpdate(report);
 
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
@@ -2733,6 +2734,37 @@ class LiveView {
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
                         && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
                         && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
+    }
+
+    /**
+     * An update installs itself.
+     * <p>
+     * An installed copy is upgraded by the Windows installer, and the installer used to be
+     * shown - so every single update meant clicking through a wizard. That is a worse thing
+     * to ask than most updates are worth, and the only reason it was shown was that nothing
+     * was waiting around to run it quietly. The handover script waits for Sonar to close
+     * already; it can run the installer too.
+     * <p>
+     * Sonar installs per user, so there is no elevation to prompt for and nothing to answer.
+     */
+    private static void checkQuietUpdate(java.util.function.BiConsumer<String, Boolean> report) {
+        String script = Updater.scriptForTest();
+        report.accept("the handover takes the installer it is to run", script.contains("$Msi"));
+        report.accept("and runs it with nothing to click", script.contains("msiexec.exe")
+                && script.contains("/qn") && script.contains("/norestart"));
+        report.accept("an installer that will not run quietly is shown rather than given up on",
+                script.contains("-ArgumentList @(") && script.indexOf("/qn") < script.lastIndexOf("msiexec.exe"));
+        report.accept("3010 is read as success, because it only means it wants a reboot",
+                script.contains("3010"));
+        report.accept("a copy upgraded by unpacking still is", script.contains("Copy-Item"));
+        report.accept("and either way Sonar is started again afterwards", script.contains("Start-Process $exe"));
+        // the branches have to close, or the whole script is a syntax error and no update lands
+        int opens = 0, closes = 0;
+        for (char c : script.toCharArray()) {
+            if (c == '{') opens++;
+            else if (c == '}') closes++;
+        }
+        report.accept("the script's branches are balanced", opens == closes && opens > 0);
     }
 
     /**

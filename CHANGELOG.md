@@ -12,6 +12,18 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 - It still holds while you are *in* the instance: a board clicked in by hand stays exactly as entered until you press Live or walk out.
 - Six assertions: a fresh grid is the game's to fill in, entering a board by hand takes it off the game, it stays taken while you are still in that instance, the next instance hands it back, the pane says so once so the buttons go back with it, and it does not say so twice.
 
+## 2.38.0
+
+**Updates install themselves, and the puzzle grid is ready every time**
+
+- **No more clicking through the installer.** An installed copy of Sonar is upgraded by the Windows installer rather than by unpacking files over it, which is right — doing it the other way leaves Add or Remove Programs describing a version that is no longer on disk. But the installer was being *shown*, so every single update meant a wizard to click through. That is a worse thing to ask than most updates are worth.
+- The only reason it was shown was that nothing was waiting around to run it quietly. Something already is: the handover script that waits for Sonar to close, puts the small **Updating Sonar** window on screen and starts it again afterwards. It now runs the installer too, with `/qn /norestart`. Sonar installs **per user**, so there is no elevation to prompt for and nothing anybody has to answer.
+- If the quiet install fails for any reason, the installer is **shown** rather than given up on, so a failure ends with a wizard that can be finished by hand instead of an update that silently did not happen. Exit code 3010 is read as success, because it only means the installer would like a reboot.
+- A copy upgraded by unpacking still is, and either way Sonar restarts itself when it is done.
+- **The Observatory puzzle grid is prepared fresh for every instance.** Entering a board by hand takes the grid off the game until Live is pressed, which is right while you are standing in front of that board. It was wrong the moment you left: the pane stayed in hand-entered mode across the portal, so the next Shatters found the grid already taken and never filled it in — and the solver that had worked by itself a few times looked as though it had stopped for good.
+- **The Shatters overlay's own map is off unless asked for**, and its `Map` switch is back. 2.37.0 drew Sonar's ground over the game's minimap everywhere by default and removed the switch in the same breath; a second copy of the same ground at a different scale makes the real minimap harder to read, which was not a trade to make on anybody's behalf.
+- Thirteen assertions: the handover takes an installer and runs it with nothing to click, one that will not run quietly is shown rather than abandoned, 3010 counts as success, unpacking still works, Sonar restarts either way, the script's branches balance, and the puzzle grid hands itself back at every door while holding firm inside one.
+
 ## 2.37.0
 
 **One switch, and it works outside the Shatters**

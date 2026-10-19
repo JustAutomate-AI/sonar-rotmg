@@ -34,7 +34,7 @@ import java.util.zip.ZipInputStream;
 final class Updater {
 
     /** Version of this build. Raise it for each release; tools/make-release.ps1 reads it for the zip name. */
-    static final String CURRENT = "2.37.1";
+    static final String CURRENT = "2.38.0";
 
     private static final String REPOSITORY = "https://github.com/JustAutomate-AI/sonar-rotmg";
     private static final String LATEST = REPOSITORY + "/releases/latest";
@@ -165,36 +165,21 @@ final class Updater {
                 // unpacking a zip over it. Doing it the other way leaves Add or Remove Programs
                 // describing a version that is no longer on disk, and a later repair or uninstall
                 // then works from records that no longer match anything.
-                if (installedByInstaller(root)) {
-                    File msi = new File(work, "Sonar-" + version + "-setup.msi");
-                    download(REPOSITORY + "/releases/download/" + tag + "/Sonar-" + version + "-setup.msi", msi, status);
-                    SwingUtilities.invokeLater(() -> status.accept("Opening the installer\u2026"));
-                    log("handing " + tag + " to the Windows installer");
-                    // Sonar has to be gone before its own files can be replaced, so the installer
-                    // is started and this copy closes behind it. Settings, characters and history
-                    // are not in the install folder for an installed copy, so the upgrade cannot
-                    // take them with it.
-                    new ProcessBuilder("msiexec.exe", "/i", msi.getPath()).start();
-                    SwingUtilities.invokeLater(() -> {
-                        busy = false;
-                        status.accept("Installer opened");
-                        JOptionPane.showMessageDialog(parent,
-                                "Sonar will close so the installer can replace it."
-                                        + System.lineSeparator() + System.lineSeparator()
-                                        + "Your settings, characters and run history are kept.",
-                                "Sonar update", JOptionPane.INFORMATION_MESSAGE);
-                        System.exit(0);
-                    });
-                    return;
-                }
-
-                File zip = new File(work, "Sonar-" + version + ".zip");
-                download(REPOSITORY + "/releases/download/" + tag + "/Sonar-" + version + "-windows.zip", zip, status);
-                SwingUtilities.invokeLater(() -> status.accept("Installing\u2026"));
+                File msi = null;
                 File staged = new File(work, "staged");
-                boolean hasApp = unzip(zip, staged);
-                zip.delete();
-                if (!hasApp) throw new java.io.IOException("the download does not contain the app");
+                if (installedByInstaller(root)) {
+                    msi = new File(work, "Sonar-" + version + "-setup.msi");
+                    download(REPOSITORY + "/releases/download/" + tag + "/Sonar-" + version + "-setup.msi", msi, status);
+                    SwingUtilities.invokeLater(() -> status.accept("Installing\u2026"));
+                    log("handing " + tag + " to the Windows installer, quietly");
+                } else {
+                    File zip = new File(work, "Sonar-" + version + ".zip");
+                    download(REPOSITORY + "/releases/download/" + tag + "/Sonar-" + version + "-windows.zip", zip, status);
+                    SwingUtilities.invokeLater(() -> status.accept("Installing\u2026"));
+                    boolean hasApp = unzip(zip, staged);
+                    zip.delete();
+                    if (!hasApp) throw new java.io.IOException("the download does not contain the app");
+                }
                 File script = new File(work, "apply-update.ps1");
                 try (PrintWriter w = new PrintWriter(new FileWriter(script))) {
                     w.print(SCRIPT);
@@ -207,6 +192,8 @@ final class Updater {
                         "-Root", root.getPath(),
                         "-Staged", staged.getPath(),
                         "-Javaw", javaw,
+                        // empty for a copy upgraded by unpacking; the installer's path otherwise
+                        "-Msi", msi == null ? "" : msi.getPath(),
                         // whichever theme is chosen, so the handover looks like the app it came from
                         "-Bg", hex(SonarTheme.SURFACE),
                         "-Fg", hex(SonarTheme.TEXT),
@@ -366,6 +353,11 @@ final class Updater {
      * the portable zip. The installer writes this marker beside the program; the zip has
      * no such file, so a portable copy keeps updating itself the way it always has.
      */
+    /** Lets the self-test read the handover script without writing it anywhere. */
+    static String scriptForTest() {
+        return SCRIPT;
+    }
+
     private static boolean installedByInstaller(File root) {
         return root != null && new File(root, "installed-by-msi").isFile();
     }
@@ -429,7 +421,7 @@ final class Updater {
     private static final String SCRIPT = String.join("\r\n",
             // the colours come from whichever theme is chosen, so the handover matches the app it
             // is handing over from rather than a palette fixed at build time
-            "param([int]$ProcessId, [string]$Root, [string]$Staged, [string]$Javaw,",
+            "param([int]$ProcessId, [string]$Root, [string]$Staged, [string]$Javaw, [string]$Msi = '',",
             "      [string]$Bg = '#17131D', [string]$Fg = '#F3EEF6', [string]$Muted = '#968EA0', [string]$Accent = '#FFA07A')",
             "$log = Join-Path $PSScriptRoot 'update.log'",
             "function Log($text) { Add-Content -Path $log -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '  installer: ' + $text) }",
@@ -473,6 +465,28 @@ final class Updater {
             "try {",
             "    Log \"waiting for Sonar (process $ProcessId) to close\"",
             "    try { Wait-Process -Id $ProcessId -Timeout 40 -ErrorAction Stop } catch { }",
+            // An installed copy is upgraded by the Windows installer, and the installer used to be
+            // shown. That meant clicking through a wizard on every single update, which is a worse
+            // thing to ask than the update was worth - and the reason it was shown at all was only
+            // that nothing was waiting around to run it quietly. Something is now.
+            //
+            // Sonar installs per user, so there is no elevation to prompt for and nothing a person
+            // has to answer. Quiet it is. 3010 means it worked and wants a reboot, which it does not
+            // really; anything else and the installer is shown after all, so a failure ends with a
+            // wizard somebody can finish rather than an update that silently did not happen.
+            "    if ($Msi) {",
+            "        Log \"installing $Msi quietly\"",
+            "        $msiArgs = @('/i', $Msi, '/qn', '/norestart')",
+            "        $code = -1",
+            "        try { $code = (Start-Process 'msiexec.exe' -ArgumentList $msiArgs -Wait -PassThru).ExitCode } catch { Log \"quiet install threw: $_\" }",
+            "        Log \"installer finished with code $code\"",
+            "        if ($code -ne 0 -and $code -ne 3010) {",
+            "            Log 'quiet install did not work; showing the installer to be finished by hand'",
+            "            if ($form) { $form.Close(); $form = $null }",
+            "            try { Start-Process 'msiexec.exe' -ArgumentList @('/i', $Msi) -Wait } catch { Log \"shown install threw: $_\" }",
+            "        }",
+            "        Remove-Item $Msi -Force -ErrorAction SilentlyContinue",
+            "    } else {",
             "    $source = Join-Path $Staged 'Sonar'",
             "    $copied = $false",
             "    for ($i = 0; $i -lt 30 -and -not $copied; $i++) {",
@@ -487,6 +501,7 @@ final class Updater {
             "        $out = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $setup 2>&1",
             "        Log \"setup finished with code $LASTEXITCODE\"",
             "        $out | Where-Object { \"$_\" -match 'FAIL|WARN' } | Select-Object -First 8 | ForEach-Object { Log ('setup: ' + \"$_\".Trim()) }",
+            "    }",
             "    }",
             "} catch { Log \"failed: $_\" }",
             "if ($form) { $form.Close() }",
