@@ -2,6 +2,18 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.41.1
+
+**The overlay reads the tiles you load in with, not just the ones you walk over**
+
+Reported from the Nexus: the overlay covered the minimap with a black square and drew ground only in a small patch around where the character had walked. Both halves of that were Sonar's fault, and the first one explains every "it doesn't line up" and "it's mostly empty" going back several releases.
+
+- **The ground the game sends on the way in was being deleted.** A map load and the first burst of tiles arrive back to back on the packet thread. Sonar noticed the new instance on its next interface tick — a fifth of a second later — and cleared the map at that point, throwing the whole burst away. What was left was only what the game sends afterwards, which is the squares that come into view as you move. Stand still and that is nothing at all. The tiles were always arriving; they were being deleted on arrival.
+- **So the map now starts over on the packet thread, ahead of the tiles instead of behind them.** The backend says when an instance loads and the map clears itself at that instant. The same change puts a remembered map in place before the first live tile lands, which matters in the other direction too — ground laid down afterwards would paint over what the game had just sent, and the game is always the better authority.
+- **The overlay no longer covers the minimap with nothing.** 2.41.0 claimed it drew nothing until it had ground; it did not. The test was whether a map object existed, which it does from the moment an instance loads, so an empty map still filled the frame with black — strictly worse than not drawing at all. The test is now whether any ground has actually been gathered.
+- **A key on the readout**, because the colours had to be guessed at: blue people, red foes, purple ways out, gold you.
+- Six assertions on the order, which is the part that was wrong: the map exists and is the right size before a single tile is painted, tiles arriving with the load are kept, the interface tick that follows does not undo it, and a real hop still starts the map over.
+
 ## 2.41.0
 
 **The Shatters map is remembered between runs**

@@ -193,6 +193,14 @@ class ShattersOverlayWindow extends JWindow {
         if (!drawMap) return;
         java.awt.image.BufferedImage map = MinimapView.image();
         if (map == null) return;
+        // Nothing to say yet, so say nothing.
+        //
+        // This was claimed in 2.40.0 and was not true: the guard was on there being a map
+        // object at all, which there is from the moment an instance loads, so a map with no
+        // ground in it still filled the frame and covered the game's minimap with a black
+        // square. Strictly worse than not drawing. The honest test is whether any ground has
+        // actually been gathered.
+        if (MinimapView.painted() <= 0) return;
         double[] centre = ShattersRadar.viewCentre(tilesWide, tilesHigh);
         if (centre == null) return;
         // Stand in for the minimap rather than lying on top of it.
@@ -385,6 +393,7 @@ class ShattersOverlayWindow extends JWindow {
                 drawMap ? MinimapView.painted() + " tiles drawn" + recalledNote() : "drawing marks only",
                 w + " x " + h + " window",
                 where,
+                "blue people, red foes, purple ways out, gold you",
                 lastFix.isEmpty() ? "right-click a mark's real icon to set the scale" : lastFix,
                 "shift-drag to aim, shift-scroll to scale"};
         g.setFont(SonarTheme.font(10f));

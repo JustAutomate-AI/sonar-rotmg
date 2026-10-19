@@ -218,6 +218,33 @@ final class ShattersRadar {
         // than from whoever opens the overlay, so the map is already drawn when it is opened
         // halfway through a dungeon rather than starting blank from that moment.
         sonar.backend.data.GameData.tileSink = MinimapView::tile;
+        sonar.backend.data.GameData.mapSink = ShattersRadar::newMap;
+    }
+
+    /**
+     * A new instance, caught on the packet thread the moment the game says so.
+     * <p>
+     * This used to be done on the next user-interface tick, from {@link #tick}, and that was
+     * the bug behind an overlay that only ever drew the ground somebody had walked over
+     * personally. The map load and the first burst of tiles arrive back to back; a fifth of a
+     * second later the tick ran, saw a new instance, and cleared the map - taking the entire
+     * burst with it. What was left was whatever the game sent afterwards, which is only the
+     * squares that come into view as you move. Stand still in the Nexus and that is nothing at
+     * all, which is exactly how it looked.
+     * <p>
+     * Doing it here puts the clearing ahead of the tiles instead of behind them. It also puts
+     * the recalled map in place before the first live tile lands, which matters in the other
+     * direction: a recording laid down afterwards would paint over ground the game had just
+     * sent, and the game is always the better authority.
+     */
+    private static void newMap(sonar.packets.incoming.MapInfoPacket map) {
+        if (map == null) return;
+        String name = LiveModel.prettyMapName(map.displayName != null && !map.displayName.isEmpty()
+                ? map.displayName : map.name);
+        if (!sawNewInstance(name, map.width, map.height, map.seed)) return;
+        MinimapCache.remember();
+        MinimapView.reset(map.width, map.height);
+        MinimapCache.recall(name, map.width, map.height);
     }
 
     /**
@@ -393,12 +420,13 @@ final class ShattersRadar {
         inShatters = name.toLowerCase().contains("shatters");
         mapWidth = data.map.width;
         mapHeight = data.map.height;
-        if (sawNewInstance(name, mapWidth, mapHeight, data.map.seed)) {
-            // the tiles of the instance just left mean nothing here, and the new one's are
-            // already arriving: the first update packet lands with the map info. In that order:
-            // keep what was walked before it is wiped, wipe it, then hand back whatever Sonar
-            // already knows about where we have just arrived.
-            MinimapCache.remember();
+        // The map itself is started over by newMap, on the packet thread, ahead of the tiles.
+        // By the time this runs for a map that was loaded properly, sawNewInstance has already
+        // been told and says no. It still says yes for an instance that was already underway
+        // when Sonar started, where no map packet was ever seen - and that is the one case
+        // this has to handle itself, or the map stays null until the next hop.
+        if (sawNewInstance(name, mapWidth, mapHeight, data.map.seed)
+                && (MinimapView.width() != mapWidth || MinimapView.height() != mapHeight)) {
             MinimapView.reset(mapWidth, mapHeight);
             MinimapCache.recall(name, mapWidth, mapHeight);
         }

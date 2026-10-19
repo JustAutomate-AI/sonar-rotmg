@@ -3183,6 +3183,63 @@ class LiveView {
         MinimapView.clear();
         file.delete();
         report.accept("the self-test leaves no recording of its own behind", !file.isFile());
+
+        checkMapStartsOverBeforeTheTiles(report);
+    }
+
+    /**
+     * The map is started over ahead of the tiles, not a tick behind them.
+     * <p>
+     * This is the whole of the bug that made the overlay draw only the ground somebody had
+     * personally walked over. The game sends the map load and the first burst of tiles back to
+     * back on the packet thread; Sonar noticed the new instance on its next interface tick, a
+     * fifth of a second later, and cleared the map then - throwing that entire burst away. For
+     * ground you stand still in, the burst is everything the game ever sends, so the map stayed
+     * black. It looked like tiles were not arriving at all. They were arriving and being
+     * deleted.
+     * <p>
+     * So the order is what gets asserted here, not the drawing: the map exists and is the right
+     * size before a single tile is painted, and the interface tick that follows does not undo
+     * it.
+     */
+    private static void checkMapStartsOverBeforeTheTiles(java.util.function.BiConsumer<String, Boolean> report) {
+        MinimapView.clear();
+        ShattersRadar.sawNewInstance("somewhere else", 1, 1, 0);   // loads the class, arming the sink
+        sonar.backend.data.GameData.MapSink sink = sonar.backend.data.GameData.mapSink;
+        report.accept("the backend tells somebody when a new instance loads", sink != null);
+        if (sink == null) return;
+
+        sonar.packets.incoming.MapInfoPacket loaded = new sonar.packets.incoming.MapInfoPacket();
+        loaded.name = "Nexus";
+        loaded.displayName = "";
+        loaded.width = 300;
+        loaded.height = 300;
+        loaded.seed = 4242;
+        sink.newMap(loaded);
+        report.accept("the map is ready the moment the instance loads, before any tile has arrived",
+                MinimapView.width() == 300 && MinimapView.height() == 300);
+
+        // the burst the game sends on the way in
+        for (int i = 0; i < 50; i++) MinimapView.paintForTest(100 + i, 100, 0xFF112233);
+        report.accept("and the tiles that arrive with the load are kept", MinimapView.painted() == 50);
+
+        // the interface tick that used to wipe them, a fifth of a second later
+        boolean again = ShattersRadar.sawNewInstance("Nexus", 300, 300, 4242);
+        report.accept("the interface tick afterwards does not see a second new instance", !again);
+        report.accept("so the ground that arrived with the load survives the tick that follows it",
+                MinimapView.painted() == 50);
+
+        // a real hop is still a new instance, and still starts over
+        sonar.packets.incoming.MapInfoPacket next = new sonar.packets.incoming.MapInfoPacket();
+        next.name = "Nexus";
+        next.displayName = "";
+        next.width = 300;
+        next.height = 300;
+        next.seed = 4243;
+        sink.newMap(next);
+        report.accept("and walking into a different instance does start the map over",
+                MinimapView.painted() == 0);
+        MinimapView.clear();
     }
 
     /**
