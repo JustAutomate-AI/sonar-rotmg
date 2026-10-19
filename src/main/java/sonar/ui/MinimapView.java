@@ -73,6 +73,15 @@ final class MinimapView {
 
     /** Squares this run's own packets painted, so a thrown-away recording does not take them with it. */
     private static volatile java.util.BitSet wire;
+
+    /**
+     * Squares the recalled map laid down, so throwing it away takes back exactly those.
+     * <p>
+     * Throwing a recording away used to keep only what came off the wire, which also wiped a
+     * recording of this person's own that a shipped render had been laid under. The render was
+     * the thing found wanting; their own ground was not.
+     */
+    private static volatile java.util.BitSet laid;
     private static volatile int fromWire;
 
     /** Enough tiles to tell a right recording from a wrong one; a handful of them never would. */
@@ -97,6 +106,7 @@ final class MinimapView {
         agreed = disagreed = fromWire = 0;
         judged = false;
         wire = new java.util.BitSet(w * h);
+        laid = null;
     }
 
     /** Forgets the map without starting another; the next instance will size its own. */
@@ -147,6 +157,7 @@ final class MinimapView {
         BufferedImage img = image;
         if (img == null || recording == null) return 0;
         int w = Math.min(width, recording.getWidth()), h = Math.min(height, recording.getHeight());
+        java.util.BitSet mine = new java.util.BitSet(width * height);
         int laid = 0;
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
@@ -154,9 +165,11 @@ final class MinimapView {
                 if ((argb >>> 24) == 0) continue;
                 if ((img.getRGB(x, y) >>> 24) != 0) continue;   // already known, and better known
                 img.setRGB(x, y, argb);
+                mine.set(x + y * width);
                 laid++;
             }
         }
+        MinimapView.laid = mine;
         recalled = recording;
         agreed = disagreed = 0;
         judged = false;
@@ -175,17 +188,23 @@ final class MinimapView {
         judged = true;
         BufferedImage img = image;
         if (img == null) return;
-        java.util.BitSet seen = wire;
+        java.util.BitSet seen = wire, put = laid;
         int kept = 0;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                if (seen != null && seen.get(x + y * width)) {
-                    kept++;
+                int bit = x + y * width;
+                boolean fromWire = seen != null && seen.get(bit);
+                // a square the discarded recording laid down goes, unless the wire has since
+                // confirmed it; everything else - including this person's own recording - stays
+                boolean theirs = put != null ? put.get(bit) && !fromWire : !fromWire;
+                if (!theirs) {
+                    if ((img.getRGB(x, y) >>> 24) != 0) kept++;
                     continue;
                 }
                 img.setRGB(x, y, 0);
             }
         }
+        laid = null;
         painted = kept;
     }
 
@@ -228,7 +247,7 @@ final class MinimapView {
             int remembered = memory.getRGB(x, y);
             if ((remembered >>> 24) != 0) {
                 boolean alike = approximate
-                        ? MinimapCache.terrainOf(remembered) == MinimapCache.terrainOf(rgb)
+                        ? MinimapCache.isWater(remembered) == MinimapCache.isWater(rgb)
                         : (remembered & 0xFFFFFF) == (rgb & 0xFFFFFF);
                 if (alike) agreed++;
                 else disagreed++;

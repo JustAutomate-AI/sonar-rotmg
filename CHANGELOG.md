@@ -2,6 +2,21 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.51.0
+
+**Instance maps load the moment you arrive**
+
+The approach is settled, and it is two different things for two different kinds of map.
+
+- **Fixed maps ship as Sonar's own recordings.** The Nexus, the Vault and Oryx's Sanctuary are in the jar as recordings made in Sonar — exact tile colours, exact alignment, nothing to match. They are whole on a fresh install, and your own walking merges into them. Any fixed map is one walk by one person away from being shipped the same way.
+- **The realm ships as RealmEye's own map, aligned to the tile grid.** There is one realm layout, so there is nothing to recognise — only one map to get right. Its alignment was found by matching the coastline against a real recording: scale 1.015, offset (+50, −15), and it scored 89% against a 78% baseline where the five world renders scored 83–86%. It is laid down the instant a realm loads, with nothing to wait for.
+- **It is laid under, never over.** Ground off the wire and your own recordings are always better evidence than a render, so the render fills gaps and touches nothing else.
+- **The coast votes on it.** RealmEye's map is a biome chart — purple forests, grey mountains, a palette nothing else uses — so it cannot be checked by colour. It can be checked by where the sea is, which every map of the realm agrees on. If the coast says it is wrong, it is taken back up, and only what it laid down goes with it: your own ground stays.
+- **The five world renders are gone.** Measured against a real recording, none of them was this realm. The jar is 8.9MB, down from 11.8.
+- **The terrain classifier no longer drops the renders' main land colour.** Olive plains — green no brighter than red — were being called unplaceable, which threw away 15% of one render and 37% of another before any comparison began.
+- **The installed build writes a log.** `sonar.log` beside its data. It had no console and no log, so a fault in it could only ever be reported as a screenshot.
+- Five assertions on the realm: it is laid down the moment you arrive, under the ground already walked, marked as a render so the coast votes on it, and sea is sea in any palette.
+
 ## 2.50.0
 
 **The shipped map library was unreachable, and now is not**

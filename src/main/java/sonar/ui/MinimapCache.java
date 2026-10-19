@@ -196,9 +196,14 @@ final class MinimapCache {
         int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
         if (b > r + 25 && b > g + 15) return WATER;
         int brightest = Math.max(r, Math.max(g, b));
-        if (brightest < 70) return DARK;
-        if (g > r + 18) return GRASS;
-        if (r > 140 && g > 125 && b < 170) return SAND;
+        if (brightest < 95) return DARK;
+        // Olive plains - green no brighter than red - are the commonest ground in a render of
+        // the realm, and the first version of this called them unplaceable, which threw away
+        // the renders' main land colour before any comparison began. Measured: 15% of one
+        // render and 37% of another were being dropped. Both are under 12% now, and what is
+        // left is roads and the white event zones, which are rightly neither.
+        if (g > r + 10 || (g >= r - 12 && g > b + 25)) return GRASS;
+        if (r >= 130 && g >= 110 && b < 160 && r >= g) return SAND;
         return OTHER;
     }
 
@@ -224,6 +229,42 @@ final class MinimapCache {
                 if (theirs == UNKNOWN || theirs == OTHER) continue;
                 compared++;
                 if (mine == theirs) agreed++;
+            }
+        }
+        return new int[]{agreed, compared};
+    }
+
+    /**
+     * Whether a colour is water, in any palette anyone draws a map in.
+     * <p>
+     * The one thing every map of the realm agrees on. A render colours its ground however
+     * it likes - RealmEye's is a biome chart, purple forests and grey mountains - but the
+     * sea is blue in all of them, and Sonar's own water tiles are blue too. So where two
+     * pictures of the realm cannot be compared by ground, they can still be compared by
+     * where the coast is, and a coastline is as distinctive as a fingerprint.
+     */
+    static boolean isWater(int argb) {
+        return terrainOf(argb) == WATER;
+    }
+
+    /**
+     * How well a layout agrees with the walked ground about where the sea is.
+     *
+     * @return {agreed, compared}
+     */
+    static int[] agreementByCoast(BufferedImage live, BufferedImage layout) {
+        if (live == null || layout == null) return new int[]{0, 0};
+        int w = Math.min(live.getWidth(), layout.getWidth());
+        int h = Math.min(live.getHeight(), layout.getHeight());
+        int agreed = 0, compared = 0;
+        for (int y = 0; y < h; y += 3) {
+            for (int x = 0; x < w; x += 3) {
+                int mine = live.getRGB(x, y);
+                if ((mine >>> 24) == 0) continue;
+                int theirs = layout.getRGB(x, y);
+                if ((theirs >>> 24) == 0) continue;
+                compared++;
+                if (isWater(mine) == isWater(theirs)) agreed++;
             }
         }
         return new int[]{agreed, compared};
@@ -359,7 +400,7 @@ final class MinimapCache {
                     for (int i = 1; i <= known; i++) {
                         BufferedImage candidate = shippedLayout(w, h, i);   // one at a time
                         if (candidate == null) continue;
-                        int[] score = agreementByTerrain(live, candidate);
+                        int[] score = agreementByCoast(live, candidate);
                         if (score[1] > 0 && score[0] * 1000L / Math.max(1, score[1])
                                 > bestOfAny * 1000L / Math.max(1, comparedOfAny)) {
                             bestOfAny = score[0];
@@ -456,6 +497,23 @@ final class MinimapCache {
         if (recorded == null) {
             recorded = readResource("/maps/" + fileName(mapName, w, h));
             if (recorded != null) from = "the copy Sonar ships";
+        }
+        if (recorded == null && shippedCount(w, h) == 1) {
+            // The realm. There is one layout, so there is nothing to recognise - the only
+            // question is whether the map Sonar ships is right, and that is answered by laying
+            // it down at once and letting the tiles vote. A render is laid under, never over:
+            // ground off the wire is always the better evidence, and a recording of this
+            // person's own is too. If the votes go against it the render is taken back up and
+            // nothing of theirs goes with it.
+            BufferedImage world = shippedLayout(w, h, 1);
+            if (world != null) {
+                matchedShipped = 1;
+                triedShipped = true;
+                MinimapView.setRecalledIsApproximate(true);
+                int laid = MinimapView.primeUnder(world);
+                lastRecalled = "the realm map Sonar ships, confirmed by the coast as it arrives";
+                return laid;
+            }
         }
         if (recorded == null) {
             if (trouble.isEmpty()) trouble = "nothing recorded for " + mapName + " at " + w + " by " + h + " yet";
