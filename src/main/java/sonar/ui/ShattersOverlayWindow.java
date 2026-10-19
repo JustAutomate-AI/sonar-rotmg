@@ -389,7 +389,31 @@ class ShattersOverlayWindow extends JWindow {
      * without filling, so a fresh instance shows the game's own minimap until Sonar can do
      * better than it.
      */
-    private boolean drawMap = !"false".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.drawmap"));
+    private boolean drawMap = wantsMap();
+
+    /**
+     * Whether to draw the map, with the trap the removed button left behind taken out.
+     * <p>
+     * {@code Map: on/off} wrote this setting, and 2.42.1 removed that button once the overlay
+     * was a map rather than a layer over one. Anyone who had switched it off was then stranded:
+     * the overlay drew nothing, for a reason that was true and unchangeable, with no control
+     * left to change it. Reported as an overlay showing nothing at all, which is exactly what
+     * it was.
+     * <p>
+     * So a stored "off" is discarded once, since the thing that wrote it is gone. The setting
+     * is still read afterwards, for anyone who sets it by hand in sonar.properties, which is
+     * what it was always meant to be.
+     */
+    private static boolean wantsMap() {
+        String stored = sonar.util.PropertiesManager.getProperty("sonar.shatters.drawmap");
+        if ("false".equals(stored)
+                && !"true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.drawmap.freed"))) {
+            sonar.util.PropertiesManager.setProperties("sonar.shatters.drawmap", "true");
+            sonar.util.PropertiesManager.setProperties("sonar.shatters.drawmap.freed", "true");
+            return true;
+        }
+        return !"false".equals(stored);
+    }
 
     void setDrawMap(boolean on) {
         drawMap = on;
@@ -503,10 +527,19 @@ class ShattersOverlayWindow extends JWindow {
      * indistinguishable from a broken one, and was reported as exactly that.
      */
     private void paintWhyBlank(Graphics2D g, int w, int h) {
+        // every fact at once, not just the first check that failed: a panel that stops at the
+        // first blocker takes one screenshot per cause to get through, and there are five
+        String where = ShattersRadar.mapWidth() > 0
+                ? (ShattersRadar.mapName().isEmpty() ? "an instance" : ShattersRadar.mapName())
+                + " " + ShattersRadar.mapWidth() + "x" + ShattersRadar.mapHeight()
+                : "no instance seen yet";
         String[] lines = {
                 "Sonar overlay",
                 blankBecause.isEmpty() ? "nothing to draw" : blankBecause,
-                MinimapView.painted() + " tiles known",
+                "map layer: " + (drawMap ? "on" : "off"),
+                "in: " + where,
+                MinimapView.painted() + " tiles known, " + MinimapView.fromWire() + " from this run",
+                ShattersRadar.viewCentre(10, 10) == null ? "you are not placed yet" : "you are placed",
                 clickLine(),
                 MinimapSync.state()};
         g.setFont(SonarTheme.font(10f));
