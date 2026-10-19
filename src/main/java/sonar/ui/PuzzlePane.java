@@ -37,8 +37,49 @@ class PuzzlePane extends Pane {
     /** Null until Solve is pressed, so the answer only appears when it is asked for. */
     private ShattersPuzzle.Solution manualSolution;
 
+    /**
+     * Which instance the grid on screen belongs to. Nothing has been seen at -1.
+     */
+    private int sawInstance = -1;
+
+    /**
+     * True when the last refresh handed the grid back to the game by itself, so whoever is
+     * drawing the buttons knows to put them back as they were.
+     */
+    private boolean justWentLive;
+
+    boolean takeJustWentLive() {
+        boolean was = justWentLive;
+        justWentLive = false;
+        return was;
+    }
+
+    /**
+     * The grid belongs to the instance it was read in.
+     * <p>
+     * Entering a board by hand takes the grid off the game until Live is pressed, which is
+     * right while you are in the dungeon that board is in - the hand-entered answer should not
+     * be overwritten halfway through using it. It was wrong the moment you left: the pane
+     * stayed in hand-entered mode across the portal, so the next Shatters found the grid
+     * already taken and never filled it in, and the solver that had worked by itself a few
+     * times appeared to stop working for good.
+     * <p>
+     * A new instance is a new puzzle. The grid goes back to the game at the door, every time,
+     * whatever was on it before.
+     */
     void show(ShattersPuzzle.Solution s) {
-        if (manual) return; // the hand-entered grid stays put until Live is pressed
+        int now = ShattersRadar.mapGeneration();
+        if (now != sawInstance) {
+            sawInstance = now;
+            if (manual) {
+                manual = false;
+                manualSolution = null;
+                java.util.Arrays.fill(manualLit, false);
+                justWentLive = true;
+                revalidate();
+            }
+        }
+        if (manual) return; // the hand-entered grid stays put until Live is pressed, or you leave
         solution = s;
         repaint();
     }

@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.37.1
+
+**The puzzle grid is prepared fresh for every instance**
+
+- The Observatory solver reads the nine towers off the wire and works the board out by itself. It did that a few times and then appeared to stop for good — and nothing said why.
+- Entering a board **by hand** takes the grid off the game until **Live** is pressed. That is right while you are standing in front of that board: a hand-entered answer should not be overwritten halfway through using it. It was wrong the moment you left. The pane stayed in hand-entered mode across the portal, so the next Shatters found the grid already taken and never filled it in.
+- **A new instance is a new puzzle.** The grid now goes back to the game at the door, every time, whatever was on it before — so the solver is always prepped to receive the board it is about to be shown. The buttons follow it back, rather than still offering Solve and Live over a grid that is live again.
+- It still holds while you are *in* the instance: a board clicked in by hand stays exactly as entered until you press Live or walk out.
+- Six assertions: a fresh grid is the game's to fill in, entering a board by hand takes it off the game, it stays taken while you are still in that instance, the next instance hands it back, the pane says so once so the buttons go back with it, and it does not say so twice.
+
 ## 2.37.0
 
 **One switch, and it works outside the Shatters**
