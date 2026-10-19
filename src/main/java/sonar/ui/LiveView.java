@@ -2588,6 +2588,20 @@ class LiveView {
                         && ShattersOverlayWindow.zoomButtonAt(890, 160, 950, 956) == 1
                         && ShattersOverlayWindow.zoomButtonAt(222, 18, 238, 239) == -1);
 
+        // the minimap goes back to full zoom on every instance load, so the overlay has to know
+        // when one happened - and two Nexuses, or two realms of a name, are identical but for
+        // the seed the game builds them from
+        int before = ShattersRadar.mapGeneration();
+        report.accept("loading into a dungeon counts as a new instance",
+                ShattersRadar.sawNewInstance("The Shatters", 140, 140, 1234));
+        report.accept("standing still in it does not count again",
+                !ShattersRadar.sawNewInstance("The Shatters", 140, 140, 1234));
+        report.accept("a second Nexus is a new instance even though nothing but the seed moved",
+                ShattersRadar.sawNewInstance("Nexus", 100, 100, 7)
+                        && ShattersRadar.sawNewInstance("Nexus", 100, 100, 8));
+        report.accept("and each one stepped the count exactly once",
+                ShattersRadar.mapGeneration() - before == 3);
+
         // a frame with no size yet must not answer at all, or the overlay steps on every click
         report.accept("a frame with no size on it answers nothing",
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0

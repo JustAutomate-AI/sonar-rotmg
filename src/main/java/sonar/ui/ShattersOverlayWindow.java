@@ -766,9 +766,10 @@ class ShattersOverlayWindow extends JWindow {
      * map has fewer. Nothing recomputed either when the map changed, so walking through a
      * portal left the overlay drawing at the last map's scale on this map's ladder.
      * <p>
-     * The game rebuilds its own ladder at the same moment and starts it at the most zoomed-in
-     * rung, which is what {@code MiniMapZoomButtons} is constructed with, so the overlay goes
-     * back to the top rung with it.
+     * The game rebuilds its own ladder at the same moment and puts the minimap back to full
+     * zoom - which is what {@code MiniMapZoomButtons} being constructed with {@code
+     * zoomLevel = 0} says it should do, and what it is observed to do in play. So the overlay
+     * goes back to the top rung with it.
      */
     private void followMapChange() {
         int now = ShattersRadar.mapGeneration();

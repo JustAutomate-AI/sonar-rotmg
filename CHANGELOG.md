@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.33.1
+
+**A new Nexus is a new instance**
+
+- 2.33.0 put the overlay back to the top rung whenever the map changed, because the game puts its minimap back to full zoom on loading into a new instance. That part is right — it is confirmed in play, not just read out of the client.
+- What it got wrong was spotting the moment. It watched the map's **name and size**, which tells one dungeon from another but cannot tell two Nexuses apart, or two realms of the same name — and those are exactly the hops where a zoom gets reset most often. Nexus to realm to Nexus, and the overlay would hold the old rung through all of it.
+- It now watches the **seed** instead: the number the game builds the instance from, different for every instance even when nothing else about it is, and already in the same packet as the name and the size.
+- Four assertions cover it: a dungeon load counts, standing still in it does not count again, two Nexuses that differ only by seed are two instances, and each one steps the counter exactly once.
+
 ## 2.33.0
 
 **The Shatters overlay follows the minimap's own zoom buttons**
