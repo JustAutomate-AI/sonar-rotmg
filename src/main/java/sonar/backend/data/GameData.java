@@ -151,11 +151,30 @@ public class GameData {
 
     public static volatile TileSink tileSink;
 
+    /**
+     * Told that a new instance has loaded, before any of its tiles arrive.
+     * <p>
+     * The map load and the first tiles of the new map come down the wire back to back, and
+     * both are handled here on the packet thread. Anything keeping its own picture of the map
+     * has to be told to start over at exactly this moment: a user interface that notices on
+     * its next tick, a fifth of a second later, has already been handed the whole first burst
+     * of tiles and throws them away when it finally clears itself. That burst is most of what
+     * the game ever sends for ground you are standing still in, so the map stays empty.
+     */
+    public interface MapSink {
+        void newMap(MapInfoPacket map);
+    }
+
+    public static volatile MapSink mapSink;
+
     public void setNewRealm(MapInfoPacket map) {
         clear();
         petYardCheck(map.displayName);
         this.map = map;
         rng = new RNG(map.seed);
+        MapSink sink = mapSink;
+        // before returning, so it is ahead of the tiles rather than a tick behind them
+        if (sink != null) sink.newMap(map);
     }
 
     /**
