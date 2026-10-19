@@ -195,10 +195,29 @@ final class ShattersRadar {
         final int type;
         final float x, y;
 
+        /**
+         * What object this is, where the mark stands for a real one.
+         * <p>
+         * {@link #type} says what kind of thing it is and that is all the drawing needed while
+         * everything was a coloured dot. A mark drawn as the thing's own sprite needs to know
+         * which thing, so the object's own id is carried alongside. Zero where there is no
+         * object behind the mark, which is the case for you.
+         */
+        final int id;
+
         Mark(int type, float x, float y) {
+            this(type, 0, x, y);
+        }
+
+        Mark(int type, int id, float x, float y) {
             this.type = type;
+            this.id = id;
             this.x = x;
             this.y = y;
+        }
+
+        int kindId() {
+            return id;
         }
     }
 
@@ -357,7 +376,7 @@ final class ShattersRadar {
                 // an id the assets do not name; the class alone still decides
             }
             int kind = kindOf(clazz, name, data.playerListUpdated.containsKey(e.id));
-            if (kind != 0) found.add(new Mark(kind, e.pos.x, e.pos.y));
+            if (kind != 0) found.add(new Mark(kind, e.objectType, e.pos.x, e.pos.y));
         }
         if (!Float.isNaN(playerX)) found.add(new Mark(SELF, playerX, playerY));
         live = found;

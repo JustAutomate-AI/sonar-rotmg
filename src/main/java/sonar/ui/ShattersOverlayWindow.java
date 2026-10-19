@@ -297,6 +297,7 @@ class ShattersOverlayWindow extends JWindow {
         // underneath them. The marks proved the overlay was alive, so the absence of ground
         // looked deliberate, and the panel that knew why refused to speak.
         if (!drewMap) paintWhyBlank(g, w, h);
+        else paintGroundLine(g, w, h);
         if (calibrating) {
             g.setColor(new Color(255, 255, 255, 50));
             g.drawOval((int) (cx - radius), (int) (cy - radius), (int) (radius * 2), (int) (radius * 2));
@@ -553,7 +554,7 @@ class ShattersOverlayWindow extends JWindow {
                 paintReticle(g, x, y, w, h);
                 continue;
             }
-            paintMark(g, m.type, x, y);
+            paintMark(g, m.type, m.kindId(), x, y);
         }
     }
 
@@ -566,7 +567,7 @@ class ShattersOverlayWindow extends JWindow {
      * diamonds, and those two shapes are most of what is on a realm minimap. Matching them
      * costs nothing and means the picture can be read by somebody who has never been told how.
      */
-    private void paintMark(Graphics2D g, int kind, int x, int y) {
+    private void paintMark(Graphics2D g, int kind, int id, int x, int y) {
         if (kind == ShattersRadar.ALLY) {
             g.setColor(new Color(0, 0, 0, 170));
             g.fillOval(x - 5, y - 5, 10, 10);
@@ -580,11 +581,45 @@ class ShattersOverlayWindow extends JWindow {
             g.setColor(WAY);
             g.fillRect(x - 4, y - 4, 8, 8);
         } else {
+            java.awt.image.BufferedImage face = kind == ShattersRadar.FOE ? faceOf(id) : null;
+            if (face != null) {
+                int size = 14;
+                g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
+                return;
+            }
             g.setColor(new Color(0, 0, 0, 150));
             g.fillOval(x - 4, y - 4, 8, 8);
             g.setColor(FOE_RED);
             g.fillOval(x - 3, y - 3, 6, 6);
         }
+    }
+
+    /**
+     * The thing's own sprite, for anything that can be fought.
+     * <p>
+     * A red dot says something is there and nothing about what. The sprites are already
+     * extracted - it is the same lookup the damage board draws its rows with - so a boss can
+     * simply be drawn as itself, which is both more use and less to learn than a legend. Where
+     * there is no sprite the dot is still drawn, so nothing ever goes unmarked.
+     */
+    private static final java.util.Map<Integer, java.awt.image.BufferedImage> FACES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static final java.awt.image.BufferedImage NO_FACE =
+            new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+
+    private static java.awt.image.BufferedImage faceOf(int objectType) {
+        if (objectType <= 0) return null;
+        java.awt.image.BufferedImage known = FACES.get(objectType);
+        if (known != null) return known == NO_FACE ? null : known;
+        java.awt.image.BufferedImage got = null;
+        try {
+            got = sonar.assets.ImageBuffer.getImage(objectType);
+        } catch (Throwable noSprite) {
+            // an id the sheets do not have; the dot still marks it
+        }
+        FACES.put(objectType, got == null ? NO_FACE : got);
+        return got;
     }
 
     /** Lets the self-test drive the zoom the way a scroll does. */
@@ -690,6 +725,34 @@ class ShattersOverlayWindow extends JWindow {
      * several new ways to be legitimately empty. A blank window with no explanation is
      * indistinguishable from a broken one, and was reported as exactly that.
      */
+    /**
+     * One line of fact along the bottom, whenever the ground layer is drawing.
+     * <p>
+     * A map that draws successfully and shows nothing is the hardest state to report, because
+     * every explanation Sonar has is for the case where it drew nothing at all. The size, the
+     * tile count and what the layout matching concluded are the three numbers that separate
+     * "no tiles arrived" from "tiles arrived somewhere else" from "the right ground is there
+     * and the view is looking elsewhere", and none of them were visible.
+     */
+    private void paintGroundLine(Graphics2D g, int w, int h) {
+        String world = MinimapCache.lastRecalledFrom();
+        if (world.isEmpty()) {
+            world = MinimapCache.lastTrouble();
+            if (world.isEmpty()) world = "no layout";
+        }
+        String text = ShattersRadar.mapWidth() + "x" + ShattersRadar.mapHeight()
+                + " · " + MinimapView.painted() + " tiles (" + MinimapView.fromWire() + " this run)"
+                + " · " + world;
+        g.setFont(SonarTheme.font(9f));
+        FontMetrics fm = g.getFontMetrics();
+        int tw = Math.min(w - 6, fm.stringWidth(text));
+        int bh = fm.getHeight() + 4;
+        g.setColor(new Color(8, 9, 12, 200));
+        g.fillRect(2, h - bh - 2, tw + 8, bh);
+        g.setColor(new Color(140, 150, 170));
+        g.drawString(text, 6, h - 6);
+    }
+
     private void paintWhyBlank(Graphics2D g, int w, int h) {
         // every fact at once, not just the first check that failed: a panel that stops at the
         // first blocker takes one screenshot per cause to get through, and there are five

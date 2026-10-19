@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.49.0
+
+**Enemies are drawn as themselves, and the map says what it knows**
+
+- **A boss is drawn as the boss.** The sprites are already extracted — it is the same lookup the damage board draws its rows with — so anything that can be fought is now drawn as its own sprite instead of a red dot. More use than a dot and less to learn than a legend. Where a sprite is missing the dot is still drawn, so nothing goes unmarked.
+- **One line of fact along the bottom whenever the ground is drawing**: the map's size, how many squares are known and how many came from this run, and what the layout matching concluded. A map that draws *successfully* and still shows nothing is the hardest state to report, because every explanation Sonar had was written for the case where it drew nothing at all. Those three numbers separate "no tiles arrived" from "tiles arrived somewhere else" from "the ground is there and the view is looking elsewhere".
+
+Two theories ruled out by measurement rather than argument, recorded so they are not raised again: the realm map **is** resized correctly on entry (driven Nexus to realm through the real code: 2048 by 2048, a tile at 1000,1000 lands), and the ground colours **are** available — of the 9,334 ground types the client defines, Sonar has a colour for 9,333. The only one it does not is "Black Water", which is id zero and skipped anyway.
+
 ## 2.48.2
 
 **The overlay explains an empty map even when marks are on it**
