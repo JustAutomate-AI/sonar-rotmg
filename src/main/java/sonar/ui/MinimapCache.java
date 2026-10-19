@@ -271,6 +271,8 @@ final class MinimapCache {
         openW = w;
         openH = h;
         matchedLayout = 0;
+        keptAt = System.currentTimeMillis();
+        keptAtTiles = 0;
         BufferedImage recorded = null;
         String from = "";
         java.util.List<File> layouts = layoutsOf(mapName, w, h);
@@ -317,6 +319,41 @@ final class MinimapCache {
      */
     static void remember() {
         remember(false);
+    }
+
+    /** When the open map was last written, so a long stay in one place is not lost. */
+    private static volatile long keptAt;
+    private static volatile int keptAtTiles;
+
+    /**
+     * Writes the open map if it has learned anything since the last time.
+     * <p>
+     * A recording used to be written only on the way out of an instance, which is the one
+     * moment it is certainly complete - and also means a map is worth nothing until you have
+     * left it once. Somebody who updates Sonar and walks around the Nexus for ten minutes has
+     * recorded nothing at all, and the next visit starts blank again. Called on the clock, so
+     * the ground is kept as it is learned.
+     * <p>
+     * It writes only when there is something new and not more than once a minute, because the
+     * merge reads the file back and a map is not learned quickly enough to be worth more.
+     */
+    static void keepUpToDate() {
+        if (openName.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        int seen = MinimapView.fromWire();
+        if (now - keptAt < 60000) return;
+        if (seen <= keptAtTiles) return;
+        int into = layoutToWrite(openName, openW, openH);
+        if (into <= 0) return;
+        keptAt = now;
+        keptAtTiles = seen;
+        final String name = openName;
+        final int w = openW, h = openH;
+        final BufferedImage snap = MinimapView.copy();
+        if (snap == null) return;
+        Thread t = new Thread(() -> write(name, w, h, into, snap), "sonar-map-keep");
+        t.setDaemon(true);
+        t.start();
     }
 
     /**
@@ -463,6 +500,18 @@ final class MinimapCache {
     /** Lets the self-test drive a whole keep-and-recall round without the game. */
     static synchronized int writeAndCountForTest(String name, int w, int h, BufferedImage run) {
         return write(name, w, h, run);
+    }
+
+    /** Lets the self-test force a keep without waiting a minute for the clock. */
+    static void keepForTest() {
+        keptAt = 0;
+        keepUpToDate();
+        // the write is handed to a thread; give it its moment so the test sees the file
+        try {
+            Thread.sleep(400);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Lets the self-test see what the recorder thinks it is recording. */

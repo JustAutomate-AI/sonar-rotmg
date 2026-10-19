@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.47.0
+
+**A map is kept as it is learned, not only on the way out**
+
+The whole-layout feature from 2.46.0 had a hole in it that made it look like it did nothing: a recording was only written when you left an instance. Update Sonar, walk around the Nexus for ten minutes, and nothing at all has been recorded — so the next visit starts blank, and the visit after that, forever, as long as you keep arriving somewhere rather than leaving it.
+
+- **The open map is now written as it is walked**, once a minute and only when there is new ground in it. So one visit to the Nexus is enough for the next one to open with the whole of it already drawn.
+- Still written on the way out of an instance, and still when Sonar is closed mid-run. This is in addition, not instead.
+- Four assertions on it, including that writing again with nothing new learned changes nothing — the merge reads the file back, so a keep that fires on an unchanged map is pure cost.
+
 ## 2.46.1
 
 **The overlay stops making the game stutter**

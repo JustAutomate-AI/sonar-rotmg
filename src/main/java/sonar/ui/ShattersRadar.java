@@ -479,6 +479,9 @@ final class ShattersRadar {
         // the rest of it down. Cheap to ask: it does nothing at all until there is enough, and
         // nothing again once it has an answer.
         if (drawingMap) MinimapCache.lookForLayout(name, mapWidth, mapHeight);
+        // kept as it is learned, not only on the way out: a map you have not left yet is a map
+        // you have recorded nothing of
+        MinimapCache.keepUpToDate();
         trackLive(data);
         if (portalTest) {
             trackTestMarks(data);

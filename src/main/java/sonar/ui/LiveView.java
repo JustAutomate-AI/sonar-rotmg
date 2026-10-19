@@ -3127,6 +3127,38 @@ class LiveView {
     }
 
     /**
+     * A map is kept as it is learned, not only on the way out of it.
+     * <p>
+     * Writing only on the way out is the one moment a recording is certainly complete, and it
+     * also means a map is worth nothing until you have left it once. Somebody who updates
+     * Sonar and walks around the Nexus for ten minutes has recorded nothing at all, and the
+     * next visit starts blank again - which is exactly how the feature looked from outside.
+     */
+    private static void checkKeptAsLearned(java.util.function.BiConsumer<String, Boolean> report) {
+        final String name = "Shatters Keep Test";
+        final int W = 50, H = 50;
+        java.io.File f = MinimapCache.fileForTest(name, W, H);
+        if (f.isFile()) f.delete();
+
+        MinimapView.reset(W, H);
+        MinimapCache.openForTest(name, W, H);
+        for (int i = 0; i < 1500; i++) MinimapView.paintForTest(i % W, i / W, 0xFF123456);
+        report.accept("nothing is written for a map still being walked a moment ago",
+                !f.isFile());
+        MinimapCache.keepForTest();
+        report.accept("but it is written once it is worth writing", f.isFile());
+
+        int before = MinimapCache.count(MinimapView.copy());
+        MinimapCache.keepForTest();
+        report.accept("and writing again with nothing new learned changes nothing",
+                MinimapCache.count(MinimapView.copy()) == before);
+
+        MinimapView.clear();
+        f.delete();
+        report.accept("the self-test leaves no recording behind here either", !f.isFile());
+    }
+
+    /**
      * Which of several recorded layouts this realm is, worked out from the ground walked.
      * <p>
      * A realm is not generated fresh every instance - it is built from a limited set of fixed
@@ -3290,6 +3322,7 @@ class LiveView {
 
         checkMapStartsOverBeforeTheTiles(report);
         checkLayoutRecognition(report);
+        checkKeptAsLearned(report);
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);
         checkWheelReach(report);
