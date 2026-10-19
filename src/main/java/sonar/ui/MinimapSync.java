@@ -95,7 +95,7 @@ final class MinimapSync {
             state = "no frame to match in";
             return 0;
         }
-        Rectangle where = MinimapLocator.find();
+        Rectangle where = whereItIs();
         if (where == null) {
             state = "minimap not found: " + MinimapLocator.trouble();
             return 0;
@@ -124,6 +124,45 @@ final class MinimapSync {
         }
         state = String.format("locked, %.2fx clearer than the next", sure);
         return scale;
+    }
+
+    /**
+     * Where the minimap is, looked up rarely and remembered.
+     * <p>
+     * Finding it means photographing the whole game window and scanning it for the frame's
+     * colours, which at 2560 by 1440 costs about twenty-two milliseconds - and the cost to the
+     * game is worse than the cost here, because grabbing the screen makes the compositor stop
+     * and hand over a finished frame. Doing that every second and a half is felt as the game
+     * stuttering, and was reported as exactly that.
+     * <p>
+     * The minimap does not move while the window does not, so it is found once and the
+     * rectangle kept. Photographing just that rectangle is a quarter of the work, and the
+     * search is repeated only when the window has moved or resized, which is cheap to check.
+     */
+    private static volatile Rectangle known;
+    private static volatile Rectangle knownInside;
+
+    static Rectangle whereItIs() {
+        Rectangle window = null;
+        try {
+            window = MinimapLocator.gameWindow();
+        } catch (Throwable notWindows) {
+            // fall through to a full search
+        }
+        Rectangle had = known;
+        if (had != null && window != null && window.equals(knownInside)) return had;
+        Rectangle found = MinimapLocator.find();
+        if (found != null) {
+            known = found;
+            knownInside = window;
+        }
+        return found;
+    }
+
+    /** Forgets where the minimap was, so the next measurement looks again. */
+    static void forgetWhere() {
+        known = null;
+        knownInside = null;
     }
 
     /** Whether a measurement should be believed. Split out so the self-test can drive it directly. */

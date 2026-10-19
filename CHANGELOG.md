@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.46.1
+
+**The overlay stops making the game stutter**
+
+Reported as the frame rate feeling low with the overlay on, and it was Sonar's fault in a way worth naming: grabbing the screen makes the compositor stop and hand over a finished frame, so the cost lands on the game rather than on Sonar, where it does not show up in anything Sonar measures about itself.
+
+- **The minimap is found once, not every time.** Finding it meant photographing the whole game window and scanning it for the frame's colours — twenty-two milliseconds at 2560 by 1440, every second and a half. The minimap does not move while the window does not, so the rectangle is kept and only the rectangle is photographed after that, which is a quarter of the work. The search is repeated only when the window has moved or resized.
+- **Measurements are far rarer.** Every five seconds rather than every second and a half, and after three in a row that agree, every twenty. The answer rarely changes; a change is still noticed, and a zoom set by hand stops the asking altogether.
+- Two things that were suspected and measured innocent, recorded so they are not suspected again: looking up an entity's class and name on every tick costs about four milliseconds a second at three hundred entities, and painting a forty-thousand tile burst costs three milliseconds.
+
 ## 2.46.0
 
 **The realm's whole layout, from the part you have walked**

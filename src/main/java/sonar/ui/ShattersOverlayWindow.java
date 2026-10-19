@@ -134,7 +134,20 @@ class ShattersOverlayWindow extends JWindow {
      * clicking. Measuring more often than this buys very little, because a person changing
      * zoom is already looking at the minimap and will see it catch up.
      */
-    private final Timer syncTimer = new Timer(1500, e -> syncToGame());
+    private final Timer syncTimer = new Timer(5000, e -> syncToGame());
+
+    /**
+     * How often the game's zoom is re-read, once it has stopped changing.
+     * <p>
+     * Every measurement photographs the screen, and photographing the screen makes the
+     * compositor stop and hand over a finished frame - which the game feels as a stutter. The
+     * answer rarely changes, so after a few measurements that agree, the overlay asks a great
+     * deal less often. A zoom change is noticed within the slower interval, and a zoom set
+     * here by hand stops the asking altogether.
+     */
+    private static final int SETTLED_MS = 20000;
+
+    private int agreeingMeasurements;
 
     private volatile boolean syncing;
 
@@ -175,7 +188,19 @@ class ShattersOverlayWindow extends JWindow {
             syncing = false;
             if (scale <= 0) return;
             javax.swing.SwingUtilities.invokeLater(() -> {
-                if (Math.abs(scale - pixelsPerTile) / Math.max(scale, pixelsPerTile) < 0.005) return;
+                boolean same = Math.abs(scale - pixelsPerTile) / Math.max(scale, pixelsPerTile) < 0.005;
+                if (same) {
+                    if (++agreeingMeasurements >= 3 && syncTimer.getDelay() != SETTLED_MS) {
+                        syncTimer.setDelay(SETTLED_MS);
+                        syncTimer.restart();
+                    }
+                    return;
+                }
+                agreeingMeasurements = 0;
+                if (syncTimer.getDelay() != 5000) {
+                    syncTimer.setDelay(5000);
+                    syncTimer.restart();
+                }
                 pixelsPerTile = clampScale(scale);
                 repaint();
             });
