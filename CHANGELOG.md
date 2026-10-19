@@ -2,6 +2,23 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.35.0
+
+**The overlay draws its own map, and finds your minimap by itself**
+
+Sonar spent four releases trying to read a number the game does not publish. The minimap's zoom level is in no packet, no file and no registry key, so the overlay could only watch for the ways a person changes it — the bound keys, the buttons in the corner, the wheel over it — and hope it had caught every one. It had not, and there is no way to know when it has. A missed one is silent and stays wrong until the map changes.
+
+RealmShark's **Potato** has never played that game, and its overlay has worked for years. It draws a map of its own and zooms that, so there is nothing to keep in step. Sonar now does the same, and does not need Potato's pre-drawn map images to do it.
+
+- **Sonar draws the ground itself.** Every ground tile arrives in `UpdatePacket` as the map is explored, and the colour each tile is drawn as on a minimap is already in the extracted sprite sheets as that sprite's most common colour. So the overlay keeps one pixel per tile, painted as the tiles land, and scales it to whatever zoom it is on. Grass comes out green and Oryx's rug comes out red because those are the game's own colours, not a palette invented here.
+- **That ends the zoom problem outright.** The ground and the marks are at the same zoom because they are the same picture, and that zoom is whichever one was last asked for here. The wheel, the keys and the minimap's own buttons all step it — but now they are setting Sonar's zoom rather than guessing at the game's, so a missed press is a zoom that did not change rather than an overlay that is quietly wrong.
+- **Unseen ground stays transparent**, which is right twice over: it is what the game's minimap does with unexplored map, and it lets the game's own minimap read through wherever Sonar has nothing to say. How solid Sonar's ground is drawn is a setting, and **Map: off** puts the overlay back to marks alone.
+- **The minimap is found for you.** Lining the overlay up by hand was the first thing anyone had to do and the thing most likely to be done slightly wrong — and a frame a few pixels out puts every mark a few pixels out at every zoom. **Find minimap** takes one picture of the game's own window and finds the minimap in it by colour: the frame is a flat grey nothing else on the HUD uses, with a darker border just inside. Measured against a real 2560x1440 game window it returns the map to the pixel, frame taken off. It fails rather than guesses — a wrong rectangle would look aligned and be wrong everywhere — and says why.
+- **A new instance starts close in**, at the game's own most zoomed-in step of 48 tiles across, which is the one rung Sonar and the game are certain to agree on.
+- Ten assertions cover it: the scan finds a minimap drawn to the real geometry and returns the map with the frame removed, a window with no minimap in it is not guessed at, tile colours are read correctly whether the sheet wrote them nought-to-one or nought-to-255, black ground is still drawn as ground rather than as unexplored, a new instance gets a map its own size, tiles off the edge are dropped rather than thrown, and walking into the realm starts the map over.
+
+Only the game's own window is ever captured, never the screen, and nothing is sent anywhere.
+
 ## 2.34.2
 
 **The realm is 2048 tiles wide, and the ladder has a rung too many for it**

@@ -207,6 +207,13 @@ final class ShattersRadar {
     private static volatile List<Mark> marks = Collections.emptyList();
     private static volatile int mapWidth, mapHeight;
 
+    static {
+        // every ground tile the game sends, handed to the map as it lands. Set here rather
+        // than from whoever opens the overlay, so the map is already drawn when it is opened
+        // halfway through a dungeon rather than starting blank from that moment.
+        sonar.backend.data.GameData.tileSink = MinimapView::tile;
+    }
+
     /**
      * Counts up once per instance loaded into.
      * <p>
@@ -331,7 +338,11 @@ final class ShattersRadar {
         inShatters = name.toLowerCase().contains("shatters");
         mapWidth = data.map.width;
         mapHeight = data.map.height;
-        sawNewInstance(name, mapWidth, mapHeight, data.map.seed);
+        if (sawNewInstance(name, mapWidth, mapHeight, data.map.seed)) {
+            // the tiles of the instance just left mean nothing here, and the new one's are
+            // already arriving: the first update packet lands with the map info
+            MinimapView.reset(mapWidth, mapHeight);
+        }
         if (portalTest) {
             trackTestMarks(data);
             return;

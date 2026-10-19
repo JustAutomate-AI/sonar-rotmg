@@ -136,6 +136,21 @@ public class GameData {
      *
      * @param map New realm to be set.
      */
+    /**
+     * Told about each ground tile as it arrives.
+     * <p>
+     * The tiles are already kept in {@link #mapTiles}, but a minimap cannot be built by
+     * reading four million squares every frame to find the few hundred that changed. Handing
+     * each one over as it lands costs a null check per tile and lets the drawing keep up with
+     * the exploring. Nothing is required to listen, and nothing in the backend knows or cares
+     * what does.
+     */
+    public interface TileSink {
+        void tile(int x, int y, int type);
+    }
+
+    public static volatile TileSink tileSink;
+
     public void setNewRealm(MapInfoPacket map) {
         clear();
         petYardCheck(map.displayName);
@@ -318,8 +333,10 @@ public class GameData {
      * @param p Update packet
      */
     public void update(UpdatePacket p) {
+        TileSink sink = tileSink;
         for (int i = 0; i < p.tiles.length; i++) {
             mapTiles[p.tiles[i].x][p.tiles[i].y] = p.tiles[i].type;
+            if (sink != null) sink.tile(p.tiles[i].x, p.tiles[i].y, p.tiles[i].type);
         }
         for (int i = 0; i < p.newObjects.length; i++) {
             ObjectData object = p.newObjects[i];
