@@ -1028,8 +1028,8 @@ class LiveView {
         nav.add(shattersToggle);
         nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersMap);
-        shattersMap.setToolTipText("Draw the ground Sonar has seen over your minimap. Off by default: it is at "
-                + "Sonar's own zoom, not the game's, so it sits on top of your minimap rather than matching it");
+        shattersMap.setToolTipText("Replace your minimap with Sonar's own: the ground it has seen, the people, "
+                + "what can be fought, the ways out and you, at a zoom you set with the wheel");
         nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersCalibrate);
         nav.add(javax.swing.Box.createHorizontalStrut(6));
@@ -2716,6 +2716,7 @@ class LiveView {
         checkMapDrawsToScale(report);
         checkSettingsPane(report);
         checkChangelogOrder(report);
+        checkMinimapStandIn(report);
 
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
@@ -2883,6 +2884,40 @@ class LiveView {
             else if (c == '}') closes++;
         }
         report.accept("the script's branches are balanced", opens == closes && opens > 0);
+    }
+
+    /**
+     * Sonar's minimap shows what the game's minimap showed.
+     * <p>
+     * Covering the game's minimap is only honest if nothing is lost by covering it. The
+     * ground was never the hard part - the game's own minimap is mostly black in a realm too
+     * - it was the icons. The game draws other people, the things that can be fought and the
+     * ways out, so a stand-in has to draw the same three or it is a downgrade wearing the
+     * clothes of an upgrade.
+     */
+    private static void checkMinimapStandIn(java.util.function.BiConsumer<String, Boolean> report) {
+        report.accept("another player is drawn as somebody else here",
+                ShattersRadar.kindOf("Character", true) == ShattersRadar.ALLY);
+        report.accept("a character who is not a player is drawn as something to fight",
+                ShattersRadar.kindOf("Character", false) == ShattersRadar.FOE);
+        report.accept("every kind of portal is drawn as a way out",
+                ShattersRadar.kindOf("Portal", false) == ShattersRadar.DOOR
+                        && ShattersRadar.kindOf("GuildHallPortal", false) == ShattersRadar.DOOR);
+        report.accept("a player standing in a portal is still a player, not a door",
+                ShattersRadar.kindOf("Portal", true) == ShattersRadar.ALLY);
+        report.accept("walls, loot and decoration are left off, as the game leaves them off",
+                ShattersRadar.kindOf("Wall", false) == 0 && ShattersRadar.kindOf("Container", false) == 0
+                        && ShattersRadar.kindOf(null, false) == 0);
+        // the four drawn kinds must not collide with each other or with a real object type
+        java.util.Set<Integer> kinds = new java.util.HashSet<>(java.util.Arrays.asList(
+                ShattersRadar.SELF, ShattersRadar.ALLY, ShattersRadar.FOE, ShattersRadar.DOOR,
+                ShattersRadar.PORTAL, ShattersRadar.MOVER));
+        report.accept("the drawn kinds cannot be mistaken for one another or for a real object",
+                kinds.size() == 6 && ShattersRadar.SELF < 0 && ShattersRadar.DOOR < 0);
+
+        // and the work is not done at all when nobody is drawing a map
+        ShattersRadar.setDrawingMap(false);
+        report.accept("nothing is gathered when the map is not being drawn", ShattersRadar.live().isEmpty());
     }
 
     /**

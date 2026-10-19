@@ -104,6 +104,7 @@ class ShattersOverlayWindow extends JWindow {
         content.addMouseWheelListener(e -> {
             if (calibrating) zoom(e.getWheelRotation(), e.isShiftDown());
         });
+        ShattersRadar.setDrawingMap(drawMap);
         setClickThrough(true);
         repaintTimer.start();
         inputTimer.start();
@@ -130,6 +131,7 @@ class ShattersOverlayWindow extends JWindow {
         double tilesWide = w / pixelsPerTile, tilesHigh = h / pixelsPerTile;
         double[] me = ShattersRadar.playerFromView(tilesWide, tilesHigh);
         paintMap(g, w, h, tilesWide, tilesHigh);
+        paintLive(g, w, h, tilesWide, tilesHigh);
         if (calibrating) {
             g.setColor(new Color(255, 255, 255, 50));
             g.drawOval((int) (cx - radius), (int) (cy - radius), (int) (radius * 2), (int) (radius * 2));
@@ -193,6 +195,18 @@ class ShattersOverlayWindow extends JWindow {
         if (map == null) return;
         double[] centre = ShattersRadar.viewCentre(tilesWide, tilesHigh);
         if (centre == null) return;
+        // Stand in for the minimap rather than lying on top of it.
+        //
+        // Half-covering it was the worst of both: Sonar's ground is at Sonar's zoom and the
+        // game's is at the game's, and the two can never agree - that is the whole reason for
+        // drawing our own. Two copies of the same place at different scales showing through
+        // each other is harder to read than either alone.
+        //
+        // So when this is on, it is the minimap. The frame is filled, and everything the
+        // game's own minimap would have shown is drawn below by paintLive: other people, what
+        // can be fought, the ways out, and you. Nothing is lost by covering it.
+        g.setColor(UNSEEN);
+        g.fillRect(0, 0, w, h);
 
         double x0 = centre[0] - tilesWide / 2, y0 = centre[1] - tilesHigh / 2;
         int[] r = mapDrawRect(x0, y0, pixelsPerTile, map.getWidth(), map.getHeight(), tilesWide, tilesHigh);
@@ -243,16 +257,21 @@ class ShattersOverlayWindow extends JWindow {
     /**
      * Whether Sonar draws its own ground under the marks.
      * <p>
-     * <b>Off unless asked for.</b> Sonar's ground is at Sonar's zoom and the game's minimap
-     * underneath is at the game's, and the two cannot be made to agree - that is the whole
-     * reason for drawing our own. Laid over a minimap somebody is actually playing by, a
-     * second copy of the same ground at a different scale makes the real one harder to read,
-     * which is a bad trade to make for somebody without asking them first.
+     * <b>On.</b> It was off for two releases and rightly so: it drew ground only, half
+     * transparent, over a minimap somebody was playing by, which is a second copy of the same
+     * place at a different scale and harder to read than either alone.
+     * <p>
+     * It is a whole minimap now - ground, the people, what can be fought, the ways out and
+     * you - drawn solid, so there is no second copy to disagree with. And it covers nothing
+     * until it has ground to draw: before the first tiles arrive {@link #paintMap} returns
+     * without filling, so a fresh instance shows the game's own minimap until Sonar can do
+     * better than it.
      */
-    private boolean drawMap = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.drawmap"));
+    private boolean drawMap = !"false".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.drawmap"));
 
     void setDrawMap(boolean on) {
         drawMap = on;
+        ShattersRadar.setDrawingMap(on);
         sonar.util.PropertiesManager.setProperties("sonar.shatters.drawmap", String.valueOf(on));
         repaint();
     }
@@ -261,16 +280,50 @@ class ShattersOverlayWindow extends JWindow {
         return drawMap;
     }
 
+    /** Ground nobody has walked on, near enough to black to read as the game's own unexplored map. */
+    private static final Color UNSEEN = new Color(9, 10, 13);
+
+    /**
+     * Everything the game's own minimap would have shown, now that it is covered.
+     * <p>
+     * Three kinds and yourself, which is what the game draws and therefore what a stand-in
+     * has to draw to lose nothing: other people, anything that can be fought, and the ways
+     * out. Drawn at a fixed size rather than scaled with the zoom, because a dot that shrinks
+     * to nothing when you zoom out is no use at the moment you most want it.
+     */
+    private void paintLive(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
+        if (!drawMap) return;
+        double cx = w / 2.0, cy = h / 2.0;
+        for (ShattersRadar.Mark m : ShattersRadar.live()) {
+            double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
+            if (off == null) continue;
+            int x = (int) Math.round(cx + off[0] * pixelsPerTile);
+            int y = (int) Math.round(cy + off[1] * pixelsPerTile);
+            if (x < -8 || y < -8 || x > w + 8 || y > h + 8) continue;
+            if (m.type == ShattersRadar.SELF) {
+                paintReticle(g, x, y, w, h);
+                continue;
+            }
+            Color c = m.type == ShattersRadar.ALLY ? new Color(110, 170, 255)
+                    : m.type == ShattersRadar.DOOR ? new Color(190, 130, 255)
+                    : new Color(255, 110, 110);
+            int r = m.type == ShattersRadar.DOOR ? 4 : 3;
+            g.setColor(new Color(0, 0, 0, 150));
+            g.fillOval(x - r - 1, y - r - 1, r * 2 + 2, r * 2 + 2);
+            g.setColor(c);
+            g.fillOval(x - r, y - r, r * 2, r * 2);
+        }
+    }
+
     /**
      * How solid Sonar's ground is drawn, nought to one.
      * <p>
-     * Never fully solid by default. Covering the game's minimap was tried and was worse than
-     * what it replaced: in a realm walked into a minute ago Sonar has a patch of ground the
-     * size of the view and nothing else, so a solid overlay is a black box where a working
-     * minimap used to be. Sonar's ground goes on top of the game's, not instead of it.
+     * Solid, because this stands in for the minimap rather than lying over it. Half-covering
+     * was tried and is the worst of both - two copies of the same place at different scales,
+     * each showing through the other. The setting is kept for anyone who wants that anyway.
      */
     private float mapAlpha() {
-        int pct = getInt("sonar.shatters.mapalpha", 70);
+        int pct = getInt("sonar.shatters.mapalpha", 100);
         return Math.max(0.05f, Math.min(1f, pct / 100f));
     }
 

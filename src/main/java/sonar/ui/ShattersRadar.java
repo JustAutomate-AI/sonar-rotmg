@@ -46,6 +46,12 @@ final class ShattersRadar {
     /** What is being watched for, for the sidebar to say so. */
     static final int PORTAL = -2, MOVER = -3;
 
+    /**
+     * The things a minimap shows, for when Sonar is drawing one rather than marking somebody
+     * else's. Negative so they can never collide with a real object type.
+     */
+    static final int SELF = -4, ALLY = -5, FOE = -6, DOOR = -7;
+
     /** How many of the nearest enemies the test mode marks, so a realm is not a wall of dots. */
     private static final int MOVERS = 10;
 
@@ -244,6 +250,55 @@ final class ShattersRadar {
     }
 
     private static volatile boolean inShatters;
+
+    /**
+     * Everything worth drawing on a minimap of our own: other people, things that can be
+     * fought, and the ways out. Empty unless somebody is actually drawing a minimap, because
+     * walking the entity list every tick to build a list nobody looks at is work for nothing.
+     */
+    private static volatile List<Mark> live = Collections.emptyList();
+    private static volatile boolean drawingMap;
+
+    static List<Mark> live() {
+        return live;
+    }
+
+    /** Told by the overlay whether its own map is being drawn, so the cost is only paid when it is. */
+    static void setDrawingMap(boolean on) {
+        drawingMap = on;
+        if (!on) live = Collections.emptyList();
+    }
+
+    /**
+     * What an entity should be drawn as, or zero for nothing.
+     * <p>
+     * The game's own minimap shows other players, the things that can be fought and the ways
+     * out, so a minimap meant to stand in for it shows the same three. Everything else on the
+     * map - walls, decoration, loot bags - the game leaves off, and so does this.
+     */
+    static int kindOf(String clazz, boolean isAnotherPlayer) {
+        if (isAnotherPlayer) return ALLY;
+        if (isPortal(clazz)) return DOOR;
+        if ("Character".equals(clazz)) return FOE;
+        return 0;
+    }
+
+    /** Builds the list of things to draw. Called while the map is being drawn, and not otherwise. */
+    private static void trackLive(GameData data) {
+        if (!drawingMap) {
+            live = Collections.emptyList();
+            return;
+        }
+        ArrayList<Mark> found = new ArrayList<>();
+        for (Entity e : data.entityList.values()) {
+            if (e == null || e.pos == null) continue;
+            int kind = kindOf(sonar.assets.IdToAsset.getClazz(e.objectType),
+                    data.playerListUpdated.containsKey(e.id));
+            if (kind != 0) found.add(new Mark(kind, e.pos.x, e.pos.y));
+        }
+        if (!Float.isNaN(playerX)) found.add(new Mark(SELF, playerX, playerY));
+        live = found;
+    }
     /** Where the player was when the marks were last taken; NaN until known. */
     private static volatile float playerX = Float.NaN, playerY = Float.NaN;
 
@@ -352,6 +407,7 @@ final class ShattersRadar {
         // is hardest to get into.
         playerX = data.player != null && data.player.pos != null ? data.player.pos.x : Float.NaN;
         playerY = data.player != null && data.player.pos != null ? data.player.pos.y : Float.NaN;
+        trackLive(data);
         if (portalTest) {
             trackTestMarks(data);
             return;
