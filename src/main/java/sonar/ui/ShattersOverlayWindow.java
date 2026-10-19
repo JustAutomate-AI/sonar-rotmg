@@ -774,15 +774,24 @@ class ShattersOverlayWindow extends JWindow {
             paintPanel(g, w, h, off);
             return;
         }
-        String[] lines = {
-                "Sonar overlay",
-                blankBecause.isEmpty() ? "nothing to draw" : blankBecause,
-                "map layer: " + (drawMap ? "on" : "off"),
-                "in: " + where,
-                MinimapView.painted() + " tiles known, " + MinimapView.fromWire() + " from this run",
-                ShattersRadar.viewCentre(10, 10) == null ? "you are not placed yet" : "you are placed",
-                clickLine(),
-                MinimapSync.state()};
+        // The one that can be acted on goes first and says what to do about it. Everything
+        // under it is for diagnosing something that cannot be; a reader who needs a button
+        // pressed should not have to read past five lines of telemetry to find that out.
+        String[] lines = drawMap
+                ? new String[]{
+                        "Sonar overlay",
+                        blankBecause.isEmpty() ? "nothing to draw" : blankBecause,
+                        "in: " + where,
+                        MinimapView.painted() + " tiles known, " + MinimapView.fromWire() + " from this run",
+                        ShattersRadar.viewCentre(10, 10) == null ? "you are not placed yet" : "you are placed",
+                        clickLine(),
+                        MinimapSync.state()}
+                : new String[]{
+                        "Sonar overlay",
+                        "the map layer is off",
+                        "press Minimap in Sonar to draw the ground",
+                        "in: " + where,
+                        MinimapView.painted() + " tiles known and waiting"};
         paintPanel(g, w, h, lines);
     }
 
@@ -801,7 +810,9 @@ class ShattersOverlayWindow extends JWindow {
         int tw = 0;
         for (String s : lines) tw = Math.max(tw, fm.stringWidth(s));
         int bh = lines.length * fm.getHeight() + 10;
-        int x = Math.max(4, (w - tw) / 2 - 6), y = Math.max(4, (h - bh) / 2);
+        // Top left, out of the way. In the middle it sits exactly where the map and the marks
+        // are, so the thing explaining why you cannot see the map was covering the map.
+        int x = 4, y = 4;
         g.setColor(new Color(10, 11, 15, 215));
         g.fillRoundRect(x, y, Math.min(w - 8, tw + 12), bh, 8, 8);
         g.setColor(new Color(150, 160, 185));

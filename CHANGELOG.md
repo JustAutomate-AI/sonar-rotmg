@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.49.1
+
+**The panel moves out of the way and says what to press**
+
+The panel that explains an empty map was drawn in the middle of the overlay — exactly where the map and the marks go — so the thing explaining why you could not see the map was covering the map. It is in the top left corner now.
+
+- **When the map layer is simply switched off it says so in two lines and tells you the button**: *the map layer is off — press Minimap in Sonar to draw the ground*. That was the real answer to a realm with no ground, and it was the second of seven lines, under a heading and below the word "nothing".
+- The five lines of telemetry under it are for diagnosing something that cannot be acted on. Somebody who needs a button pressed should not have to read past them to find that out.
+
 ## 2.49.0
 
 **Enemies are drawn as themselves, and the map says what it knows**
