@@ -257,18 +257,40 @@ final class MinimapCache {
         if (live == null || layout == null) return new int[]{0, 0};
         int w = Math.min(live.getWidth(), layout.getWidth());
         int h = Math.min(live.getHeight(), layout.getHeight());
-        int agreed = 0, compared = 0;
+        // Counted as water and land separately and then averaged, because a walked strip is
+        // mostly land. Scored plainly, a layout that put the whole strip on dry ground scored
+        // the land fraction - about eighty per cent - for free, and that is exactly the score
+        // a wrong map earned. Averaging the two recalls makes "all land" worth fifty, a right
+        // map worth ninety, and a wrong one somewhere in between where it can be refused.
+        int ww = 0, cw = 0, wl = 0, cl = 0;
         for (int y = 0; y < h; y += 3) {
             for (int x = 0; x < w; x += 3) {
                 int mine = live.getRGB(x, y);
                 if ((mine >>> 24) == 0) continue;
                 int theirs = layout.getRGB(x, y);
                 if ((theirs >>> 24) == 0) continue;
-                compared++;
-                if (isWater(mine) == isWater(theirs)) agreed++;
+                if (isWater(mine)) {
+                    cw++;
+                    if (isWater(theirs)) ww++;
+                } else {
+                    cl++;
+                    if (!isWater(theirs)) wl++;
+                }
             }
         }
-        return new int[]{agreed, compared};
+        int compared = cw + cl;
+        if (cw == 0 || cl == 0) return new int[]{0, compared};   // one kind only is no coastline
+        // reported as an agreed-of-compared pair so the same threshold applies: agreed is the
+        // balanced recall scaled onto the compared count
+        double balanced = 0.5 * (ww / (double) cw + wl / (double) cl);
+        return new int[]{(int) Math.round(balanced * compared), compared};
+    }
+
+    /** What a coastline match must reach; measured: the right map scores about 90, the wrong ones 50 to 70. */
+    static final double COAST_MUST_AGREE = 0.80;
+
+    static boolean recognisesCoast(int agreed, int compared) {
+        return compared >= ENOUGH_TO_RECOGNISE && agreed >= compared * COAST_MUST_AGREE;
     }
 
     /**
@@ -407,7 +429,7 @@ final class MinimapCache {
                             bestOfAny = score[0];
                             comparedOfAny = score[1];
                         }
-                        if (!recognises(score[0], score[1])) continue;
+                        if (!recognisesCoast(score[0], score[1])) continue;
                         if (score[0] > worldAgreed) {
                             worldAgreed = score[0];
                             worldCompared = score[1];
@@ -418,8 +440,13 @@ final class MinimapCache {
                         trouble = known == 0 ? "this layout has not been seen before"
                                 : "none of the " + known + " known worlds matched (best was "
                                         + bestOfAny + " of " + comparedOfAny + ")";
+                        System.out.println("[map] " + trouble + " for " + mapName + " with "
+                                + MinimapView.fromWire() + " tiles off the wire");
+                        if (!lastRecalled.isEmpty()) lastRecalled = lastRecalled + " \u00b7 " + trouble;
                         return;
                     }
+                    System.out.println("[map] recognised world " + worldNo + " (" + worldAgreed + " of "
+                            + worldCompared + " coast squares agree)");
                     BufferedImage world = shippedLayout(w, h, worldNo);
                     if (world == null) return;
                     matchedShipped = worldNo;
@@ -479,6 +506,13 @@ final class MinimapCache {
         keptAtTiles = 0;
         BufferedImage recorded = null;
         String from = "";
+        // The map Sonar ships for this instance, if there is one. It goes down FIRST and the
+        // person's own recording goes down over it. It used to be the other way about - the
+        // recording was used and the shipped map only looked at if there was no recording -
+        // which meant that walking a map once was enough to hide the complete copy of it for
+        // ever: the Vault shipped whole and showed as three rooms, because three rooms was
+        // what had been walked.
+        BufferedImage shipped = readResource("/maps/" + fileName(mapName, w, h));
         java.util.List<File> layouts = layoutsOf(mapName, w, h);
         // One recorded layout means there is nothing to tell apart, so it goes down at once -
         // a dungeon is the same map every time. Several means this is a map the game builds
@@ -495,9 +529,10 @@ final class MinimapCache {
             return 0;
         }
         File f = new File(folder(), fileName(mapName, w, h));
-        if (recorded == null) {
-            recorded = readResource("/maps/" + fileName(mapName, w, h));
-            if (recorded != null) from = "the copy Sonar ships";
+        if (recorded == null && shipped != null) {
+            recorded = shipped;
+            shipped = null;
+            from = "the copy Sonar ships";
         }
         if (recorded == null && shippedCount(w, h) == 1) {
             // The realm. There is one layout, so there is nothing to recognise - the only
@@ -526,6 +561,15 @@ final class MinimapCache {
             return 0;
         }
         int primed = MinimapView.prime(recorded);
+        if (shipped != null && shipped.getWidth() == w && shipped.getHeight() == h) {
+            // the whole map under what has been walked; a render, so the coast votes on it
+            MinimapView.setRecalledIsApproximate(true);
+            int under = MinimapView.primeUnder(shipped);
+            if (under > 0) {
+                primed += under;
+                from = from + ", the rest from the copy Sonar ships";
+            }
+        }
         lastRecalled = from;
         return primed;
     }
