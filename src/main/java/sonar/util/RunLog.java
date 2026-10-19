@@ -25,7 +25,14 @@ public final class RunLog {
 
     public static void start() {
         String path = System.getProperty("sonar.logfile");
-        if (path == null || path.isEmpty()) return;
+        if (path == null || path.isEmpty()) {
+            // The installed build has no console, so without this it has no log at all, and
+            // a fault in it can only be reported as a screenshot. It keeps one beside its
+            // data; a copy run from source keeps its console and is left alone.
+            String data = System.getProperty("sonar.data");
+            if (data == null || data.isEmpty()) return;
+            path = new File(sonar.DataDir.base(), "sonar.log").getPath();
+        }
         try {
             File f = new File(path);
             if (f.getParentFile() != null) f.getParentFile().mkdirs();

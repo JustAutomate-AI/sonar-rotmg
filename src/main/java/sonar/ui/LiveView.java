@@ -3172,7 +3172,25 @@ class LiveView {
      */
     private static void checkWorldRecognition(java.util.function.BiConsumer<String, Boolean> report) {
         java.util.List<java.awt.image.BufferedImage> worlds = MinimapCache.shippedLayouts(2048, 2048);
-        report.accept("Sonar ships a library of realm layouts", worlds.size() >= 2);
+        report.accept("Sonar ships a realm layout", worlds.size() >= 1);
+        if (worlds.isEmpty()) return;
+
+        // with one world there is nothing to recognise: it goes down the moment a realm loads,
+        // under what is already known, and the coast votes on whether it stays
+        MinimapView.reset(2048, 2048);
+        for (int i = 0; i < 300; i++) MinimapView.paintForTest(600 + i, 1500, 0xFFD8CFA0);
+        int before = MinimapView.painted();
+        int laid = MinimapCache.recall("Realm of the Mad God", 2048, 2048);
+        report.accept("the realm is laid down the moment you arrive, with nothing to wait for", laid > 100000);
+        report.accept("and under the ground already walked, never over it",
+                MinimapView.image().getRGB(650, 1500) == 0xFFD8CFA0 && MinimapView.painted() == before + laid);
+        report.accept("it is marked as a render, so the coast votes on it rather than the colours",
+                MinimapView.recalling());
+        MinimapView.clear();
+
+        // the coast is the one thing every map of the realm agrees on
+        report.accept("sea is sea in any palette",
+                MinimapCache.isWater(0xFF2B4C94) && MinimapCache.isWater(0xFF3C64C8) && !MinimapCache.isWater(0xFF6B9B3A));
         if (worlds.size() < 2) return;
 
         report.accept("sea is told from grass, sand and rock",
@@ -3411,9 +3429,10 @@ class LiveView {
         for (int y = 0; y < 40; y++) for (int x = 0; x < 40; x++) MinimapView.paintForTest(x, y, 0xFFFF0000);
         report.accept("a recording the game keeps confirming is kept", MinimapView.recalling());
 
-        // a map with nothing recorded for it gets nothing, and says so rather than guessing
-        MinimapView.reset(2048, 2048);
-        int none = MinimapCache.recall("A Map Nobody Has Walked", 2048, 2048);
+        // a map with nothing recorded for it gets nothing, and says so rather than guessing.
+        // Not at 2048 by 2048: that size is the realm, and the realm is shipped.
+        MinimapView.reset(777, 777);
+        int none = MinimapCache.recall("A Map Nobody Has Walked", 777, 777);
         report.accept("no ground is invented for a map with nothing recorded",
                 none == 0 && MinimapView.painted() == 0 && !MinimapCache.lastTrouble().isEmpty());
 
