@@ -185,7 +185,7 @@ class ShattersOverlayWindow extends JWindow {
         // after every scroll, which reads as the map refusing to zoom out - reported exactly
         // that way. A deliberate act beats an inference, and the inference comes back at the
         // next instance.
-        if (zoomSetByHand) return;
+        if (System.currentTimeMillis() - zoomSetByHandAt < 20000) return;
         if ("false".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.sync"))) return;
         final int w = getWidth(), h = getHeight();
         final double[] candidates = ladderNow();
@@ -550,6 +550,7 @@ class ShattersOverlayWindow extends JWindow {
             int x = (int) Math.round(cx + off[0] * pixelsPerTile);
             int y = (int) Math.round(cy + off[1] * pixelsPerTile);
             if (x < -8 || y < -8 || x > w + 8 || y > h + 8) continue;
+            if (!worthDrawing(m, tilesWide)) continue;
             if (m.type == ShattersRadar.SELF) {
                 paintReticle(g, x, y, w, h);
                 continue;
@@ -642,12 +643,15 @@ class ShattersOverlayWindow extends JWindow {
      * grows, and a boss grows to twice its size.
      */
     static int faceSizeFor(double tilesWide, int spriteWidth) {
-        double wide = Math.max(0.0, Math.min(1.0, (tilesWide - 96.0) / 400.0));
-        // 0 for an ordinary sprite, 1 for anything drawn at double size or more
+        // 0 for an ordinary sprite, 1 for anything the game draws at double size or more
         double matters = spriteWidth <= 0 ? 0.5
                 : Math.max(0.0, Math.min(1.0, (spriteWidth / (double) (FACE_SIZE * 2) - 0.5) * 2));
-        double grow = 1.0 + wide * matters;
-        return (int) Math.round(FACE_SIZE * (0.72 + 0.28 * matters) * grow);
+        // A quarter larger at the widest, not twice. Twice was chosen to make a mark findable
+        // and made it an obstacle instead: at the zoom where there is most to click on, the
+        // marks were big enough to cover each other and the ground between them.
+        double wide = Math.max(0.0, Math.min(1.0, (tilesWide - 96.0) / 600.0));
+        double grow = 1.0 + 0.25 * wide * matters;
+        return (int) Math.round(FACE_SIZE * (0.62 + 0.30 * matters) * grow);
     }
 
     private static java.awt.image.BufferedImage faceOf(int objectType) {
@@ -674,9 +678,31 @@ class ShattersOverlayWindow extends JWindow {
         return got;
     }
 
+    /**
+     * Whether a thing is worth a mark at this zoom.
+     * <p>
+     * Zoomed right out you are looking at a whole realm to find the few things in it that
+     * matter - the events, the gods, the people. Every rat between here and the coast is not
+     * an answer to that question, it is what you are looking past. So once the view is wide
+     * the lesser things are left off entirely rather than drawn smaller: a mark too small to
+     * read is still a mark in the way of the cursor, and lining the cursor up is the whole
+     * point of drawing them.
+     * <p>
+     * People, ways through and events are never dropped. They are what the map is for.
+     */
+    static boolean worthDrawing(ShattersRadar.Mark m, double tilesWide) {
+        if (m.type != ShattersRadar.FOE) return true;
+        if (tilesWide <= LESSER_UNTIL) return true;
+        java.awt.image.BufferedImage face = faceOf(m.kindId());
+        return face != null && face.getWidth() >= FACE_SIZE * 2;
+    }
+
+    /** Past this many tiles on screen, only things the game itself draws large are marked. */
+    private static final int LESSER_UNTIL = 260;
+
     /** Lets the self-test drive the zoom the way a scroll does. */
     boolean zoomSetByHandForTest() {
-        return zoomSetByHand;
+        return System.currentTimeMillis() - zoomSetByHandAt < 20000;
     }
 
     /**
@@ -1057,11 +1083,19 @@ class ShattersOverlayWindow extends JWindow {
      * Steps to the next zoom level, to be pressed alongside the game's own
      * zoom. Restores that level's calibrated scale if it has one.
      */
-    private volatile boolean zoomSetByHand;
+    /**
+     * When the zoom was last set by hand.
+     * <p>
+     * A deliberate act beats a measurement, but not for ever: silencing the measurement until
+     * the next instance meant one scroll left the overlay out of step with the game for the
+     * rest of the realm, and out of step is what makes a mark impossible to line a cursor up
+     * with. Twenty seconds is long enough to settle on a zoom and short enough to be corrected.
+     */
+    private volatile long zoomSetByHandAt;
 
     void stepZoom(int by) {
         if (by == 0) return;
-        zoomSetByHand = true;
+        zoomSetByHandAt = System.currentTimeMillis();
         double next = by < 0 ? pixelsPerTile * 2 : pixelsPerTile / 2;
         double floor = fitScale(), ceiling = MAX_SCALE;
         // never past the whole map, and never so far in that one tile fills the frame
@@ -1094,7 +1128,7 @@ class ShattersOverlayWindow extends JWindow {
      * this the one rung Sonar and the game are certain to agree on.
      */
     private void resetZoomForNewInstance() {
-        zoomSetByHand = false;   // a new instance is a fresh start for the measurement too
+        zoomSetByHandAt = 0;   // a new instance is a fresh start for the measurement too
         double want = getWidth() / 48.0;
         pixelsPerTile = Math.max(fitScale(), Math.min(MAX_SCALE, want));
         level = 0;
