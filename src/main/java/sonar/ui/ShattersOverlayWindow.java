@@ -148,6 +148,14 @@ class ShattersOverlayWindow extends JWindow {
      */
     private void syncToGame() {
         if (!drawMap || syncing || calibrating) return;
+        // Whoever last set the zoom by hand keeps it.
+        //
+        // Measuring the game's zoom is for starting in step with it, not for overruling
+        // somebody. Without this the overlay was snapping back to the game's zoom a second
+        // after every scroll, which reads as the map refusing to zoom out - reported exactly
+        // that way. A deliberate act beats an inference, and the inference comes back at the
+        // next instance.
+        if (zoomSetByHand) return;
         if ("false".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.sync"))) return;
         final int w = getWidth(), h = getHeight();
         final double[] candidates = ladderNow();
@@ -477,18 +485,45 @@ class ShattersOverlayWindow extends JWindow {
      */
     private void paintMark(Graphics2D g, int kind, int x, int y) {
         if (kind == ShattersRadar.ALLY) {
-            fillShape(g, triangle(x, y, 5), new Color(90, 160, 255));
+            g.setColor(new Color(0, 0, 0, 170));
+            g.fillOval(x - 5, y - 5, 10, 10);
+            g.setColor(PLAYER);
+            g.fillOval(x - 4, y - 4, 8, 8);
         } else if (kind == ShattersRadar.EVENT) {
-            fillShape(g, diamond(x, y, 5), new Color(255, 210, 70));
+            fillShape(g, triangle(x, y, 5), WAY);
         } else if (kind == ShattersRadar.DOOR) {
-            fillShape(g, diamond(x, y, 4), new Color(200, 140, 255));
+            g.setColor(new Color(0, 0, 0, 170));
+            g.fillRect(x - 5, y - 5, 10, 10);
+            g.setColor(WAY);
+            g.fillRect(x - 4, y - 4, 8, 8);
         } else {
             g.setColor(new Color(0, 0, 0, 150));
             g.fillOval(x - 4, y - 4, 8, 8);
-            g.setColor(new Color(255, 110, 110));
+            g.setColor(FOE_RED);
             g.fillOval(x - 3, y - 3, 6, 6);
         }
     }
+
+    /** Lets the self-test drive the zoom the way a scroll does. */
+    boolean zoomSetByHandForTest() {
+        return zoomSetByHand;
+    }
+
+    /**
+     * The colours the game's own minimap uses, taken from its source rather than guessed.
+     * <p>
+     * {@code MiniMapImp} paints a player {@code 0xFFFF00}, a portal {@code 0x0000FF} and an
+     * enemy {@code 0xFF0000}, and that is the legend everybody who plays the game already
+     * knows. Sonar had chosen its own - blue for people, gold for beacons - which is not
+     * merely different but actively misleading, because blue already means a way through to
+     * anyone reading it. Reported exactly that way: the icons were all associated wrong.
+     * <p>
+     * Softened a little from the pure values, which are painfully bright against ground, but
+     * not far enough to be a different colour.
+     */
+    private static final Color PLAYER = new Color(255, 225, 60);
+    private static final Color WAY = new Color(90, 160, 255);
+    private static final Color FOE_RED = new Color(255, 90, 90);
 
     private static java.awt.Polygon triangle(int x, int y, int r) {
         return new java.awt.Polygon(new int[]{x, x - r, x + r}, new int[]{y - r, y + r, y + r}, 3);
@@ -813,8 +848,11 @@ class ShattersOverlayWindow extends JWindow {
      * Steps to the next zoom level, to be pressed alongside the game's own
      * zoom. Restores that level's calibrated scale if it has one.
      */
+    private volatile boolean zoomSetByHand;
+
     void stepZoom(int by) {
         if (by == 0) return;
+        zoomSetByHand = true;
         double next = by < 0 ? pixelsPerTile * 2 : pixelsPerTile / 2;
         double floor = fitScale(), ceiling = MAX_SCALE;
         // never past the whole map, and never so far in that one tile fills the frame
@@ -847,6 +885,7 @@ class ShattersOverlayWindow extends JWindow {
      * this the one rung Sonar and the game are certain to agree on.
      */
     private void resetZoomForNewInstance() {
+        zoomSetByHand = false;   // a new instance is a fresh start for the measurement too
         double want = getWidth() / 48.0;
         pixelsPerTile = Math.max(fitScale(), Math.min(MAX_SCALE, want));
         level = 0;

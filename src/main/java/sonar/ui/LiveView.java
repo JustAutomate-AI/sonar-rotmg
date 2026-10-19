@@ -3127,6 +3127,70 @@ class LiveView {
     }
 
     /**
+     * Which of several recorded layouts this realm is, worked out from the ground walked.
+     * <p>
+     * A realm is not generated fresh every instance - it is built from a limited set of fixed
+     * layouts, which is why other tools can ship a picture of each. The game never says which
+     * one you are in, and it does not have to: two different layouts disagree almost
+     * everywhere they both have ground, so a few hundred walked squares pick one out.
+     * <p>
+     * The assertions are about refusing. Laying down the wrong layout is far worse than laying
+     * down none, because it looks exactly like a map and is wrong everywhere you have not been.
+     */
+    private static void checkLayoutRecognition(java.util.function.BiConsumer<String, Boolean> report) {
+        java.awt.image.BufferedImage a = layoutForTest(11);
+        java.awt.image.BufferedImage b = layoutForTest(22);
+
+        int[] same = MinimapCache.agreement(a, a);
+        report.accept("a layout recognises itself", MinimapCache.recognises(same[0], same[1]));
+        int[] other = MinimapCache.agreement(a, b);
+        report.accept("and does not recognise a different one",
+                !MinimapCache.recognises(other[0], other[1]));
+
+        // a partly walked map still recognises the layout it came from
+        java.awt.image.BufferedImage walked =
+                new java.awt.image.BufferedImage(120, 120, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 120; y++) {
+            for (int x = 0; x < 70; x++) walked.setRGB(x, y, a.getRGB(x, y));
+        }
+        int[] part = MinimapCache.agreement(walked, a);
+        report.accept("a map walked only in part still recognises its own layout",
+                MinimapCache.recognises(part[0], part[1]));
+        int[] partWrong = MinimapCache.agreement(walked, b);
+        report.accept("and that same part does not match a different layout",
+                !MinimapCache.recognises(partWrong[0], partWrong[1]));
+
+        // silence is not agreement
+        java.awt.image.BufferedImage empty =
+                new java.awt.image.BufferedImage(120, 120, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        int[] nothing = MinimapCache.agreement(empty, a);
+        report.accept("a map with nothing walked recognises nothing",
+                nothing[1] == 0 && !MinimapCache.recognises(nothing[0], nothing[1]));
+        report.accept("a handful of squares is never enough to decide on",
+                !MinimapCache.recognises(50, 50));
+
+        // and realms are no longer refused outright, which was the mistake this replaces
+        report.accept("a realm is a map Sonar records, now that layouts can be told apart",
+                MinimapCache.remembers("Realm of the Mad God"));
+        report.accept("layouts of one map are kept side by side rather than overwriting",
+                !MinimapCache.fileName("realm", 2048, 2048, 1)
+                        .equals(MinimapCache.fileName("realm", 2048, 2048, 2)));
+    }
+
+    /** A made-up but repeatable map layout, different for each seed. */
+    private static java.awt.image.BufferedImage layoutForTest(long seed) {
+        java.awt.image.BufferedImage img =
+                new java.awt.image.BufferedImage(120, 120, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.util.Random r = new java.util.Random(seed);
+        for (int y = 0; y < 120; y++) {
+            for (int x = 0; x < 120; x++) {
+                img.setRGB(x, y, 0xFF000000 | r.nextInt(0xFFFFFF));
+            }
+        }
+        return img;
+    }
+
+    /**
      * A fixed map is learned once and handed back every run after.
      * <p>
      * The whole claim of the feature is that ground Sonar was never sent this run is still
@@ -3145,11 +3209,14 @@ class LiveView {
         if (file.isFile()) file.delete();
 
         report.accept("the Shatters is a map Sonar keeps", MinimapCache.remembers("The Shatters"));
-        report.accept("a realm is not, because it is built fresh every time",
-                !MinimapCache.remembers("Realm of the Mad God"));
+        // This used to assert the opposite, on the belief that a realm is generated fresh for
+        // every instance. It is not: the game builds one from a limited set of fixed layouts,
+        // and recognising which is what layoutsOf and agreement are for.
+        report.accept("a realm is recorded too, since its layouts can be told apart",
+                MinimapCache.remembers("Realm of the Mad God"));
         report.accept("and nothing is kept for a map with no name", !MinimapCache.remembers(""));
-        report.accept("a realm stays refused even when every other map is being kept",
-                !MinimapCache.remembers("Realm of the Mad God"));
+        report.accept("and so is anything else with a name",
+                MinimapCache.remembers("Nexus"));
         report.accept("a map name becomes one file name however it is capitalised",
                 MinimapCache.slug("The Shatters").equals(MinimapCache.slug("the shatters"))
                         && MinimapCache.slug("The Shatters").equals("the-shatters"));
@@ -3205,12 +3272,11 @@ class LiveView {
         for (int y = 0; y < 40; y++) for (int x = 0; x < 40; x++) MinimapView.paintForTest(x, y, 0xFFFF0000);
         report.accept("a recording the game keeps confirming is kept", MinimapView.recalling());
 
-        // a map Sonar does not keep gets nothing, and says so rather than guessing
+        // a map with nothing recorded for it gets nothing, and says so rather than guessing
         MinimapView.reset(2048, 2048);
-        int none = MinimapCache.recall("Realm of the Mad God", 2048, 2048);
-        report.accept("no ground is invented for a map that is built fresh every time",
+        int none = MinimapCache.recall("A Map Nobody Has Walked", 2048, 2048);
+        report.accept("no ground is invented for a map with nothing recorded",
                 none == 0 && MinimapView.painted() == 0 && !MinimapCache.lastTrouble().isEmpty());
-        report.accept("and nothing is recorded for it either", MinimapCache.openMapForTest().isEmpty());
 
         // a recording of the wrong size is refused rather than stretched over the map
         MinimapView.reset(80, 80);
@@ -3223,6 +3289,7 @@ class LiveView {
         report.accept("the self-test leaves no recording of its own behind", !file.isFile());
 
         checkMapStartsOverBeforeTheTiles(report);
+        checkLayoutRecognition(report);
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);
         checkWheelReach(report);

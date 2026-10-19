@@ -2,6 +2,25 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.46.0
+
+**The realm's whole layout, from the part you have walked**
+
+- **A realm is not generated fresh for every instance.** It is built from a limited set of fixed layouts, which is exactly why other tools can ship a picture of each. Sonar had been refusing to record realms on the opposite belief, written into 2.41.0 as fact. It was wrong.
+- **So Sonar recognises which layout it is in, by looking at the ground.** The game never says, and it does not have to: two different layouts disagree almost everywhere they both have ground, so a few hundred walked squares pick one out. Once recognised, the rest of that layout is laid down — a walked trail becomes a whole map.
+- **It will not be exact, and is not meant to be.** A realm's ground changes where events have been fought, and a recording is of the last time somebody was there. It is a skeleton for judging distance and direction by, not a survey.
+- **It refuses rather than guesses.** Four hundred comparable squares and ninety per cent agreement before any layout is laid down; silence on either side is never counted as agreement. Laying down the wrong layout is far worse than laying down none, because it looks exactly like a map and is wrong everywhere you have not been.
+- Layouts of one map are kept side by side rather than overwriting each other, up to twenty-four, and a layout nothing matched is kept as a new one.
+
+**The icons mean what they mean in the game**
+
+- Taken from the game's own minimap source rather than chosen: it paints a **player `0xFFFF00` yellow**, a **portal `0x0000FF` blue** and an **enemy `0xFF0000` red**. Sonar had picked blue for people and gold for beacons — not merely different but actively misleading, since blue already means a way through to anyone reading it. Reported exactly that way.
+- People are yellow now, ways through are blue, anything fightable is red.
+
+**Your own zoom is not overruled**
+
+- Measuring the game's zoom is for starting in step with it, not for overruling you. The overlay was snapping back a second after every scroll, which reads as a map refusing to zoom out. Whoever last set the zoom by hand keeps it, and the measurement resumes at the next instance.
+
 ## 2.45.0
 
 **Icons, menus, and the sniffer**
