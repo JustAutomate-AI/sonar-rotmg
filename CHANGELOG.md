@@ -2,6 +2,24 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.49.7
+
+**The build speed-up is taken back out, because it was a slow-down**
+
+2.49.4 added a Gradle dependency cache, a build cache, `--no-daemon` and a WiX cache to make releases build faster. Measured over the three releases since:
+
+| | before | after |
+|---|---|---|
+| Gradle build | 39s | **46s** |
+| whole run | 102s | **113s** |
+
+- **Restoring and saving a dependency cache on a Windows runner costs more than fetching the dependencies.** `--no-daemon` cost about seven seconds on its own.
+- **The WiX cache never hit** — the fetch step ran every time anyway, so it was two extra steps for nothing.
+- Both are removed rather than left in hopefully, with a note in the workflow saying they were tried and measured, so nobody adds them again.
+- The one change that did help is kept: on a tag build the three files are no longer uploaded twice, once as a workflow artifact and once to the release.
+
+What is left is the floor: about 40 seconds of Gradle and 34 of jpackage building a Windows installer, on a Windows runner that cannot be swapped for a faster one because the MSI needs it. The only remaining lever is the size of the jar, which grew from 9MB to 11.8MB when the realm map library went in.
+
 ## 2.49.6
 
 **Zoomed out, the map shows what you are looking for and nothing else**
