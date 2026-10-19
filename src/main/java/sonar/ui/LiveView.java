@@ -2714,6 +2714,7 @@ class LiveView {
         checkPuzzleResetsPerInstance(report);
         checkQuietUpdate(report);
         checkMapDrawsToScale(report);
+        checkSettingsPane(report);
 
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
@@ -2735,6 +2736,42 @@ class LiveView {
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
                         && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
                         && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
+    }
+
+    /**
+     * The settings page measures itself, and a typed word arrives.
+     * <p>
+     * Two faults, one shape: something was drawn that nothing had counted. The words section
+     * was missing from {@code contentHeight} altogether, and a pane scrolls to the height it
+     * says it is - so everything painted below the uncounted section hung off the bottom with
+     * nothing to scroll to, which is why the zoom buttons vanished once the page was zoomed
+     * in far enough for the sections above it to fill the window.
+     * <p>
+     * And a word typed into the popup had one way to arrive, the Enter key, into a field that
+     * was asked for focus before the popup was on screen - so it often was not the thing
+     * being typed into, and the word simply did not arrive.
+     */
+    private static void checkSettingsPane(java.util.function.BiConsumer<String, Boolean> report) {
+        int empty = SettingsPane.keywordsHeight(0);
+        report.accept("the words section is given room even with nothing in it", empty > 0);
+        report.accept("and grows by a row for every word watched for",
+                SettingsPane.keywordsHeight(3) - SettingsPane.keywordsHeight(2) == 30
+                        && SettingsPane.keywordsHeight(1) > empty);
+
+        java.util.List<String> before = new java.util.ArrayList<>(sonar.ChatPings.keywords());
+        try {
+            sonar.ChatPings.setKeywords(new java.util.ArrayList<>());
+            report.accept("a typed word is kept", SettingsPane.addWord("loot", false)
+                    && sonar.ChatPings.keywords().contains("loot"));
+            report.accept("asking for the whole word is spelled by quoting it",
+                    SettingsPane.addWord("rare", true) && sonar.ChatPings.keywords().contains("\"rare\""));
+            report.accept("nothing typed adds nothing",
+                    !SettingsPane.addWord("   ", false) && !SettingsPane.addWord(null, false));
+            report.accept("a word already watched for is not watched for twice",
+                    !SettingsPane.addWord("LOOT", false) && sonar.ChatPings.keywords().size() == 2);
+        } finally {
+            sonar.ChatPings.setKeywords(before);
+        }
     }
 
     /**
