@@ -290,9 +290,13 @@ class ShattersOverlayWindow extends JWindow {
         // An overlay that draws nothing and says nothing is indistinguishable from one that is
         // not running. Every blank frame here has a reason and the reason is known at the
         // moment it is decided, so it is written where the map would have been.
-        if (!drewMap && ShattersRadar.live().isEmpty() && ShattersRadar.marks().isEmpty()) {
-            paintWhyBlank(g, w, h);
-        }
+        // Shown whenever the ground did not draw, marks or no marks.
+        //
+        // It used to be shown only when nothing at all was drawn, which silenced it in the one
+        // case that most needed explaining: a realm with marks all over it and no ground
+        // underneath them. The marks proved the overlay was alive, so the absence of ground
+        // looked deliberate, and the panel that knew why refused to speak.
+        if (!drewMap) paintWhyBlank(g, w, h);
         if (calibrating) {
             g.setColor(new Color(255, 255, 255, 50));
             g.drawOval((int) (cx - radius), (int) (cy - radius), (int) (radius * 2), (int) (radius * 2));

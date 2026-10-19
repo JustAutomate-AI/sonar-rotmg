@@ -239,13 +239,36 @@ final class MinimapCache {
      */
     static java.util.List<BufferedImage> shippedLayouts(int w, int h) {
         java.util.List<BufferedImage> out = new java.util.ArrayList<>();
-        if (w != 2048 || h != 2048) return out;
         for (int n = 1; n <= MOST_LAYOUTS; n++) {
-            BufferedImage got = readResource("/maps/realm-" + w + "x" + h + "-" + n + ".png");
+            BufferedImage got = shippedLayout(w, h, n);
             if (got == null) break;
             out.add(got);
         }
         return out;
+    }
+
+    /**
+     * One shipped layout, loaded on its own.
+     * <p>
+     * Loading the whole library at once is how this was written first, and at a realm's size
+     * that is eighty megabytes of decoded image held at the same time, on top of the sixteen
+     * the live map already costs. Matching only ever needs one at a time, so it takes them one
+     * at a time and lets each go.
+     */
+    static BufferedImage shippedLayout(int w, int h, int n) {
+        if (w != 2048 || h != 2048 || n < 1 || n > MOST_LAYOUTS) return null;
+        return readResource("/maps/realm-" + w + "x" + h + "-" + n + ".png");
+    }
+
+    /** How many layouts Sonar ships for a map this size, without decoding any of them. */
+    static int shippedCount(int w, int h) {
+        if (w != 2048 || h != 2048) return 0;
+        int n = 0;
+        while (n < MOST_LAYOUTS
+                && MinimapCache.class.getResource("/maps/realm-" + w + "x" + h + "-" + (n + 1) + ".png") != null) {
+            n++;
+        }
+        return n;
     }
 
     private static volatile int matchedShipped;
@@ -323,24 +346,32 @@ final class MinimapCache {
                     // compared by what kind of ground each square is rather than by colour -
                     // see agreementByTerrain. It is the only path that can draw a whole realm
                     // on an install that has never been anywhere.
-                    java.util.List<BufferedImage> shipped = shippedLayouts(w, h);
-                    BufferedImage world = null;
-                    int worldNo = 0, worldAgreed = 0, worldCompared = 0;
-                    for (int i = 0; i < shipped.size(); i++) {
-                        int[] score = agreementByTerrain(live, shipped.get(i));
+                    int known = shippedCount(w, h);
+                    int worldNo = 0, worldAgreed = 0, worldCompared = 0, bestOfAny = 0, comparedOfAny = 0;
+                    for (int i = 1; i <= known; i++) {
+                        BufferedImage candidate = shippedLayout(w, h, i);   // one at a time
+                        if (candidate == null) continue;
+                        int[] score = agreementByTerrain(live, candidate);
+                        if (score[1] > 0 && score[0] * 1000L / Math.max(1, score[1])
+                                > bestOfAny * 1000L / Math.max(1, comparedOfAny)) {
+                            bestOfAny = score[0];
+                            comparedOfAny = score[1];
+                        }
                         if (!recognises(score[0], score[1])) continue;
                         if (score[0] > worldAgreed) {
                             worldAgreed = score[0];
                             worldCompared = score[1];
-                            world = shipped.get(i);
-                            worldNo = i + 1;
+                            worldNo = i;
                         }
                     }
-                    if (world == null) {
-                        trouble = shipped.isEmpty() ? "this layout has not been seen before"
-                                : "none of the " + shipped.size() + " known worlds matched this ground";
+                    if (worldNo == 0) {
+                        trouble = known == 0 ? "this layout has not been seen before"
+                                : "none of the " + known + " known worlds matched (best was "
+                                        + bestOfAny + " of " + comparedOfAny + ")";
                         return;
                     }
+                    BufferedImage world = shippedLayout(w, h, worldNo);
+                    if (world == null) return;
                     matchedShipped = worldNo;
                     shippedScore = worldAgreed + " of " + worldCompared;
                     MinimapView.setRecalledIsApproximate(true);
