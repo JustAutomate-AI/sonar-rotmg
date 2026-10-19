@@ -343,6 +343,15 @@ final class ShattersRadar {
             // already arriving: the first update packet lands with the map info
             MinimapView.reset(mapWidth, mapHeight);
         }
+        // Where you are, set before anything decides this is not a Shatters.
+        //
+        // It used to be set at the very bottom, after the Shatters-only work, which was fine
+        // while the overlay drew nothing anywhere else. Now that it draws your own map it has
+        // to know where you are standing in the Nexus and the realm too, or the map has no
+        // centre and never appears - so the overlay could only be tried in the one dungeon it
+        // is hardest to get into.
+        playerX = data.player != null && data.player.pos != null ? data.player.pos.x : Float.NaN;
+        playerY = data.player != null && data.player.pos != null ? data.player.pos.y : Float.NaN;
         if (portalTest) {
             trackTestMarks(data);
             return;
@@ -365,9 +374,6 @@ final class ShattersRadar {
         // the thing you are hunting first, so it leads the sidebar and draws over the dressing
         found.sort(java.util.Comparator.comparingInt(m -> tier(m.type)));
         marks = found;
-        // where the marks are relative to, so they can be given as a direction and a distance
-        playerX = data.player != null && data.player.pos != null ? data.player.pos.x : Float.NaN;
-        playerY = data.player != null && data.player.pos != null ? data.player.pos.y : Float.NaN;
     }
 
     /**

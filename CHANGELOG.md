@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.37.0
+
+**One switch, and it works outside the Shatters**
+
+- **The overlay had grown five buttons** — calibrate, on, find minimap, map, portals — and four of them existed to work around it not being able to place itself or draw anything. It can do both now. Switching it on finds your minimap and starts drawing, so there is **one button**: on, or off.
+- Two buttons survive and only appear when they are any use. **Line up by hand** and **Look again** show up if the search for the minimap came back empty, which is the one case where there is something for a person to do. **Portals** stays behind the same condition: it exists to prove the overlay is on the right spot, and when the overlay finds its own spot there is nothing to prove.
+- **And the overlay now works anywhere, which is what makes it testable at all.** Where you are standing was read at the very bottom of the tick, after the work only a Shatters needs — so in the Nexus and the realm the tick returned early and your position was never touched. That was harmless while the overlay drew nothing outside the dungeon. It stopped being harmless the moment it drew its own map, because a map with no centre never appears: the one feature that made the overlay checkable anywhere could only be seen in the one dungeon that is hardest to get into.
+- So switch it on in the Nexus. The ground draws itself as you walk, at whatever zoom you set with the wheel, and the Shatters objectives appear on top of it when you are in a Shatters.
+- Four assertions: a position that was read is there to be used, the Nexus is read as a place the overlay works in rather than skipped over, the last dungeon's position does not survive into it, and walking into it starts a map of its own size.
+
 ## 2.36.1
 
 **The portal the overlay kept missing**
