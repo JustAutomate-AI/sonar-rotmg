@@ -151,7 +151,6 @@ class LiveView {
     private boolean shattersEnabled = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.enabled"));
     private boolean shattersCalibrating;
     private final SonarButton shattersRecentre = new SonarButton("Find minimap", false, this::recentreShatters);
-    private final SonarButton shattersMap = new SonarButton("Map: on", true, this::toggleShattersMap);
     /** Marks portals anywhere, so calibration can be checked without waiting for a Shatters. */
     private final SonarButton shattersPortals = new SonarButton("Portals: off", false, this::togglePortalTest);
     private ShattersOverlayWindow shattersOverlay;
@@ -1008,23 +1007,47 @@ class LiveView {
         return nav;
     }
 
+    /**
+     * One switch.
+     * <p>
+     * This row had grown to five buttons - calibrate, on, find, map, portals - and four of
+     * them were there to work around the overlay not being able to place itself or draw
+     * anything. It can do both now: switching it on finds the minimap by itself and starts
+     * drawing the ground, so the other four were asking somebody to do by hand what already
+     * happens.
+     * <p>
+     * Two survive, and only when they are any use. <b>Line up by hand</b> appears if the
+     * search for the minimap came back empty, which is the one case where there is something
+     * for a person to do. <b>Portals</b> stays out of the way behind the same condition: it
+     * exists to prove the overlay is on the right spot, and when the overlay is finding its
+     * own spot there is nothing to prove.
+     */
     private javax.swing.JComponent shattersAccessory() {
         javax.swing.Box nav = javax.swing.Box.createHorizontalBox();
-        nav.add(shattersCalibrate);
-        nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersToggle);
         nav.add(javax.swing.Box.createHorizontalStrut(6));
-        nav.add(shattersRecentre);
-        shattersRecentre.setToolTipText("Finds your minimap in the game's window and puts the overlay exactly on it");
+        nav.add(shattersCalibrate);
         nav.add(javax.swing.Box.createHorizontalStrut(6));
-        nav.add(shattersMap);
-        shattersMap.setToolTipText("Draws the ground Sonar has seen under the marks, so the zoom is Sonar's own "
-                + "rather than a guess at the game's");
+        nav.add(shattersRecentre);
         nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersPortals);
-        shattersPortals.setToolTipText("Mark portals instead, anywhere, so the overlay can be lined up without a Shatters");
+        shattersCalibrate.setToolTipText("Drag the overlay onto your minimap by hand, for when it cannot be found");
+        shattersRecentre.setToolTipText("Look for your minimap in the game's window again");
+        shattersPortals.setToolTipText("Mark every portal around you, so a by-hand line-up can be checked without a Shatters");
+        syncShattersButtons();
         return nav;
     }
+
+    /** Only shows the by-hand buttons when finding the minimap did not work. */
+    private void syncShattersButtons() {
+        boolean stuck = shattersEnabled && !alignedAutomatically;
+        shattersCalibrate.setVisible(stuck);
+        shattersRecentre.setVisible(stuck);
+        shattersPortals.setVisible(stuck || ShattersRadar.portalTest());
+    }
+
+    /** True once the minimap has been found on its own, which is the ordinary case. */
+    private boolean alignedAutomatically;
 
     /** What the test mode found, split by what each kind proves. */
     private String portalTestNote() {
@@ -1051,6 +1074,7 @@ class LiveView {
         ShattersRadar.setPortalTest(on);
         shattersPortals.setText(on ? "Portals: on" : "Portals: off");
         shattersPortals.setPrimary(on);
+        syncShattersButtons();
         if (on && !shattersEnabled) toggleShatters();
         refresh();
     }
@@ -1065,25 +1089,29 @@ class LiveView {
      * wonder why the overlay moved somewhere odd.
      */
     private void recentreShatters() {
-        if (shattersOverlay == null) toggleShatters();
         if (shattersOverlay == null) return;
         String what = shattersOverlay.alignToMinimap();
-        boolean found = what.startsWith("Lined up");
+        alignedAutomatically = what.startsWith("Lined up");
         SonarNote.setPlain(what);
-        if (!found && !shattersCalibrating) toggleShattersCalibrate();
-        else if (found && shattersCalibrating) toggleShattersCalibrate();
+        if (alignedAutomatically && shattersCalibrating) toggleShattersCalibrate();
+        syncShattersButtons();
         refresh();
     }
 
-    /** Draws the ground Sonar has seen under the marks, or goes back to marks alone. */
-    private void toggleShattersMap() {
-        if (shattersOverlay == null) toggleShatters();
+
+    /**
+     * Switching the overlay on does everything switching it on used to require.
+     * <p>
+     * It finds the minimap, lines up with it and starts drawing - and says plainly if it
+     * could not find it, which is the only moment anybody needs to touch the rest.
+     */
+    private void overlayOn() {
         if (shattersOverlay == null) return;
-        boolean on = !shattersOverlay.drawMap();
-        shattersOverlay.setDrawMap(on);
-        shattersMap.setText(on ? "Map: on" : "Map: off");
-        shattersMap.setPrimary(on);
-        refresh();
+        shattersOverlay.setDrawMap(true);
+        String what = shattersOverlay.alignToMinimap();
+        alignedAutomatically = what.startsWith("Lined up");
+        if (!alignedAutomatically) SonarNote.setPlain(what + " Line it up by hand instead.");
+        syncShattersButtons();
     }
 
     private void toggleShatters() {
@@ -1091,8 +1119,15 @@ class LiveView {
         sonar.util.PropertiesManager.setProperties("sonar.shatters.enabled", String.valueOf(shattersEnabled));
         shattersToggle.setText(shattersEnabled ? "Overlay: on" : "Overlay: off");
         shattersToggle.setPrimary(shattersEnabled);
-        if (shattersEnabled) openShattersOverlay();
-        else closeShattersOverlay();
+        if (shattersEnabled) {
+            openShattersOverlay();
+            overlayOn();
+        } else {
+            closeShattersOverlay();
+            alignedAutomatically = false;
+        }
+        syncShattersButtons();
+        refresh();
     }
 
     private void toggleShattersCalibrate() {
@@ -2659,6 +2694,7 @@ class LiveView {
 
         checkOwnMinimap(report);
         checkHistorySaves(report);
+        checkOverlayOutsideShatters(report);
 
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
@@ -2680,6 +2716,44 @@ class LiveView {
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
                         && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
                         && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
+    }
+
+    /**
+     * The overlay works somewhere other than the Shatters.
+     * <p>
+     * Where you are standing used to be read at the very bottom of the tick, after the work
+     * that only a Shatters needs - so in the Nexus and the realm the tick returned early and
+     * the position was never touched. That was harmless while the overlay drew nothing
+     * outside the dungeon. It stopped being harmless the moment it drew your own map, because
+     * a map with no centre never appears: the one feature that made the overlay testable
+     * anywhere could only be seen in the one dungeon that is hardest to get into.
+     * <p>
+     * The tell is a stale reading. Put a position in, tick a map that is not a Shatters and
+     * has nobody in it, and the position must be gone. Before the fix it survived.
+     */
+    private static void checkOverlayOutsideShatters(java.util.function.BiConsumer<String, Boolean> report) {
+        placeForTest(99, 99, 140, 140);
+        report.accept("a position that was read is there to be used", ShattersRadar.playerFromView(40, 40) != null);
+        try {
+            sonar.backend.data.GameData data = new sonar.backend.data.GameData();
+            sonar.packets.incoming.MapInfoPacket map = new sonar.packets.incoming.MapInfoPacket();
+            map.name = "Nexus";
+            map.displayName = "Nexus";
+            map.width = 100;
+            map.height = 100;
+            map.seed = 4242;
+            data.map = map;
+            data.player = null;                 // nobody placed in this instance yet
+            ShattersRadar.tick(data);
+            report.accept("the Nexus is read as a place the overlay works in, not skipped over",
+                    ShattersRadar.mapWidth() == 100 && ShattersRadar.mapHeight() == 100);
+            report.accept("and the last dungeon's position does not survive into it",
+                    ShattersRadar.playerFromView(40, 40) == null);
+            report.accept("walking into it starts a map of its own size",
+                    MinimapView.width() == 100 && MinimapView.height() == 100);
+        } catch (Throwable cannotBuild) {
+            report.accept("the overlay could be ticked outside a Shatters at all", false);
+        }
     }
 
     /**
