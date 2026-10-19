@@ -3185,6 +3185,73 @@ class LiveView {
         report.accept("the self-test leaves no recording of its own behind", !file.isFile());
 
         checkMapStartsOverBeforeTheTiles(report);
+        checkZoomIsMeasured(report);
+    }
+
+    /**
+     * The overlay reads the game's zoom off the screen rather than guessing it.
+     * <p>
+     * This is what makes covering the minimap legitimate. The overlay is click-through, so a
+     * click on it lands on the game's minimap underneath; a player drawn where the game does
+     * not have one is a player who cannot be teleported to. Deriving the zoom had been tried
+     * from two sources that disagree - the game's own minimap clamps its view to the map
+     * edges, Potato slides it toward the map centre - and neither publishes the one genuinely
+     * unknown number, which is the rung it is on right now.
+     * <p>
+     * So it is measured: render the ground at each candidate scale, score it against a
+     * photograph of the real minimap, take the winner. The assertions here are all about
+     * refusing to act, because a measurement that is wrong is worse than no measurement - it
+     * moves the map out from under a click that was about to land.
+     */
+    private static void checkZoomIsMeasured(java.util.function.BiConsumer<String, Boolean> report) {
+        report.accept("a clear winner is acted on", MinimapSync.worthTaking(2.0, MinimapSync.sureEnough()));
+        report.accept("a field of near-equal scores is not", !MinimapSync.worthTaking(2.0, 1.01));
+        report.accept("and neither is a match that found nothing", !MinimapSync.worthTaking(0, 99));
+
+        // the scoring itself: a map matched against a picture of itself must beat every other scale
+        int side = 96;
+        java.awt.image.BufferedImage ground =
+                new java.awt.image.BufferedImage(side, side, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.util.Random r = new java.util.Random(11);
+        for (int y = 0; y < side; y++) {
+            for (int x = 0; x < side; x++) {
+                ground.setRGB(x, y, 0xFF000000 | r.nextInt(0xFFFFFF));
+            }
+        }
+        // a picture of that ground at exactly 4 pixels per tile, centred on the map
+        double truth = 4.0;
+        int frame = 192;
+        java.awt.image.BufferedImage shot =
+                new java.awt.image.BufferedImage(frame, frame, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        double tiles = frame / truth, x0 = side / 2.0 - tiles / 2, y0 = side / 2.0 - tiles / 2;
+        for (int py = 0; py < frame; py++) {
+            for (int px = 0; px < frame; px++) {
+                int tx = (int) Math.floor(x0 + px / truth), ty = (int) Math.floor(y0 + py / truth);
+                if (tx < 0 || ty < 0 || tx >= side || ty >= side) continue;
+                shot.setRGB(px, py, ground.getRGB(tx, ty));
+            }
+        }
+        double[] rungs = {16, 8, 4, 2, 1};
+        double found = MinimapMatch.bestScale(shot, ground, side / 2.0, side / 2.0, rungs);
+        report.accept("the scale a picture was drawn at is the scale that gets measured back",
+                Math.abs(found - truth) / truth < 0.02);
+        double sure = MinimapMatch.confidence(shot, ground, side / 2.0, side / 2.0, rungs, found);
+        report.accept("and it wins clearly enough to be acted on", MinimapSync.worthTaking(found, sure));
+
+        // a photograph of something else entirely must not produce a confident answer
+        java.awt.image.BufferedImage noise =
+                new java.awt.image.BufferedImage(frame, frame, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < frame; y++) for (int x = 0; x < frame; x++) noise.setRGB(x, y, 0x202020);
+        double wrong = MinimapMatch.bestScale(noise, ground, side / 2.0, side / 2.0, rungs);
+        double wrongSure = MinimapMatch.confidence(noise, ground, side / 2.0, side / 2.0, rungs, wrong);
+        report.accept("a picture that is not the map does not produce a confident answer",
+                !MinimapSync.worthTaking(wrong, wrongSure));
+
+        // with nothing drawn there is nothing to match against, and it says so rather than guessing
+        MinimapView.clear();
+        double none = MinimapSync.measure(192, 192, rungs);
+        report.accept("no measurement is attempted before there is ground to match",
+                none == 0 && MinimapSync.state().contains("ground"));
     }
 
     /**

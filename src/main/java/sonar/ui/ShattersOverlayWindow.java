@@ -106,9 +106,60 @@ class ShattersOverlayWindow extends JWindow {
         });
         ShattersRadar.setDrawingMap(drawMap);
         setClickThrough(true);
+        setHiddenFromCapture();
         repaintTimer.start();
         inputTimer.start();
+        syncTimer.start();
         MouseWheelWatch.start(this::wheeled);
+    }
+
+    /**
+     * Re-reads the game's zoom off the screen, often enough to recover and rarely enough to
+     * be free.
+     * <p>
+     * A second and a half is a compromise between the two ways of being wrong. Measuring is
+     * the only thing that can correct a zoom change Sonar missed - a key it does not know
+     * about, a button press, a wheel over the minimap while another window had focus - and
+     * until it runs, the overlay is drawing at the wrong scale over a minimap people are
+     * clicking. Measuring more often than this buys very little, because a person changing
+     * zoom is already looking at the minimap and will see it catch up.
+     */
+    private final Timer syncTimer = new Timer(1500, e -> syncToGame());
+
+    private volatile boolean syncing;
+
+    /**
+     * Snaps the overlay to whatever the game's minimap is actually showing.
+     * <p>
+     * The measuring is done off the interface thread: it photographs the screen and scores
+     * ninety-odd candidate scales against a few thousand sampled points, which is nothing
+     * next to a frame budget but is not nothing next to a repaint. Only the answer comes
+     * back, and only when it is worth believing.
+     */
+    private void syncToGame() {
+        if (!drawMap || syncing || calibrating) return;
+        if ("false".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.sync"))) return;
+        final int w = getWidth(), h = getHeight();
+        final double[] candidates = ladderNow();
+        syncing = true;
+        Thread t = new Thread(() -> {
+            double got = 0;
+            try {
+                got = MinimapSync.measure(w, h, candidates);
+            } catch (Throwable ignored) {
+                // a measurement that throws is a measurement that did not happen
+            }
+            final double scale = got;
+            syncing = false;
+            if (scale <= 0) return;
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                if (Math.abs(scale - pixelsPerTile) / Math.max(scale, pixelsPerTile) < 0.005) return;
+                pixelsPerTile = clampScale(scale);
+                repaint();
+            });
+        }, "sonar-minimap-sync");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void paintOverlay(Graphics2D g) {
@@ -394,6 +445,7 @@ class ShattersOverlayWindow extends JWindow {
                 w + " x " + h + " window",
                 where,
                 "blue people, red foes, purple ways out, gold you",
+                MinimapSync.state(),
                 lastFix.isEmpty() ? "right-click a mark's real icon to set the scale" : lastFix,
                 "shift-drag to aim, shift-scroll to scale"};
         g.setFont(SonarTheme.font(10f));
@@ -928,6 +980,8 @@ class ShattersOverlayWindow extends JWindow {
         int SetWindowLongW(com.sun.jna.Pointer hWnd, int nIndex, int dwNewLong);
 
         short GetAsyncKeyState(int vKey);
+
+        boolean SetWindowDisplayAffinity(com.sun.jna.Pointer hWnd, int dwAffinity);
     }
 
     // ---- stepping the zoom while the game has the keyboard ----
@@ -1086,6 +1140,33 @@ class ShattersOverlayWindow extends JWindow {
         sawMap = now;
         resetZoomForNewInstance();
     }
+
+    /**
+     * Drawn to the screen, left out of anything that photographs it.
+     * <p>
+     * The overlay has to be able to read the minimap it is sitting on, because matching the
+     * game's zoom is the only thing that makes covering it honest - a click goes through to
+     * the game, so a player drawn in the wrong place is a player that cannot be teleported to.
+     * A plain screenshot of the minimap would be a screenshot of this window.
+     * <p>
+     * {@code WDA_EXCLUDEFROMCAPTURE} is the exact answer: the window keeps being drawn for the
+     * person looking at the screen and stops appearing in captures, so the game underneath can
+     * be read while being covered. It wants Windows 10 2004 or later; where it fails, the
+     * capture contains our own drawing instead, which agrees with itself at every scale and is
+     * thrown out by {@link MinimapSync}'s confidence test rather than believed.
+     */
+    private static final int WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+
+    private void setHiddenFromCapture() {
+        try {
+            com.sun.jna.Pointer hwnd = new com.sun.jna.Pointer(com.sun.jna.Native.getWindowID(this));
+            captureHidden = User32.INSTANCE.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+        } catch (Throwable e) {
+            captureHidden = false;
+        }
+    }
+
+    private boolean captureHidden;
 
     private static final int GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x00080000, WS_EX_TRANSPARENT = 0x00000020;
 
