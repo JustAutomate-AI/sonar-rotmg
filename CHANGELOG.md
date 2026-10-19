@@ -12,6 +12,16 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 - It still holds while you are *in* the instance: a board clicked in by hand stays exactly as entered until you press Live or walk out.
 - Six assertions: a fresh grid is the game's to fill in, entering a board by hand takes it off the game, it stays taken while you are still in that instance, the next instance hands it back, the pane says so once so the buttons go back with it, and it does not say so twice.
 
+## 2.38.1
+
+**The ground was being stretched to fill the frame**
+
+- The overlay's own map did not line up, and the reason was not the zoom. It was one line of mine.
+- `paintMap` built a source rectangle from the view and handed it straight to `drawImage`. **The view is very often wider than the map** — always in the Nexus, and in a realm the moment you zoom out — so that rectangle ran off the edge of the picture. `drawImage` clips a source rectangle like that but **keeps the destination it was given**, so whatever piece of ground survived the clipping was stretched across the whole frame.
+- That is the worst shape a bug can have here, because the result still looks like a map. It is the right ground, drawn convincingly, at the wrong scale and in the wrong place — which reads as "the overlay does not line up" and sends the search off towards zoom levels and calibration, where it can be looked for indefinitely without being found. It was looked for there for several releases.
+- The source is now clipped deliberately and the destination clipped with it by the same number of tiles. Ground that is not in the picture is not drawn, and every tile that is drawn lands where its own position says it should.
+- Seven assertions, all on one number — the pixels a tile is given on screen must be the scale that was asked for, whatever part of the map is in view: a view inside the map, a view hanging off its edge, a view zoomed out past the whole map, and a view with no map in it at all.
+
 ## 2.38.0
 
 **Updates install themselves, and the puzzle grid is ready every time**
