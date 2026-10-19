@@ -29,12 +29,23 @@ final class MouseWheelWatch {
     interface Listener {
         /** Where the pointer was, in screen pixels, and how many notches it turned: positive is away from you. */
         void wheel(int x, int y, int notches);
+
+        /**
+         * A left click went past, and where.
+         * <p>
+         * The overlay covers the minimap, and the game draws its player menu over the minimap
+         * too - so clicking a player to teleport to them opens a menu underneath the thing
+         * that was covering it. The click itself passes through and works; the menu it opens
+         * cannot be read. Knowing a click happened is enough to step out of the way.
+         */
+        default void clicked(int x, int y) {
+        }
     }
 
     private MouseWheelWatch() {
     }
 
-    private static final int WH_MOUSE_LL = 14, HC_ACTION = 0, WM_MOUSEWHEEL = 0x020A;
+    private static final int WH_MOUSE_LL = 14, HC_ACTION = 0, WM_MOUSEWHEEL = 0x020A, WM_LBUTTONDOWN = 0x0201;
 
     /** One notch of a standard wheel. Finer wheels send fractions of it and are summed up. */
     private static final int WHEEL_DELTA = 120;
@@ -100,15 +111,19 @@ final class MouseWheelWatch {
     private static void pump() {
         try {
             proc = (nCode, wParam, lParam) -> {
-                if (nCode == HC_ACTION && lParam != null
-                        && com.sun.jna.Pointer.nativeValue(wParam) == WM_MOUSEWHEEL) {
+                if (nCode == HC_ACTION && lParam != null) {
+                    long what = com.sun.jna.Pointer.nativeValue(wParam);
                     Listener who = listener;
-                    if (who != null) {
+                    if (who != null && (what == WM_MOUSEWHEEL || what == WM_LBUTTONDOWN)) {
                         try {
                             // MSLLHOOKSTRUCT: the point first, then mouseData at byte eight
                             int x = lParam.getInt(0), y = lParam.getInt(4);
-                            int notches = notchesFrom(lParam.getInt(8));
-                            if (notches != 0) who.wheel(x, y, notches);
+                            if (what == WM_LBUTTONDOWN) {
+                                who.clicked(x, y);
+                            } else {
+                                int notches = notchesFrom(lParam.getInt(8));
+                                if (notches != 0) who.wheel(x, y, notches);
+                            }
                         } catch (Throwable ignored) {
                             // never let a fault here delay the event on its way to the game
                         }
