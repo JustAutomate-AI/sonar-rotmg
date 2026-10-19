@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.44.1
+
+**The overlay says when the sniffer is off**
+
+Diagnosed by the person using it, not by the panel that was supposed to diagnose it: the overlay was blank because the sniffer had never been started.
+
+- **Everything the panel listed was true and none of it was the useful fact.** `no instance loaded yet`, `0 tiles known`, `you are not placed yet` — three separate-looking faults with one cause, because without the sniffer there are no packets, and without packets there is no map, no ground and no position.
+- **So the sniffer being off replaces the panel rather than appearing in it**: *the sniffer is not running — nothing can be drawn without it: no map, no ground, no position — start it from Sonar's title bar.*
+- A panel that lists symptoms when it knows the cause is a worse diagnostic than no panel, because it sends the reader after three things instead of one.
+
 ## 2.44.0
 
 **Two buttons: mark the objectives, or replace the minimap**
