@@ -2,6 +2,21 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.36.0
+
+**Instance history has never saved anything, and now does**
+
+Sonar keeps thirty days of finished instances so they can still be reviewed after a restart. It has been writing every one of those days as an empty file.
+
+- The evidence was on disk the whole time and only visible to somebody who thought to measure it: **every day file was exactly twenty bytes**, which is a gzip header and trailer with nothing in between.
+- The cause is one field. `Row.tileX` and `Row.tileY` start at **`NaN`**, meaning nobody has yet seen where that player is standing — the honest value, and the ordinary one. **Gson refuses `NaN` outright**, because JSON has no such value, and throws rather than writing anything. Every single save died on it.
+- It died invisibly because `record` swallows its exception on purpose, so that a history write can never interrupt the game tick that triggered it. That rule is right and stays; what was wrong was that it could fail forever and never say so. The reason for the last failure is now kept and the self-test reads it.
+- An unknown number is now written as **`null`** and read back as `NaN`, which keeps the files ordinary JSON that anything can read — rather than the non-standard bare `NaN` that Gson's own override would emit. A position somebody *did* see still comes back exactly as it went in.
+- **And the write no longer destroys the day it fails on.** Opening the file truncates it, so turning the day into JSON *inside* the try meant the throw wiped that day's history on the way past. The text is now built before the file is opened, so a failure leaves what was already saved exactly as it was.
+- Five assertions cover it: an instance with a player nobody located saves, what it writes is ordinary JSON with no `NaN` in it, an unknown position comes back unknown, a known one comes back unchanged, and a save leaves nothing to complain about.
+
+The empty files already on disk need no attention — they read as "no instances that day" and are replaced the next time that day is written.
+
 ## 2.35.0
 
 **The overlay draws its own map, and finds your minimap by itself**

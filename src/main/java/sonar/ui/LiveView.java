@@ -2658,6 +2658,7 @@ class LiveView {
                 ShattersRadar.mapGeneration() - before == 3);
 
         checkOwnMinimap(report);
+        checkHistorySaves(report);
 
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
@@ -2679,6 +2680,48 @@ class LiveView {
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
                         && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
                         && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
+    }
+
+    /**
+     * A finished instance can actually be saved.
+     * <p>
+     * It could not, for as long as a player's position has been remembered. {@link
+     * LiveModel.Row} starts {@code tileX} and {@code tileY} at {@code NaN} to mean nobody has
+     * seen where that player is standing, which is the honest value and the ordinary one, and
+     * Gson refuses {@code NaN} outright rather than writing anything. Every save threw, and
+     * the throw was swallowed on purpose so a history write could never interrupt a game
+     * tick - so thirty days of history were written as empty files and nothing said so.
+     * <p>
+     * The file on disk was the only evidence, and only to somebody who thought to measure it:
+     * every day was exactly twenty bytes, which is a gzip header and trailer with nothing in
+     * between. These assertions are so that the next time it is the test that says so.
+     */
+    private static void checkHistorySaves(java.util.function.BiConsumer<String, Boolean> report) {
+        LiveModel.Target boss = new LiveModel.Target();
+        boss.name = "Oryx the Mad God 3";
+        boss.total = 4_200_000;
+        LiveModel.Row seen = new LiveModel.Row();
+        seen.name = "a player";
+        seen.damage = 900_000;
+        seen.tileX = 70.5f;
+        seen.tileY = 71.25f;
+        LiveModel.Row unseen = new LiveModel.Row();     // never located: tileX and tileY are NaN
+        unseen.name = "another";
+        unseen.damage = 12_000;
+        boss.rows.add(seen);
+        boss.rows.add(unseen);
+        java.util.List<LiveModel.Target> targets = new java.util.ArrayList<>();
+        targets.add(boss);
+
+        String trouble = InstanceHistory.writeAndReadBackForTest(targets, boss);
+        report.accept("an instance with a player nobody located still saves", trouble.isEmpty());
+        report.accept("and what it saves is ordinary JSON, with no NaN in it",
+                !trouble.contains("NaN was written"));
+        report.accept("a position nobody saw comes back unknown rather than as a number",
+                !trouble.contains("came back as a number"));
+        report.accept("and a position somebody did see comes back unchanged",
+                !trouble.contains("was lost") && !trouble.contains("came back as "));
+        report.accept("saving leaves nothing to complain about", InstanceHistory.lastTrouble().isEmpty());
     }
 
     /**

@@ -26,7 +26,72 @@ final class InstanceHistory {
 
     static final int KEEP_DAYS = 30;
     private static final DateTimeFormatter FILE_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final Gson GSON = new GsonBuilder().create();
+    /**
+     * Gson, taught that a number can be unknown.
+     * <p>
+     * It refuses {@code NaN} outright - the JSON specification has no such value - and throws
+     * {@code IllegalArgumentException} rather than writing anything. {@link LiveModel.Row}
+     * starts {@code tileX} and {@code tileY} at {@code NaN} to mean "nobody has seen where
+     * this player is standing", which is the honest value and the common one, so every single
+     * instance Sonar tried to save died on it. Thirty days of history were being written as
+     * empty files and nobody could tell, because the failure was swallowed on purpose so a
+     * history write could never interrupt a game tick.
+     * <p>
+     * An unknown number is written as {@code null} and read back as {@code NaN}. That keeps
+     * the files ordinary JSON, readable by anything, rather than the non-standard literal
+     * {@code serializeSpecialFloatingPointValues} would emit.
+     */
+    private static final Gson GSON = new GsonBuilder()
+            .registerTypeAdapter(Float.class, new UnknownIsNull<>(Float.NaN, Number::floatValue))
+            .registerTypeAdapter(float.class, new UnknownIsNull<>(Float.NaN, Number::floatValue))
+            .registerTypeAdapter(Double.class, new UnknownIsNull<>(Double.NaN, Number::doubleValue))
+            .registerTypeAdapter(double.class, new UnknownIsNull<>(Double.NaN, Number::doubleValue))
+            .create();
+
+    /** Writes a number that is not finite as null, and reads null back as that type's NaN. */
+    private static final class UnknownIsNull<T extends Number> extends com.google.gson.TypeAdapter<T> {
+        private final T unknown;
+        private final java.util.function.Function<Number, T> narrow;
+
+        UnknownIsNull(T unknown, java.util.function.Function<Number, T> narrow) {
+            this.unknown = unknown;
+            this.narrow = narrow;
+        }
+
+        @Override
+        public void write(com.google.gson.stream.JsonWriter out, T value) throws java.io.IOException {
+            // infinities go the same way as NaN: JSON cannot hold either, and both mean the
+            // number is not a number anybody can use
+            if (value == null || !isFinite(value)) out.nullValue();
+            else out.value(value);
+        }
+
+        @Override
+        public T read(com.google.gson.stream.JsonReader in) throws java.io.IOException {
+            if (in.peek() == com.google.gson.stream.JsonToken.NULL) {
+                in.nextNull();
+                return unknown;
+            }
+            // older files, written before this, can still hold the bare word NaN
+            if (in.peek() == com.google.gson.stream.JsonToken.STRING) {
+                in.nextString();
+                return unknown;
+            }
+            return narrow.apply(in.nextDouble());
+        }
+
+        private static boolean isFinite(Number n) {
+            double d = n.doubleValue();
+            return !Double.isNaN(d) && !Double.isInfinite(d);
+        }
+    }
+
+    /** Why the last save failed, or empty. Kept so a silent failure can at least be asked about. */
+    private static volatile String lastTrouble = "";
+
+    static String lastTrouble() {
+        return lastTrouble;
+    }
 
     private InstanceHistory() {
     }
@@ -134,16 +199,60 @@ final class InstanceHistory {
             day.add(e);
             writeDay(LocalDate.now(), day);
         } catch (Exception ex) {
-            // a history write must never interrupt the game tick that triggered it
+            // a history write must never interrupt the game tick that triggered it - but it
+            // should not be able to fail forever in silence either, which is exactly what it
+            // did. Remembered, so the self-test and anybody asking can see it.
+            lastTrouble = ex.getClass().getSimpleName() + ": " + ex.getMessage();
         }
     }
 
-    /** Writes a day compressed, and clears away the plain file it replaces. */
+    /** Lets the self-test put a whole instance through the saving and reading without a game. */
+    static String writeAndReadBackForTest(List<LiveModel.Target> targets, LiveModel.Target whole) {
+        Entry e = new Entry();
+        e.name = "The Shatters";
+        e.targets = targets;
+        e.whole = whole;
+        List<Entry> day = new ArrayList<>();
+        day.add(e);
+        String json = GSON.toJson(day);
+        Type listType = new TypeToken<List<Entry>>() {
+        }.getType();
+        List<Entry> back = GSON.fromJson(json, listType);
+        if (back == null || back.size() != 1) return "it did not come back";
+        Entry got = back.get(0);
+        if (!"The Shatters".equals(got.name)) return "the name did not survive";
+        if (got.targets == null || got.targets.size() != targets.size()) return "the targets did not survive";
+        if (json.contains("NaN")) return "NaN was written into the file";
+        // the unknown positions must come back unknown, and the known ones must come back
+        // unchanged: writing both as null would lose real information to fix a missing one
+        int unknown = 0, known = 0;
+        for (LiveModel.Target gt : got.targets) {
+            for (LiveModel.Row row : gt.rows) {
+                if (Float.isNaN(row.tileX)) unknown++;
+                else if (Math.abs(row.tileX - 70.5f) < 1e-6) known++;
+                else return "a position came back as " + row.tileX;
+            }
+        }
+        if (unknown == 0) return "a position nobody saw came back as a number";
+        if (known == 0) return "a position somebody did see was lost";
+        return "";
+    }
+
+    /**
+     * Writes a day compressed, and clears away the plain file it replaces.
+     * <p>
+     * The text is built <b>before</b> the file is opened, and deliberately so. Opening it
+     * truncates it, so turning the day into JSON inside the try meant that anything thrown
+     * there - and for a year something was, on every single save - destroyed that day's
+     * history on the way past and left a twenty-byte gzip holding nothing. Serialising first
+     * costs one string and makes a failure leave yesterday's file exactly as it was.
+     */
     private static void writeDay(LocalDate date, List<Entry> day) throws java.io.IOException {
+        byte[] text = GSON.toJson(day).getBytes(StandardCharsets.UTF_8);
         File target = fileFor(date);
         try (java.io.OutputStream out = new java.util.zip.GZIPOutputStream(
                 new java.io.FileOutputStream(target))) {
-            out.write(GSON.toJson(day).getBytes(StandardCharsets.UTF_8));
+            out.write(text);
         }
         File plain = plainFileFor(date);
         if (plain.isFile()) plain.delete();
