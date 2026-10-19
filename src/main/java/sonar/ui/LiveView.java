@@ -2713,6 +2713,7 @@ class LiveView {
         checkOverlayOutsideShatters(report);
         checkPuzzleResetsPerInstance(report);
         checkQuietUpdate(report);
+        checkMapDrawsToScale(report);
 
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
@@ -2734,6 +2735,53 @@ class LiveView {
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
                         && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
                         && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
+    }
+
+    /**
+     * The ground is drawn at the size it actually is.
+     * <p>
+     * The view is very often wider than the map - always in the Nexus, and in a realm the
+     * moment you zoom out - and a source rectangle taken straight from the view then runs off
+     * the edge of the picture. {@code drawImage} clips a source rectangle like that but keeps
+     * the destination it was given, so whatever piece of ground survived the clipping gets
+     * stretched across the whole frame.
+     * <p>
+     * That is the worst shape a bug can have here, because the result still looks like a map.
+     * It is the right ground, drawn convincingly, at the wrong scale and in the wrong place -
+     * which reads as "the overlay does not line up" and sends the search off towards zoom
+     * levels and calibration, where it can be looked for indefinitely without being found.
+     * <p>
+     * The test is one number: the pixels a tile is given on screen must be the scale asked
+     * for, whatever part of the map is in view.
+     */
+    private static void checkMapDrawsToScale(java.util.function.BiConsumer<String, Boolean> report) {
+        // a 100-tile Nexus under a 475-pixel frame at 8 pixels a tile: the view is 59 tiles
+        // wide, the map is 100, so this one fits inside and nothing is clipped
+        int[] inside = ShattersOverlayWindow.mapDrawRect(20, 20, 8, 100, 100, 475 / 8.0, 481 / 8.0);
+        report.accept("a view that fits inside the map is drawn whole",
+                inside != null && inside[0] == 20 && inside[1] == 20);
+        report.accept("and at the scale it was asked for",
+                inside != null && Math.abs((inside[6] - inside[4]) / (double) (inside[2] - inside[0]) - 8) < 0.1);
+
+        // now the case that was wrong: 475 pixels at 8 a tile wants 59 tiles, the map has 100,
+        // but the view starts at -30 so it runs off both the left edge and nothing on the right
+        int[] over = ShattersOverlayWindow.mapDrawRect(-30, -30, 8, 100, 100, 475 / 8.0, 481 / 8.0);
+        report.accept("a view hanging off the edge of the map is clipped to the map",
+                over != null && over[0] == 0 && over[1] == 0 && over[2] <= 100 && over[3] <= 100);
+        report.accept("and the ground that is left is still drawn at the scale asked for, not stretched to fill",
+                over != null && Math.abs((over[6] - over[4]) / (double) (over[2] - over[0]) - 8) < 0.1);
+        report.accept("the clipped ground starts where its own position says, not at the corner",
+                over != null && Math.abs(over[4] - 30 * 8) <= 1 && Math.abs(over[5] - 30 * 8) <= 1);
+
+        // zoomed out past the whole map, which is the realm case
+        int[] wide = ShattersOverlayWindow.mapDrawRect(-200, -200, 0.5, 100, 100, 475 / 0.5, 481 / 0.5);
+        report.accept("zoomed out past the whole map, the map is still its own size",
+                wide != null && Math.abs((wide[6] - wide[4]) / (double) (wide[2] - wide[0]) - 0.5) < 0.01);
+
+        // and a view that has left the map behind draws nothing rather than something wrong
+        report.accept("a view with no map in it draws nothing",
+                ShattersOverlayWindow.mapDrawRect(500, 500, 8, 100, 100, 10, 10) == null
+                        && ShattersOverlayWindow.mapDrawRect(0, 0, 8, 0, 0, 10, 10) == null);
     }
 
     /**

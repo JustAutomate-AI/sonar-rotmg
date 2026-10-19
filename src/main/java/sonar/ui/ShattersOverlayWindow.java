@@ -195,12 +195,10 @@ class ShattersOverlayWindow extends JWindow {
         if (centre == null) return;
 
         double x0 = centre[0] - tilesWide / 2, y0 = centre[1] - tilesHigh / 2;
-        // the source rectangle can run off the map at the edges; drawImage clips it for us, so
-        // the destination is shifted by however much was cut rather than the picture stretched
-        int sx1 = (int) Math.floor(x0), sy1 = (int) Math.floor(y0);
-        int sx2 = (int) Math.ceil(x0 + tilesWide), sy2 = (int) Math.ceil(y0 + tilesHigh);
-        int dx1 = (int) Math.round((sx1 - x0) * pixelsPerTile), dy1 = (int) Math.round((sy1 - y0) * pixelsPerTile);
-        int dx2 = (int) Math.round((sx2 - x0) * pixelsPerTile), dy2 = (int) Math.round((sy2 - y0) * pixelsPerTile);
+        int[] r = mapDrawRect(x0, y0, pixelsPerTile, map.getWidth(), map.getHeight(), tilesWide, tilesHigh);
+        if (r == null) return;
+        int sx1 = r[0], sy1 = r[1], sx2 = r[2], sy2 = r[3];
+        int dx1 = r[4], dy1 = r[5], dx2 = r[6], dy2 = r[7];
         java.awt.Composite was = g.getComposite();
         Object hint = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
@@ -208,6 +206,38 @@ class ShattersOverlayWindow extends JWindow {
         g.drawImage(map, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2, null);
         g.setComposite(was);
         if (hint != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
+    }
+
+    /**
+     * Which part of the map goes where on the frame.
+     * <p>
+     * The whole bug, and it was mine. The view is very often wider than the map - always in
+     * the Nexus, and in a realm the moment you zoom out - and a source rectangle taken
+     * straight from the view then runs off the edge of the picture. {@code drawImage} clips a
+     * source rectangle like that but keeps the destination it was given, so whatever piece of
+     * ground survived the clipping is stretched across the whole frame. Wrong size, wrong
+     * place, and worst of all plausible: it still looks like a map.
+     * <p>
+     * So the source is clipped here, deliberately, and the destination is clipped with it by
+     * the same number of tiles. Ground that is not in the picture is not drawn, and every
+     * tile that is drawn lands exactly where its own position says it should.
+     *
+     * @return {sx1, sy1, sx2, sy2, dx1, dy1, dx2, dy2}, or null when none of the map is in view.
+     */
+    static int[] mapDrawRect(double x0, double y0, double pixelsPerTile, int mapW, int mapH,
+                             double tilesWide, double tilesHigh) {
+        if (pixelsPerTile <= 0 || mapW <= 0 || mapH <= 0) return null;
+        int sx1 = Math.max(0, (int) Math.floor(x0));
+        int sy1 = Math.max(0, (int) Math.floor(y0));
+        int sx2 = Math.min(mapW, (int) Math.ceil(x0 + tilesWide));
+        int sy2 = Math.min(mapH, (int) Math.ceil(y0 + tilesHigh));
+        if (sx2 <= sx1 || sy2 <= sy1) return null;      // the view is off the map entirely
+        int dx1 = (int) Math.round((sx1 - x0) * pixelsPerTile);
+        int dy1 = (int) Math.round((sy1 - y0) * pixelsPerTile);
+        int dx2 = (int) Math.round((sx2 - x0) * pixelsPerTile);
+        int dy2 = (int) Math.round((sy2 - y0) * pixelsPerTile);
+        if (dx2 <= dx1 || dy2 <= dy1) return null;
+        return new int[]{sx1, sy1, sx2, sy2, dx1, dy1, dx2, dy2};
     }
 
     /**
