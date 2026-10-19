@@ -34,7 +34,7 @@ import java.util.zip.ZipInputStream;
 final class Updater {
 
     /** Version of this build. Raise it for each release; tools/make-release.ps1 reads it for the zip name. */
-    static final String CURRENT = "2.43.2";
+    static final String CURRENT = "2.43.3";
 
     private static final String REPOSITORY = "https://github.com/JustAutomate-AI/sonar-rotmg";
     private static final String LATEST = REPOSITORY + "/releases/latest";
@@ -113,6 +113,40 @@ final class Updater {
         return location.substring(location.lastIndexOf('/') + 1).trim();
     }
 
+    /**
+     * Whether a release's file is actually downloadable yet.
+     * <p>
+     * Asked with a HEAD, so nothing is fetched to find out. A failure to ask is treated as
+     * "yes": a network that cannot answer this would not have got as far as reading the
+     * release anyway, and refusing an update over it would be worse than trying and failing
+     * with the ordinary message.
+     */
+    static boolean filePublished(String address) {
+        try {
+            HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection();
+            c.setRequestMethod("HEAD");
+            c.setInstanceFollowRedirects(true);
+            c.setConnectTimeout(TIMEOUT_MS);
+            c.setReadTimeout(TIMEOUT_MS);
+            c.setRequestProperty("User-Agent", "Sonar/" + current());
+            int code = c.getResponseCode();
+            c.disconnect();
+            return code != 404;
+        } catch (Exception cannotTell) {
+            return true;
+        }
+    }
+
+    /** What a download's answer means, in words somebody can act on. */
+    static String explain(int code) {
+        if (code == 404) {
+            return "the files for this version are not published yet - the build is still finishing. "
+                    + "Try again in a few minutes.";
+        }
+        if (code == 403 || code == 429) return "GitHub is rate limiting this connection. Try again shortly.";
+        return "download answered " + code;
+    }
+
     private static void report(Component parent, Consumer<String> status, boolean quiet, String tag, String error) {
         if (error != null || tag == null) {
             if (quiet) return;
@@ -128,6 +162,28 @@ final class Updater {
         status.accept("Update available");
         String version = clean(tag);
         File root = installRoot();
+
+        // A release is announced before its files exist.
+        //
+        // The tag is pushed, GitHub publishes the release page immediately, and the build that
+        // produces the installer takes a couple of minutes more. Anyone who checks for updates
+        // inside that window is told a new version exists, downloads it, and is handed a 404
+        // with a stack trace attached - which reads as a broken updater rather than as a
+        // version that is thirty seconds early.
+        String fileUrl = REPOSITORY + "/releases/download/" + tag + "/"
+                + (installedByInstaller(root) ? "Sonar-" + version + "-setup.msi"
+                                              : "Sonar-" + version + "-windows.zip");
+        if (!filePublished(fileUrl)) {
+            log(tag + " is announced but its files are not published yet");
+            status.accept("Update building");
+            if (!quiet) {
+                SonarDialog.ask(parent, "Sonar " + version + " is on its way",
+                        "The release has been announced but its files are still being built. "
+                                + "This usually takes a few minutes. Check again shortly.",
+                        "All right");
+            }
+            return;
+        }
         boolean fromSource = new File(root, "build.gradle").exists() && System.getProperty("sonar.update.force") == null;
         if (fromSource) {
             Object[] options = {"Open download page", "Later"};
@@ -248,7 +304,7 @@ final class Updater {
             c.setRequestProperty("User-Agent", "Sonar/" + current());
             code = c.getResponseCode();
         }
-        if (code != 200) throw new java.io.IOException("download answered " + code);
+        if (code != 200) throw new java.io.IOException(explain(code));
         long total = c.getContentLengthLong(), got = 0;
         int shown = -1;
         try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(target)) {

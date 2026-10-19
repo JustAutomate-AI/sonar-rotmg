@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.43.3
+
+**An update that is thirty seconds early is not a broken updater**
+
+Reported: *The update could not be installed automatically. java.io.IOException: download answered 404.*
+
+- **A release is announced before its files exist.** The tag is pushed, GitHub publishes the release page immediately, and the build that produces the installer takes a couple of minutes more. Anyone who checked for updates inside that window was told a new version existed, sent to download it, and handed a 404 with a stack trace attached — which reads as a broken updater rather than as a version that is early.
+- **Sonar asks whether the file is there before offering the update.** One HEAD request, nothing fetched. If the files are not published yet it says so plainly — *the release has been announced but its files are still being built, check again shortly* — and offers nothing to click.
+- **A 404 that gets through anyway is explained rather than printed.** So is rate limiting, which is the other answer that is not a fault in Sonar. Anything else still reports its own code, because an unknown answer should not be dressed up as a known one.
+- Four assertions on the wording, since the whole point is that the message is readable by the person it happens to.
+
 ## 2.43.2
 
 **A blank overlay says why it is blank**

@@ -3201,6 +3201,26 @@ class LiveView {
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);
         checkWheelReach(report);
+        checkUpdateNotYetBuilt(report);
+    }
+
+    /**
+     * A version announced before its files exist is not an error to show somebody.
+     * <p>
+     * The tag is pushed, GitHub publishes the release page at once, and the build that makes
+     * the installer takes a couple of minutes more. Anyone checking for updates inside that
+     * window was told a new version existed, sent to download it, and handed
+     * {@code java.io.IOException: download answered 404} - which reads as a broken updater
+     * rather than as a version that is thirty seconds early.
+     */
+    private static void checkUpdateNotYetBuilt(java.util.function.BiConsumer<String, Boolean> report) {
+        String missing = Updater.explain(404);
+        report.accept("a missing file is explained as a build still finishing, not as a fault",
+                missing.contains("not published yet") && !missing.contains("404"));
+        report.accept("and it says what to do about it", missing.toLowerCase().contains("try again"));
+        report.accept("rate limiting is told apart from a missing file",
+                Updater.explain(429).contains("rate limit"));
+        report.accept("anything else still reports its own code", Updater.explain(500).contains("500"));
     }
 
     /**
