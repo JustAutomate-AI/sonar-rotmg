@@ -39,6 +39,23 @@ class ShattersOverlayWindow extends JWindow {
         followMapChange();
     });
 
+    /**
+     * Shows the overlay only while the game is in front, and keeps it over the game's window.
+     * <p>
+     * Slower than the input timer because neither question changes quickly, and both cost a
+     * call into Windows.
+     */
+    /** Whether the overlay is meant to be up at all, as opposed to merely hidden behind the game. */
+    private boolean wanted;
+
+    private final Timer attachTimer = new Timer(300, e -> attach());
+
+    private void attach() {
+        boolean want = wanted && gameIsInFront();
+        if (want != isVisible()) super.setVisible(want);
+        if (want) followGameWindow();
+    }
+
     ShattersOverlayWindow() {
         try {
             setBackground(new Color(0, 0, 0, 0));
@@ -232,8 +249,14 @@ class ShattersOverlayWindow extends JWindow {
 
     @Override
     public void setVisible(boolean show) {
+        wanted = show;
         super.setVisible(show);
-        if (show) applyWindowStyles();
+        if (show) {
+            applyWindowStyles();
+            attachTimer.start();
+        } else {
+            attachTimer.stop();
+        }
     }
 
     private void applyWindowStyles() {
@@ -1248,6 +1271,64 @@ class ShattersOverlayWindow extends JWindow {
         short GetAsyncKeyState(int vKey);
 
         boolean SetWindowDisplayAffinity(com.sun.jna.Pointer hWnd, int dwAffinity);
+
+        com.sun.jna.Pointer GetForegroundWindow();
+
+        com.sun.jna.Pointer FindWindowW(String className, String windowName);
+    }
+
+    /**
+     * Follows the game rather than the screen.
+     * <p>
+     * The overlay is always on top of everything, which is right while the game is in front
+     * and wrong the moment it is not: alt-tab to a browser and Sonar's minimap is sitting on
+     * top of it. Nothing about the overlay makes sense away from the game it is drawn over.
+     * <p>
+     * So it is shown only while the game has the foreground, and it moves with the game's
+     * window - a window dragged to another monitor used to leave the overlay behind, drawing
+     * a minimap over whatever happened to be underneath.
+     */
+    private static final String GAME_WINDOW = "RotMGExalt";
+
+    private boolean gameIsInFront() {
+        try {
+            com.sun.jna.Pointer front = User32.INSTANCE.GetForegroundWindow();
+            if (front == null) return false;
+            com.sun.jna.Pointer game = User32.INSTANCE.FindWindowW(null, GAME_WINDOW);
+            if (game == null) return false;
+            long f = com.sun.jna.Pointer.nativeValue(front);
+            if (f == com.sun.jna.Pointer.nativeValue(game)) return true;
+            // Sonar's own windows count as the game being in front: clicking the overlay's
+            // settings should not make the overlay vanish out from under the pointer
+            java.awt.Window active = javax.swing.FocusManager.getCurrentManager().getActiveWindow();
+            return active != null;
+        } catch (Throwable notWindows) {
+            return true;   // cannot tell; do not hide something that is working
+        }
+    }
+
+    private Rectangle followed;
+
+    /**
+     * Keeps the overlay over the minimap as the game's window moves.
+     * <p>
+     * Cheap enough for the input timer: one window-rectangle call, and the alignment only runs
+     * when the rectangle has actually changed.
+     */
+    private void followGameWindow() {
+        Rectangle now;
+        try {
+            now = MinimapLocator.gameWindow();
+        } catch (Throwable e) {
+            return;
+        }
+        if (now == null) return;
+        if (now.equals(followed)) return;
+        boolean first = followed == null;
+        followed = now;
+        if (first) return;              // the opening position is set when the overlay is shown
+        MinimapSync.forgetWhere();      // the minimap has moved with the window
+        alignToMinimap();
     }
 
     // ---- stepping the zoom while the game has the keyboard ----

@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.47.1
+
+**The overlay belongs to the game's window**
+
+- **It only shows while the game is in front.** It is drawn always-on-top, which is right while you are playing and wrong the moment you are not — alt-tab to a browser and Sonar's minimap was sitting on top of it. Nothing about the overlay means anything away from the game it is drawn over.
+- **It moves with the game's window.** A window dragged to another monitor used to leave the overlay behind, drawing a minimap over whatever happened to be underneath. The alignment is redone when the window's rectangle changes, and only then.
+- Checked three hundred milliseconds apart, because neither question changes quickly and both cost a call into Windows.
+
 ## 2.47.0
 
 **A map is kept as it is learned, not only on the way out**
