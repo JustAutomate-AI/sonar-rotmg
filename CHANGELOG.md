@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.43.0
+
+**Clicks reach the game again, and the wheel works anywhere**
+
+Reported: clicking a player on the minimap did nothing and would not teleport.
+
+- **Click-through had never once been switched on.** It was applied in the overlay's constructor, which cannot work: setting that style needs a native window handle, and there is no native window until the peer is made, so the call threw every time and the throw was caught as a failed nicety. It is applied when the window actually exists now, and again whenever it is shown.
+- **It looked like it was working, which is why it lasted.** The game draws its own tooltip when the pointer is over a player on the minimap, because it reads the pointer's position from the system rather than from the messages its window receives. So hovering behaved perfectly while every click was being eaten by a transparent window sitting on top.
+- **It cannot fail quietly again.** The style is read back after being set, and the readout says either `clicks pass through to the game` or `CLICKS ARE BEING EATEN` with the reason. An overlay on the minimap that does not pass clicks has taken the minimap away — that is not a nicety to lose silently.
+- **The wheel zooms from anywhere in the game window.** It used to need the pointer over the minimap, which is where the game wants it for its own wheel zoom but is a bad place to need it: in a fight the pointer is where you are aiming. A scroll aimed at another program is still left alone.
+
 ## 2.42.2
 
 **The dead come off the map**

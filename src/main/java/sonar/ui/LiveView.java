@@ -3200,6 +3200,29 @@ class LiveView {
         checkMapStartsOverBeforeTheTiles(report);
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);
+        checkWheelReach(report);
+    }
+
+    /**
+     * A scroll anywhere in the game zooms the overlay; a scroll elsewhere does not.
+     * <p>
+     * The pointer used to have to be over the minimap, which is where the game wants it for
+     * its own wheel zoom but is a bad place to need it: in a fight the pointer is where you
+     * are aiming. The limit that stays is the game's window, because a scroll aimed at another
+     * program belongs to that program.
+     */
+    private static void checkWheelReach(java.util.function.BiConsumer<String, Boolean> report) {
+        java.awt.Rectangle game = new java.awt.Rectangle(2560, 0, 1920, 1080);
+        java.awt.Rectangle overlay = new java.awt.Rectangle(4200, 10, 300, 300);
+        report.accept("a scroll in the middle of the game zooms the overlay",
+                ShattersOverlayWindow.wheelIsForUs(game, overlay, 3500, 600));
+        report.accept("and so does one over the minimap, as before",
+                ShattersOverlayWindow.wheelIsForUs(game, overlay, 4300, 100));
+        report.accept("a scroll in another window on another screen is left alone",
+                !ShattersOverlayWindow.wheelIsForUs(game, overlay, 400, 600));
+        report.accept("with the game's window unknown, the overlay's own frame is the fallback",
+                ShattersOverlayWindow.wheelIsForUs(null, overlay, 4300, 100)
+                        && !ShattersOverlayWindow.wheelIsForUs(null, overlay, 3500, 600));
     }
 
     /**
