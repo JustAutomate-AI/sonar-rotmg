@@ -2,15 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
-## 2.37.1
+## 2.39.1
 
-**The puzzle grid is prepared fresh for every instance**
+**What's New opens on what is new**
 
-- The Observatory solver reads the nine towers off the wire and works the board out by itself. It did that a few times and then appeared to stop for good — and nothing said why.
-- Entering a board **by hand** takes the grid off the game until **Live** is pressed. That is right while you are standing in front of that board: a hand-entered answer should not be overwritten halfway through using it. It was wrong the moment you left. The pane stayed in hand-entered mode across the portal, so the next Shatters found the grid already taken and never filled it in.
-- **A new instance is a new puzzle.** The grid now goes back to the game at the door, every time, whatever was on it before — so the solver is always prepped to receive the board it is about to be shown. The buttons follow it back, rather than still offering Solve and Live over a grid that is live again.
-- It still holds while you are *in* the instance: a board clicked in by hand stays exactly as entered until you press Live or walk out.
-- Six assertions: a fresh grid is the game's to fill in, entering a board by hand takes it off the game, it stays taken while you are still in that instance, the next instance hands it back, the pane says so once so the buttons go back with it, and it does not say so twice.
+- The What's New panel reads the changelog out of the jar and walks it top to bottom, because a changelog is written newest first and that is the only order it is ever in. It was not. An entry inserted above the wrong heading had been sitting at the top since **2.37.1**, so for four releases the panel led with a version people had already had for hours.
+- The entry is back where it belongs. Trusting the file's order is fine; having nothing that notices when the file stops deserving it is what let this run for four releases without anybody spotting it.
+- So the self-test reads the changelog out of the built jar now and checks it: every entry newer than the one below it, and **the newest entry is the version the build says it is**. That second one also catches the other half of the same mistake — a version raised without its notes written — which is the more likely way in.
+- Version numbers are compared as numbers rather than as text, so 2.39.0 sorts above 2.4.0 and 2.38.10 above 2.38.2.
+
+No behaviour changes.
 
 ## 2.39.0
 
@@ -56,6 +57,16 @@ Two faults with one shape: something was drawn that nothing had counted.
 - **The Observatory puzzle grid is prepared fresh for every instance.** Entering a board by hand takes the grid off the game until Live is pressed, which is right while you are standing in front of that board. It was wrong the moment you left: the pane stayed in hand-entered mode across the portal, so the next Shatters found the grid already taken and never filled it in — and the solver that had worked by itself a few times looked as though it had stopped for good.
 - **The Shatters overlay's own map is off unless asked for**, and its `Map` switch is back. 2.37.0 drew Sonar's ground over the game's minimap everywhere by default and removed the switch in the same breath; a second copy of the same ground at a different scale makes the real minimap harder to read, which was not a trade to make on anybody's behalf.
 - Thirteen assertions: the handover takes an installer and runs it with nothing to click, one that will not run quietly is shown rather than abandoned, 3010 counts as success, unpacking still works, Sonar restarts either way, the script's branches balance, and the puzzle grid hands itself back at every door while holding firm inside one.
+
+## 2.37.1
+
+**The puzzle grid is prepared fresh for every instance**
+
+- The Observatory solver reads the nine towers off the wire and works the board out by itself. It did that a few times and then appeared to stop for good — and nothing said why.
+- Entering a board **by hand** takes the grid off the game until **Live** is pressed. That is right while you are standing in front of that board: a hand-entered answer should not be overwritten halfway through using it. It was wrong the moment you left. The pane stayed in hand-entered mode across the portal, so the next Shatters found the grid already taken and never filled it in.
+- **A new instance is a new puzzle.** The grid now goes back to the game at the door, every time, whatever was on it before — so the solver is always prepped to receive the board it is about to be shown. The buttons follow it back, rather than still offering Solve and Live over a grid that is live again.
+- It still holds while you are *in* the instance: a board clicked in by hand stays exactly as entered until you press Live or walk out.
+- Six assertions: a fresh grid is the game's to fill in, entering a board by hand takes it off the game, it stays taken while you are still in that instance, the next instance hands it back, the pane says so once so the buttons go back with it, and it does not say so twice.
 
 ## 2.37.0
 

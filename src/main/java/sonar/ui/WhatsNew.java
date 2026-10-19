@@ -77,6 +77,47 @@ final class WhatsNew {
                 html(recent));
     }
 
+    /**
+     * The versions as the changelog file lists them, in the order it lists them.
+     * <p>
+     * Both readers below walk the file top to bottom and trust what they find, because a
+     * changelog is written newest first and that is the only order it is ever in. It was not:
+     * an entry inserted above the wrong heading sat at the top for four releases, so What's
+     * New opened on a version somebody had already had for hours. Trusting file order is
+     * fine; leaving nothing to notice when the file stops deserving it is not.
+     */
+    static java.util.List<String> versionsInFileOrder() {
+        java.util.List<String> out = new ArrayList<>();
+        try (InputStream in = WhatsNew.class.getResourceAsStream("/CHANGELOG.md")) {
+            if (in == null) return out;
+            BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            String line;
+            while ((line = r.readLine()) != null) {
+                if (line.startsWith("## ")) out.add(line.substring(3).trim().split("\\s")[0]);
+            }
+        } catch (Exception ignored) {
+            // no file, no versions; the caller decides what that means
+        }
+        return out;
+    }
+
+    /** Negative when a is older than b, as version numbers compare rather than as text. */
+    static int compareVersions(String a, String b) {
+        String[] x = a.split("\\."), y = b.split("\\.");
+        for (int i = 0; i < Math.max(x.length, y.length); i++) {
+            int xi = i < x.length ? number(x[i]) : 0;
+            int yi = i < y.length ? number(y[i]) : 0;
+            if (xi != yi) return Integer.compare(xi, yi);
+        }
+        return 0;
+    }
+
+    private static int number(String s) {
+        int n = 0;
+        for (int i = 0; i < s.length() && Character.isDigit(s.charAt(i)); i++) n = n * 10 + (s.charAt(i) - '0');
+        return n;
+    }
+
     /** Every changelog section above {@code from} and up to {@code to}, newest first. */
     private static List<String[]> sectionsBetween(String from, String to) {
         List<String[]> out = new ArrayList<>();
