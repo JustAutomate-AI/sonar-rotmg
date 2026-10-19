@@ -2,6 +2,19 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.40.0
+
+**The Shatters overlay is a minimap now, not a layer over one**
+
+The overlay drew marks on the game's minimap and had to be at the game's zoom for them to sit on the right ground. The game does not publish its zoom, in any packet, file or registry key — so four releases went into watching every way a person might change it, and a missed one is silent. RealmShark's Potato has never played that game: it draws its own map and zooms that, so there is nothing to keep in step. This is that, finished.
+
+- **It draws the whole minimap, not half of one.** Ground from the tiles the game has already sent, and over it the three things the game's own minimap shows — **other people**, **anything that can be fought**, and **the ways out** — plus you. Nothing is lost by covering the game's minimap, which is what makes covering it honest.
+- **So it covers it.** Solid, not half-transparent. Two copies of the same place at different scales showing through each other is harder to read than either alone; that was the state in 2.37.0 and it was rightly switched off. There is one picture now, at one zoom, and that zoom is whichever one you last asked for — wheel, keys, or the minimap's own buttons.
+- **It covers nothing until it has something better.** Before the first tiles of an instance arrive, the overlay draws nothing at all and the game's own minimap shows through untouched. It takes over as it learns the ground.
+- **On by default**, with `Map: on/off` beside the overlay switch for anyone who wants the old marks-only behaviour back.
+- The ground is Sonar's own rather than Potato's. Potato ships **fourteen pre-drawn map images** and can only draw ground for a map it has a picture of; Sonar renders live tiles with the colour the game itself draws each one as, so it works on anything — including a realm, which no shipped image could ever cover.
+- Seven assertions on what belongs on a minimap: another player is drawn as a player, a character who is not a player is drawn as something to fight, every kind of portal is a way out, a player standing in a portal is still a player, walls and loot and decoration are left off as the game leaves them off, the drawn kinds cannot be mistaken for one another or for a real object type, and nothing is gathered at all when the map is not being drawn.
+
 ## 2.39.1
 
 **What's New opens on what is new**
