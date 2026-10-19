@@ -72,13 +72,13 @@ final class MinimapCache {
         if (mapName == null || mapName.isEmpty()) return false;
         String how = mode();
         if (how.equals("off")) return false;
-        String lower = mapName.toLowerCase();
-        // a realm is generated per instance, so it is refused even by "all" - the point of that
-        // setting is to try the feature somewhere easier to get to than the Shatters, not to
-        // record a map that will be a different map next time
-        if (lower.contains("realm")) return false;
-        if (how.equals("all")) return true;
-        return lower.contains("shatters");
+        // Realms used to be refused here, on the reasoning that one is generated fresh every
+        // instance so a recording of it would be a confident lie in the next. That was simply
+        // wrong: a realm is built from one of a limited set of fixed layouts, which is exactly
+        // why other tools can ship a picture of each and work out which one you are in. So a
+        // realm is worth recording like anything else - the only difference is that there are
+        // several to tell apart, which is what the layout matching below is for.
+        return true;
     }
 
     private static String mode() {
@@ -90,7 +90,32 @@ final class MinimapCache {
 
     /** The file name for a map: its name and its size, since a map that changed size is a different map. */
     static String fileName(String mapName, int w, int h) {
-        return slug(mapName) + "-" + w + "x" + h + ".png";
+        return fileName(mapName, w, h, 1);
+    }
+
+    /**
+     * One recorded layout of a map, numbered.
+     * <p>
+     * A dungeon has exactly one layout and so exactly one file. A realm has several, because
+     * the game builds it from a limited set of them, and which one you are in is not in any
+     * packet - it has to be recognised from the ground itself. So they are kept side by side
+     * and told apart by looking.
+     */
+    static String fileName(String mapName, int w, int h, int n) {
+        return slug(mapName) + "-" + w + "x" + h + (n <= 1 ? "" : "-" + n) + ".png";
+    }
+
+    /** How many layouts of one map are kept before the least complete is dropped. */
+    private static final int MOST_LAYOUTS = 24;
+
+    /** Every recorded layout of this map, in file order. */
+    static java.util.List<File> layoutsOf(String mapName, int w, int h) {
+        java.util.List<File> out = new java.util.ArrayList<>();
+        for (int n = 1; n <= MOST_LAYOUTS; n++) {
+            File f = new File(folder(), fileName(mapName, w, h, n));
+            if (f.isFile()) out.add(f);
+        }
+        return out;
     }
 
     /**
@@ -122,6 +147,118 @@ final class MinimapCache {
      * The disk recording wins over the shipped one because it is this person's own and has every
      * run they have done merged into it; the shipped one is only a head start on run one.
      */
+    /**
+     * How well a recorded layout agrees with the ground walked so far.
+     * <p>
+     * Only squares both know are compared. Everything else is silence on one side or the
+     * other, and counting silence as agreement would make every layout look like a perfect
+     * match before anything had been walked at all.
+     *
+     * @return {agreed, compared}
+     */
+    static int[] agreement(BufferedImage live, BufferedImage layout) {
+        if (live == null || layout == null) return new int[]{0, 0};
+        int w = Math.min(live.getWidth(), layout.getWidth());
+        int h = Math.min(live.getHeight(), layout.getHeight());
+        int agreed = 0, compared = 0;
+        // every third square in each direction: a ninth of the work, and still thousands of
+        // votes on anything worth deciding
+        for (int y = 0; y < h; y += 3) {
+            for (int x = 0; x < w; x += 3) {
+                int mine = live.getRGB(x, y);
+                if ((mine >>> 24) == 0) continue;
+                int theirs = layout.getRGB(x, y);
+                if ((theirs >>> 24) == 0) continue;
+                compared++;
+                if ((mine & 0xFFFFFF) == (theirs & 0xFFFFFF)) agreed++;
+            }
+        }
+        return new int[]{agreed, compared};
+    }
+
+    /** Squares that must be comparable before a layout is picked, and how much of them must agree. */
+    private static final int ENOUGH_TO_RECOGNISE = 400;
+    private static final double MUST_AGREE = 0.90;
+
+    /** Whether a count of votes is a recognition or a coincidence. */
+    static boolean recognises(int agreed, int compared) {
+        return compared >= ENOUGH_TO_RECOGNISE && agreed >= compared * MUST_AGREE;
+    }
+
+    private static volatile boolean looking;
+    private static volatile int matchedLayout;
+
+    /** Which numbered layout this instance was recognised as, or zero. */
+    static int matchedLayout() {
+        return matchedLayout;
+    }
+
+    /**
+     * Works out which recorded layout this instance is, from the ground walked so far.
+     * <p>
+     * The realm is built from a limited set of fixed layouts and the game never says which
+     * one. It does not have to: a few hundred squares of walked ground are enough to pick one
+     * out, because two different layouts disagree almost everywhere they both have ground.
+     * Once it is recognised the rest of that layout can be laid down, which turns a walked
+     * trail into a whole map.
+     * <p>
+     * It will not be exact - a realm's ground changes where events have been fought, and a
+     * recording is of the last time somebody was there. It is a skeleton for judging distance
+     * and direction by, not a survey.
+     */
+    static void lookForLayout(String mapName, int w, int h) {
+        if (looking || matchedLayout != 0) return;
+        if (!remembers(mapName)) return;
+        if (MinimapView.recalling()) return;            // already drawing a remembered map
+        if (MinimapView.fromWire() < ENOUGH_TO_RECOGNISE * 3) return;
+        looking = true;
+        Thread t = new Thread(() -> {
+            try {
+                BufferedImage live = MinimapView.copy();
+                if (live == null) return;
+                java.util.List<File> layouts = layoutsOf(mapName, w, h);
+                File best = null;
+                int bestAgreed = 0, bestCompared = 0;
+                for (int i = 0; i < layouts.size(); i++) {
+                    BufferedImage candidate = read(layouts.get(i));
+                    if (candidate == null) continue;
+                    int[] score = agreement(live, candidate);
+                    if (!recognises(score[0], score[1])) continue;
+                    if (score[0] > bestAgreed) {
+                        bestAgreed = score[0];
+                        bestCompared = score[1];
+                        best = layouts.get(i);
+                    }
+                }
+                if (best == null) {
+                    trouble = "this layout has not been seen before";
+                    return;
+                }
+                BufferedImage winner = read(best);
+                if (winner == null) return;
+                matchedLayout = numberOf(best, mapName, w, h);
+                int laid = MinimapView.prime(winner);
+                lastRecalled = "a layout you have walked before (" + bestAgreed + " of "
+                        + bestCompared + " squares agreed)";
+                trouble = "";
+                if (laid <= 0) lastRecalled = "";
+            } catch (Throwable e) {
+                trouble = e.getClass().getSimpleName();
+            } finally {
+                looking = false;
+            }
+        }, "sonar-map-layout");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private static int numberOf(File f, String mapName, int w, int h) {
+        for (int n = 1; n <= MOST_LAYOUTS; n++) {
+            if (f.getName().equals(fileName(mapName, w, h, n))) return n;
+        }
+        return 1;
+    }
+
     static synchronized int recall(String mapName, int w, int h) {
         trouble = "";
         lastRecalled = "";
@@ -133,13 +270,25 @@ final class MinimapCache {
         openName = mapName;
         openW = w;
         openH = h;
+        matchedLayout = 0;
         BufferedImage recorded = null;
         String from = "";
-        File f = new File(folder(), fileName(mapName, w, h));
-        if (f.isFile()) {
-            recorded = read(f);
-            if (recorded != null) from = "your own runs";
+        java.util.List<File> layouts = layoutsOf(mapName, w, h);
+        // One recorded layout means there is nothing to tell apart, so it goes down at once -
+        // a dungeon is the same map every time. Several means this is a map the game builds
+        // more than one way, and laying down the wrong one would be worse than laying down
+        // nothing; that waits for enough ground to recognise which.
+        if (layouts.size() == 1) {
+            recorded = read(layouts.get(0));
+            if (recorded != null) {
+                from = "your own runs";
+                matchedLayout = 1;
+            }
+        } else if (layouts.size() > 1) {
+            trouble = layouts.size() + " layouts recorded; waiting to see which this is";
+            return 0;
         }
+        File f = new File(folder(), fileName(mapName, w, h));
         if (recorded == null) {
             recorded = readResource("/maps/" + fileName(mapName, w, h));
             if (recorded != null) from = "the copy Sonar ships";
@@ -185,24 +334,48 @@ final class MinimapCache {
         final String name = openName;
         if (name.isEmpty() || !remembers(name)) return;
         final int w = openW, h = openH;
+        final int into = layoutToWrite(name, w, h);
         openName = "";
+        matchedLayout = 0;
+        if (into <= 0) return;
         if (MinimapView.fromWire() <= 0) return;   // nothing new was seen; the file already says it
         final BufferedImage snap = MinimapView.copy();
         if (snap == null) return;
         if (inline) {
-            write(name, w, h, snap);
+            write(name, w, h, into, snap);
             return;
         }
-        Thread t = new Thread(() -> write(name, w, h, snap), "sonar-map-keep");
+        Thread t = new Thread(() -> write(name, w, h, into, snap), "sonar-map-keep");
         t.setDaemon(true);
         t.start();
     }
 
     /** Merges a run into the recording and writes it. Returns how many squares the file ends up with. */
+    /**
+     * Which file this run belongs in.
+     * <p>
+     * The one it was recognised as, if it was; otherwise the next free slot, because a layout
+     * nothing matched is a layout nobody has recorded yet and is worth keeping. Zero when
+     * there is no room left and nothing matched - the alternative is overwriting a layout that
+     * is somebody's only record of it.
+     */
+    private static int layoutToWrite(String name, int w, int h) {
+        if (matchedLayout > 0) return matchedLayout;
+        if (MinimapView.fromWire() < ENOUGH_TO_RECOGNISE * 3) return 0;   // too little to be a layout
+        for (int n = 1; n <= MOST_LAYOUTS; n++) {
+            if (!new File(folder(), fileName(name, w, h, n)).isFile()) return n;
+        }
+        return 0;
+    }
+
     static synchronized int write(String name, int w, int h, BufferedImage run) {
+        return write(name, w, h, 1, run);
+    }
+
+    static synchronized int write(String name, int w, int h, int layout, BufferedImage run) {
         try {
             File dir = folder();
-            File f = new File(dir, fileName(name, w, h));
+            File f = new File(dir, fileName(name, w, h, layout));
             BufferedImage merged = run;
             if (f.isFile()) {
                 BufferedImage older = read(f);

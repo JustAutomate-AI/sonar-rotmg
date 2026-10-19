@@ -475,6 +475,10 @@ final class ShattersRadar {
         // is hardest to get into.
         playerX = data.player != null && data.player.pos != null ? data.player.pos.x : Float.NaN;
         playerY = data.player != null && data.player.pos != null ? data.player.pos.y : Float.NaN;
+        // once enough ground has been walked, work out which recorded layout this is and lay
+        // the rest of it down. Cheap to ask: it does nothing at all until there is enough, and
+        // nothing again once it has an answer.
+        if (drawingMap) MinimapCache.lookForLayout(name, mapWidth, mapHeight);
         trackLive(data);
         if (portalTest) {
             trackTestMarks(data);
