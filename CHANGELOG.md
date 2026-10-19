@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.49.2
+
+**Things on the map are big enough to recognise, and the map stops vanishing**
+
+- **Marks are drawn at the size the damage board draws them**, with the same dark outline it uses to lift a sprite off its background. At fourteen pixels on black ground a sprite is a smudge. `sonar.shatters.marksize` sets it, between 10 and 48.
+- **The overlay only steps aside for a click that could open a menu.** It used to hide for four seconds whenever you clicked anywhere on it — including the empty ground you click to do nothing — so using the map at all made the map disappear. The game's menu only opens over a player, and Sonar knows where the players are, so the one case worth hiding for is told apart from the rest. Two and a half seconds rather than four.
+
 ## 2.49.1
 
 **The panel moves out of the way and says what to press**

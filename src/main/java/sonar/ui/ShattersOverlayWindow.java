@@ -583,7 +583,10 @@ class ShattersOverlayWindow extends JWindow {
         } else {
             java.awt.image.BufferedImage face = kind == ShattersRadar.FOE ? faceOf(id) : null;
             if (face != null) {
-                int size = 14;
+                // Big enough to recognise and outlined, because a sprite at fourteen pixels on
+                // black ground is a smudge: these are drawn at the size the damage board draws
+                // them, with the same dark outline it uses to lift them off the background.
+                int size = FACE_SIZE;
                 g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
                 return;
             }
@@ -608,13 +611,25 @@ class ShattersOverlayWindow extends JWindow {
     private static final java.awt.image.BufferedImage NO_FACE =
             new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
 
+    /** How big a thing is drawn on the map. Settable, because one size never suits every screen. */
+    private static final int FACE_SIZE = Math.max(10, Math.min(48,
+            getInt("sonar.shatters.marksize", 26)));
+
     private static java.awt.image.BufferedImage faceOf(int objectType) {
         if (objectType <= 0) return null;
         java.awt.image.BufferedImage known = FACES.get(objectType);
         if (known != null) return known == NO_FACE ? null : known;
         java.awt.image.BufferedImage got = null;
         try {
-            got = sonar.assets.ImageBuffer.getImage(objectType);
+            javax.swing.ImageIcon icon = sonar.assets.ImageBuffer.getOutlinedIcon(objectType, FACE_SIZE);
+            if (icon != null && icon.getIconWidth() > 0) {
+                java.awt.image.BufferedImage b = new java.awt.image.BufferedImage(
+                        icon.getIconWidth(), icon.getIconHeight(), java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                Graphics2D gg = b.createGraphics();
+                icon.paintIcon(null, gg, 0, 0);
+                gg.dispose();
+                got = b;
+            }
         } catch (Throwable noSprite) {
             // an id the sheets do not have; the dot still marks it
         }
@@ -1567,15 +1582,37 @@ class ShattersOverlayWindow extends JWindow {
      */
     private void clickedAt(int screenX, int screenY) {
         if (calibrating || !isVisible()) return;
-        if (!getBounds().contains(screenX, screenY)) return;
+        Rectangle box = getBounds();
+        if (!box.contains(screenX, screenY)) return;
+        // Only for a click that could open a menu, which means a click on somebody.
+        //
+        // Stepping aside for every click meant the map vanished for four seconds whenever you
+        // clicked anywhere on it, including the empty ground you click to do nothing at all.
+        // The menu only ever opens over a player, and Sonar knows where the players are, so
+        // the one case worth hiding for can be told from the rest.
+        if (!nearSomebody(screenX - box.x, screenY - box.y)) return;
         javax.swing.SwingUtilities.invokeLater(() -> {
             standAsideUntil = System.currentTimeMillis() + STAND_ASIDE_MS;
             repaint();
         });
     }
 
+    /** Whether a point on the overlay has a player close enough for the game to open a menu on. */
+    private boolean nearSomebody(int px, int py) {
+        double tilesWide = getWidth() / pixelsPerTile, tilesHigh = getHeight() / pixelsPerTile;
+        double cx = getWidth() / 2.0, cy = getHeight() / 2.0;
+        for (ShattersRadar.Mark m : ShattersRadar.live()) {
+            if (m.type != ShattersRadar.ALLY) continue;
+            double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
+            if (off == null) continue;
+            double dx = cx + off[0] * pixelsPerTile - px, dy = cy + off[1] * pixelsPerTile - py;
+            if (dx * dx + dy * dy <= 144) return true;      // within twelve pixels
+        }
+        return false;
+    }
+
     /** How long to leave the game's own menu unobstructed after a click on the minimap. */
-    private static final long STAND_ASIDE_MS = 4000;
+    private static final long STAND_ASIDE_MS = 2500;
 
     private volatile long standAsideUntil;
 
