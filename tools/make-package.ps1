@@ -167,14 +167,26 @@ Set-Content (Join-Path $msiStage 'installed-by-msi') "This copy was put here by 
 
 # A fixed id, which is what tells Windows one version replaces the last rather than
 # installing beside it. It must never change.
+#
+# Two flags are deliberately absent: --win-dir-chooser and --license-file.
+#
+# Each of them adds a page somebody has to click past, and between them they were most of
+# why updating felt like installing. Sonar's updater runs the installer quietly from 2.38.0
+# on, so for anybody on that or later these pages were never seen anyway - but the copy
+# doing the updating is the OLD one, and an old copy shows the installer. What it shows is
+# this package. So taking the pages out of the package is what reaches the people who have
+# not updated yet, on the very next update they do.
+#
+# Nothing is lost. The install is per user and goes where per-user installs go, so a folder
+# to choose was a question with one sensible answer; and LICENSE.md ships inside the app
+# folder either way, which is where anybody looking for it would look.
 $upgradeUuid = '9fc754e4-6e35-4968-923a-fb3a351bc9b0'
 & $jpackage --type msi --app-image $msiStage --name Sonar `
     --app-version $Version --vendor 'JustAutomate-AI' `
     --description 'Damage tracker for Realm of the Mad God' `
     --copyright 'MIT - see LICENSE.md' `
-    --license-file (Join-Path $root 'LICENSE.md') `
     --about-url 'https://github.com/JustAutomate-AI/sonar-rotmg' `
-    --win-per-user-install --win-dir-chooser `
+    --win-per-user-install `
     --win-menu --win-menu-group 'Sonar' `
     --win-upgrade-uuid $upgradeUuid `
     --dest $dist
