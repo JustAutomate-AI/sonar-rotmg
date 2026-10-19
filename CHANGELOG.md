@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.44.0
+
+**Two buttons: mark the objectives, or replace the minimap**
+
+2.42.1 collapsed five buttons into one, and one was too few.
+
+- **Overlay** marks the things worth finding on the game's own minimap — the **Void Phantasm**, the **Stone Idol**, the **Derelict Monument** and the void cracks — and covers nothing else. Your minimap stays the game's, exactly as it was.
+- **Minimap** replaces it with Sonar's own: the ground it has seen and remembers, the people, what can be fought, the ways out and you, at a zoom you set with the wheel.
+- These are two different pictures, not a setting and its inverse, and folding them together threw away a real choice. The five that went in 2.42.1 were right to go — each worked around something that has since been fixed rather than worked around — but the last two were not the same kind of thing.
+- The Minimap button only means anything while the overlay is on, so it is only offered then. The count is asserted both ways now, so neither five nor one creeps back.
+
 ## 2.43.4
 
 **The map layer can be switched back on**
