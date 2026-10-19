@@ -2715,6 +2715,7 @@ class LiveView {
         checkQuietUpdate(report);
         checkMapDrawsToScale(report);
         checkSettingsPane(report);
+        checkChangelogOrder(report);
 
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
@@ -2736,6 +2737,38 @@ class LiveView {
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
                         && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
                         && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
+    }
+
+    /**
+     * What's New opens on what is new.
+     * <p>
+     * The panel reads the changelog out of the jar and walks it top to bottom, because a
+     * changelog is written newest first and that is the only order it is ever in. It was not:
+     * an entry inserted above the wrong heading sat at the top for four releases, so the
+     * panel led with a version people had already had for hours.
+     * <p>
+     * Trusting the file's order is fine. Having nothing that notices when the file stops
+     * deserving it is what let this run.
+     */
+    private static void checkChangelogOrder(java.util.function.BiConsumer<String, Boolean> report) {
+        java.util.List<String> versions = WhatsNew.versionsInFileOrder();
+        report.accept("the changelog is in the jar where What's New looks for it", versions.size() > 10);
+        String wrong = "";
+        for (int i = 1; i < versions.size(); i++) {
+            if (WhatsNew.compareVersions(versions.get(i - 1), versions.get(i)) <= 0) {
+                wrong = versions.get(i - 1) + " is listed above " + versions.get(i);
+                break;
+            }
+        }
+        report.accept("and every entry in it is newer than the one below it" + (wrong.isEmpty() ? "" : " (" + wrong + ")"),
+                wrong.isEmpty());
+        report.accept("the newest entry is the version this build is",
+                !versions.isEmpty() && versions.get(0).equals(sonar.version.Version.VERSION));
+        // version numbers have to compare as numbers, or 2.39.0 sorts below 2.4.0
+        report.accept("versions compare as numbers rather than as text",
+                WhatsNew.compareVersions("2.39.0", "2.4.0") > 0
+                        && WhatsNew.compareVersions("2.38.2", "2.38.10") < 0
+                        && WhatsNew.compareVersions("2.38.0", "2.38.0") == 0);
     }
 
     /**
