@@ -2,6 +2,22 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.42.0
+
+**The overlay measures the game's zoom instead of guessing it**
+
+The overlay is click-through, so a click on it lands on the game's minimap underneath. That makes covering the minimap at the wrong zoom worse than cosmetic: a player drawn where the game does not have one is a player who cannot be teleported to. Reported as the overlay's one fatal flaw, and it was.
+
+- **The zoom is now read off the screen.** Sonar knows the ground and the colour the game draws each tile as, so it renders the same picture at every scale the game could be using and keeps the one that matches what is actually there. Measured, not inferred — and right whatever was pressed to get there: keys, buttons, wheel, or a zoom changed while another window had focus.
+- **It can photograph the minimap through its own window.** A screenshot of a covered minimap is a screenshot of the overlay. Windows has an exact answer — a window with `WDA_EXCLUDEFROMCAPTURE` is drawn to the screen as normal and left out of anything that captures it — so the overlay is visible to you and invisible to the camera, and the game beneath can be read while being covered.
+- **It refuses to act on a poor match.** A winner has to be at least a quarter clearer than the next candidate. A map that is nearly all one colour scores the same at every scale, and so does a capture that is secretly a photograph of ourselves — which is exactly what happens on a Windows too old for that call, so an old Windows degrades to keeping the zoom it has rather than to being confidently wrong.
+- **Re-checked every second and a half**, so a zoom change Sonar missed corrects itself instead of staying wrong until the next map.
+- The readout says which it is: locked and by how much, or why not. `sonar.shatters.sync=false` turns it off.
+
+Worth recording why this took so long. Two working references disagree about the camera: the game's own `MiniMapImp` clamps its view to the map's edges, and Potato slides it toward the map's centre. Both are real code that works. Neither publishes the one thing genuinely unknown — which rung the minimap is on right now — so no amount of reading either was ever going to settle it. It had to be looked at.
+
+- Seven assertions, the load-bearing ones being that a picture drawn at a known scale measures back at that scale, that a picture which is not the map produces no confident answer, and that nothing is attempted before there is ground to match against.
+
 ## 2.41.1
 
 **The overlay reads the tiles you load in with, not just the ones you walk over**
