@@ -216,8 +216,14 @@ class ShattersOverlayWindow extends JWindow {
         // what the minimap is showing, in tiles, so the clamp at the map's edge can be worked out
         double tilesWide = w / pixelsPerTile, tilesHigh = h / pixelsPerTile;
         double[] me = ShattersRadar.playerFromView(tilesWide, tilesHigh);
-        paintMap(g, w, h, tilesWide, tilesHigh);
+        boolean drewMap = paintMap(g, w, h, tilesWide, tilesHigh);
         paintLive(g, w, h, tilesWide, tilesHigh);
+        // An overlay that draws nothing and says nothing is indistinguishable from one that is
+        // not running. Every blank frame here has a reason and the reason is known at the
+        // moment it is decided, so it is written where the map would have been.
+        if (!drewMap && ShattersRadar.live().isEmpty() && ShattersRadar.marks().isEmpty()) {
+            paintWhyBlank(g, w, h);
+        }
         if (calibrating) {
             g.setColor(new Color(255, 255, 255, 50));
             g.drawOval((int) (cx - radius), (int) (cy - radius), (int) (radius * 2), (int) (radius * 2));
@@ -225,6 +231,8 @@ class ShattersOverlayWindow extends JWindow {
             // the middle of the frame: the view stops at the map's edge and you move inside it
             paintReticle(g, cx + (me == null ? 0 : me[0] * pixelsPerTile),
                     cy + (me == null ? 0 : me[1] * pixelsPerTile), w, h);
+            paintReadout(g, w, h);
+        } else if ("true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.readout"))) {
             paintReadout(g, w, h);
         }
         for (ShattersRadar.Mark m : ShattersRadar.marks()) {
@@ -275,10 +283,17 @@ class ShattersOverlayWindow extends JWindow {
      * minimap still reads through it. Where Sonar has not seen a tile it paints nothing, which
      * leaves the game's own minimap showing in that square rather than a hole.
      */
-    private void paintMap(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
-        if (!drawMap) return;
+    private boolean paintMap(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
+        blankBecause = "";
+        if (!drawMap) {
+            blankBecause = "map layer is switched off";
+            return false;
+        }
         java.awt.image.BufferedImage map = MinimapView.image();
-        if (map == null) return;
+        if (map == null) {
+            blankBecause = "no instance loaded yet";
+            return false;
+        }
         // Nothing to say yet, so say nothing.
         //
         // This was claimed in 2.40.0 and was not true: the guard was on there being a map
@@ -286,9 +301,15 @@ class ShattersOverlayWindow extends JWindow {
         // ground in it still filled the frame and covered the game's minimap with a black
         // square. Strictly worse than not drawing. The honest test is whether any ground has
         // actually been gathered.
-        if (MinimapView.painted() <= 0) return;
+        if (MinimapView.painted() <= 0) {
+            blankBecause = "no ground sent yet";
+            return false;
+        }
         double[] centre = ShattersRadar.viewCentre(tilesWide, tilesHigh);
-        if (centre == null) return;
+        if (centre == null) {
+            blankBecause = "the game has not said where you are";
+            return false;
+        }
         // Stand in for the minimap rather than lying on top of it.
         //
         // Half-covering it was the worst of both: Sonar's ground is at Sonar's zoom and the
@@ -304,7 +325,10 @@ class ShattersOverlayWindow extends JWindow {
 
         double x0 = centre[0] - tilesWide / 2, y0 = centre[1] - tilesHigh / 2;
         int[] r = mapDrawRect(x0, y0, pixelsPerTile, map.getWidth(), map.getHeight(), tilesWide, tilesHigh);
-        if (r == null) return;
+        if (r == null) {
+            blankBecause = "looking off the edge of the map";
+            return false;
+        }
         int sx1 = r[0], sy1 = r[1], sx2 = r[2], sy2 = r[3];
         int dx1 = r[4], dy1 = r[5], dx2 = r[6], dy2 = r[7];
         java.awt.Composite was = g.getComposite();
@@ -314,7 +338,11 @@ class ShattersOverlayWindow extends JWindow {
         g.drawImage(map, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2, null);
         g.setComposite(was);
         if (hint != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
+        return true;
     }
+
+    /** Why there is nothing on screen, when there is nothing on screen. */
+    private String blankBecause = "";
 
     /**
      * Which part of the map goes where on the frame.
@@ -463,6 +491,38 @@ class ShattersOverlayWindow extends JWindow {
             return ", recording dropped - it did not match";
         }
         return "";
+    }
+
+    /**
+     * What the overlay would be showing, when it is showing nothing.
+     * <p>
+     * The readout this is drawn beside is only painted while calibrating, and the calibrate
+     * button was removed once nothing needed calibrating by hand - so the one surface that
+     * could explain an empty overlay became unreachable at the same time as the overlay gained
+     * several new ways to be legitimately empty. A blank window with no explanation is
+     * indistinguishable from a broken one, and was reported as exactly that.
+     */
+    private void paintWhyBlank(Graphics2D g, int w, int h) {
+        String[] lines = {
+                "Sonar overlay",
+                blankBecause.isEmpty() ? "nothing to draw" : blankBecause,
+                MinimapView.painted() + " tiles known",
+                clickLine(),
+                MinimapSync.state()};
+        g.setFont(SonarTheme.font(10f));
+        FontMetrics fm = g.getFontMetrics();
+        int tw = 0;
+        for (String s : lines) tw = Math.max(tw, fm.stringWidth(s));
+        int bh = lines.length * fm.getHeight() + 10;
+        int x = Math.max(4, (w - tw) / 2 - 6), y = Math.max(4, (h - bh) / 2);
+        g.setColor(new Color(10, 11, 15, 215));
+        g.fillRoundRect(x, y, Math.min(w - 8, tw + 12), bh, 8, 8);
+        g.setColor(new Color(150, 160, 185));
+        int ty = y + fm.getAscent() + 5;
+        for (String s : lines) {
+            g.drawString(s, x + 6, ty);
+            ty += fm.getHeight();
+        }
     }
 
     private void paintReadout(Graphics2D g, int w, int h) {
