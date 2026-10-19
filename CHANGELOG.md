@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.43.1
+
+**The overlay draws again**
+
+2.43.0 stopped it drawing anything at all. Both halves of that were caused by the same thing: the window calls in 2.43.0 were the first ones that had ever actually run, so two mistakes that had been sitting harmlessly in dead code both took effect at once.
+
+- **`WS_EX_LAYERED` is no longer forced on.** The window is already layered — a translucent background is how the overlay draws at all, and Java implements that with a layered window underneath. Setting the flag again by hand cuts across the compositing Java set up, and the window stops painting. Only `WS_EX_TRANSPARENT` is set now, which is the flag that actually passes clicks through.
+- **Hiding from capture is momentary.** It was left on permanently, which is a quiet way to make the overlay very hard to report a fault in: the window is excluded from *every* capture, so it disappears from screenshots too — and a screenshot is how anyone would show it misbehaving. It is only needed for the instant the minimap is photographed, so that is the only time it is on.
+
 ## 2.43.0
 
 **Clicks reach the game again, and the wheel works anywhere**

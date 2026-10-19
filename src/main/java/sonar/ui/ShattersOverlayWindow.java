@@ -145,9 +145,13 @@ class ShattersOverlayWindow extends JWindow {
         Thread t = new Thread(() -> {
             double got = 0;
             try {
+                // out of shot for the photograph, and back in it immediately afterwards
+                setHiddenFromCapture(true);
                 got = MinimapSync.measure(w, h, candidates);
             } catch (Throwable ignored) {
                 // a measurement that throws is a measurement that did not happen
+            } finally {
+                setHiddenFromCapture(false);
             }
             final double scale = got;
             syncing = false;
@@ -191,7 +195,6 @@ class ShattersOverlayWindow extends JWindow {
 
     private void applyWindowStyles() {
         setClickThrough(!calibrating);
-        setHiddenFromCapture();
     }
 
     private void paintOverlay(Graphics2D g) {
@@ -1223,12 +1226,30 @@ class ShattersOverlayWindow extends JWindow {
      * capture contains our own drawing instead, which agrees with itself at every scale and is
      * thrown out by {@link MinimapSync}'s confidence test rather than believed.
      */
-    private static final int WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+    private static final int WDA_EXCLUDEFROMCAPTURE = 0x00000011, WDA_NONE = 0x00000000;
 
-    private void setHiddenFromCapture() {
+    /**
+     * Hidden from capture only while a measurement is being taken.
+     * <p>
+     * It was left on permanently at first, which is a quiet way to make the overlay very hard
+     * to report a fault in: the window is excluded from <i>every</i> capture, so it disappears
+     * from screenshots too, and a screenshot is how anyone would show that it is misbehaving.
+     * Two ways to be wrong at once - the thing is broken and the picture proving it cannot be
+     * taken.
+     * <p>
+     * It is only needed for the instant the minimap is photographed, so that is the only time
+     * it is on.
+     */
+    private void setHiddenFromCapture(boolean hidden) {
         try {
-            com.sun.jna.Pointer hwnd = new com.sun.jna.Pointer(com.sun.jna.Native.getWindowID(this));
-            captureHidden = User32.INSTANCE.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+            long id = com.sun.jna.Native.getWindowID(this);
+            if (id == 0) {
+                captureHidden = false;
+                return;
+            }
+            com.sun.jna.Pointer hwnd = new com.sun.jna.Pointer(id);
+            captureHidden = User32.INSTANCE.SetWindowDisplayAffinity(hwnd,
+                    hidden ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE) && hidden;
         } catch (Throwable e) {
             captureHidden = false;
         }
@@ -1260,8 +1281,15 @@ class ShattersOverlayWindow extends JWindow {
             }
             com.sun.jna.Pointer hwnd = new com.sun.jna.Pointer(id);
             int style = User32.INSTANCE.GetWindowLongW(hwnd, GWL_EXSTYLE);
-            style = through ? (style | WS_EX_LAYERED | WS_EX_TRANSPARENT) : (style & ~WS_EX_TRANSPARENT);
-            User32.INSTANCE.SetWindowLongW(hwnd, GWL_EXSTYLE, style);
+            // WS_EX_TRANSPARENT only, and never WS_EX_LAYERED.
+            //
+            // The window is already layered: a translucent background is how the overlay
+            // draws at all, and Java implements that with a layered window underneath. Setting
+            // the flag a second time by hand is not harmless - it cuts across the compositing
+            // Java has set up and the window stops painting, which is exactly what happened
+            // the moment this call started working at all.
+            int wanted = through ? (style | WS_EX_TRANSPARENT) : (style & ~WS_EX_TRANSPARENT);
+            if (wanted != style) User32.INSTANCE.SetWindowLongW(hwnd, GWL_EXSTYLE, wanted);
             clickThroughOn = (User32.INSTANCE.GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_TRANSPARENT) != 0;
             styleTrouble = clickThroughOn == through ? "" : "Windows refused the style";
         } catch (Throwable e) {
