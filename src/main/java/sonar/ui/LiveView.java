@@ -3143,6 +3143,19 @@ class LiveView {
         report.accept("and never past twice its own size", bigWide <= bigClose * 2);
         report.accept("a lesser enemy is not emphasised by zooming out", smallWide == smallClose);
         report.accept("and is drawn smaller than something worth finding", smallWide < bigWide);
+
+        // and past a point it is not drawn at all: a mark too small to read is still a mark in
+        // the way of the cursor, and lining the cursor up is the whole point of drawing them
+        ShattersRadar.Mark rat = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+        ShattersRadar.Mark person = ShattersRadar.markForTest(ShattersRadar.ALLY, 10, 10);
+        ShattersRadar.Mark way = ShattersRadar.markForTest(ShattersRadar.DOOR, 10, 10);
+        report.accept("zoomed in, everything is marked",
+                ShattersOverlayWindow.worthDrawing(rat, 48));
+        report.accept("zoomed right out, a lesser enemy is left off",
+                !ShattersOverlayWindow.worthDrawing(rat, 1800));
+        report.accept("but people and ways through are never dropped",
+                ShattersOverlayWindow.worthDrawing(person, 1800)
+                        && ShattersOverlayWindow.worthDrawing(way, 1800));
     }
 
     /**

@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.49.6
+
+**Zoomed out, the map shows what you are looking for and nothing else**
+
+- **Lesser enemies are left off entirely once the view is wide**, rather than drawn smaller. Zoomed right out you are looking at a whole realm to find the few things in it that matter; every rat between here and the coast is what you are looking past. And a mark too small to read is still a mark in the way of the cursor — lining the cursor up is the whole point of drawing them. People, ways through and events are never dropped.
+- **A quarter larger at the widest, not twice.** Doubling was chosen to make a mark findable and made it an obstacle instead: at the zoom where there is most to click on, the marks were big enough to cover each other and the ground between them. Everything is a little smaller to begin with as well.
+- **A zoom set by hand no longer silences the measurement for good.** It held until the next instance, so one scroll left the overlay out of step with the game for the rest of a realm — and out of step is exactly what makes a mark impossible to line a cursor up with. Twenty seconds now: long enough to settle on a zoom, short enough to be corrected.
+
 ## 2.49.5
 
 **Lesser enemies stay small, and the map writes down what it is doing**
