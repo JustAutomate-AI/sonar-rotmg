@@ -2563,6 +2563,36 @@ class LiveView {
                 GameKeys.vkOf(-1) == 0 && GameKeys.vkOf(99999) == 0);
         int[] z = GameKeys.minimapZoom();
         report.accept("a minimap zoom key is found for this machine", z.length == 2 && z[0] != 0 && z[1] != 0);
+
+        // the minimap's own buttons, measured off a 475 by 478 frame: plus at x 421-468 y 5-49,
+        // minus directly under it at y 57-103. Every corner of both has to land on its own button
+        // or a click on the edge of one steps the overlay the wrong way
+        boolean plus = ShattersOverlayWindow.zoomButtonAt(421, 5, 475, 478) == -1
+                && ShattersOverlayWindow.zoomButtonAt(468, 49, 475, 478) == -1
+                && ShattersOverlayWindow.zoomButtonAt(445, 27, 475, 478) == -1;
+        boolean minus = ShattersOverlayWindow.zoomButtonAt(421, 57, 475, 478) == 1
+                && ShattersOverlayWindow.zoomButtonAt(468, 103, 475, 478) == 1
+                && ShattersOverlayWindow.zoomButtonAt(445, 80, 475, 478) == 1;
+        report.accept("the whole of the minimap's plus button zooms the overlay in", plus);
+        report.accept("the whole of its minus button zooms the overlay out", minus);
+
+        // and nothing else on the minimap does - a click on the map itself is not a zoom
+        report.accept("a click on the map itself is not taken for a zoom",
+                ShattersOverlayWindow.zoomButtonAt(237, 239, 475, 478) == 0
+                        && ShattersOverlayWindow.zoomButtonAt(445, 200, 475, 478) == 0
+                        && ShattersOverlayWindow.zoomButtonAt(40, 20, 475, 478) == 0);
+
+        // the buttons are drawn at the minimap's own scale, so the zones have to be as well
+        report.accept("the zones follow the minimap's size rather than a fixed pixel count",
+                ShattersOverlayWindow.zoomButtonAt(890, 54, 950, 956) == -1
+                        && ShattersOverlayWindow.zoomButtonAt(890, 160, 950, 956) == 1
+                        && ShattersOverlayWindow.zoomButtonAt(222, 18, 238, 239) == -1);
+
+        // a frame with no size yet must not answer at all, or the overlay steps on every click
+        report.accept("a frame with no size on it answers nothing",
+                ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
+                        && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
+                        && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
     }
 
     /**

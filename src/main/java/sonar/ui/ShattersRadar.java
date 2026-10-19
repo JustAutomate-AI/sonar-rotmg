@@ -206,6 +206,21 @@ final class ShattersRadar {
 
     private static volatile List<Mark> marks = Collections.emptyList();
     private static volatile int mapWidth, mapHeight;
+
+    /**
+     * Counts up once per map walked into.
+     * <p>
+     * The overlay's zoom ladder is built from the map's size, so it has to be rebuilt when the
+     * map is - and the game resets its own minimap zoom at the same moment. Nothing in the
+     * packets announces a map change on its own; the name and the dimensions together do, and
+     * they are already read here every tick.
+     */
+    private static volatile int mapGeneration;
+    private static volatile String mapKey = "";
+
+    static int mapGeneration() {
+        return mapGeneration;
+    }
     private static volatile boolean inShatters;
     /** Where the player was when the marks were last taken; NaN until known. */
     private static volatile float playerX = Float.NaN, playerY = Float.NaN;
@@ -301,6 +316,11 @@ final class ShattersRadar {
         inShatters = name.toLowerCase().contains("shatters");
         mapWidth = data.map.width;
         mapHeight = data.map.height;
+        String key = name + "|" + mapWidth + "x" + mapHeight;
+        if (!key.equals(mapKey)) {
+            mapKey = key;
+            mapGeneration++;
+        }
         if (portalTest) {
             trackTestMarks(data);
             return;

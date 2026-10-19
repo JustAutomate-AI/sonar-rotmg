@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.33.0
+
+**The Shatters overlay follows the minimap's own zoom buttons**
+
+- The overlay has mirrored the game's minimap zoom **keys** since it was built, whatever they are bound to. It turns out that covered half the ways to zoom. The game also draws a pair of grey plus and minus buttons in the minimap's corner, and clicking one presses no key — so the overlay never saw it, and sat on the old rung while the map under it changed scale. That is the whole of the marks not lining up any more after a zoom.
+- It now watches those buttons too. The overlay is already lined up with the minimap, so where they are is known without being told: measured off the minimap, each is about a tenth of the frame wide, stacked against the top right corner. A click there steps the overlay exactly as the key would.
+- Clicks are watched on their own timer at 40ms rather than on the 200ms repaint. A click on a button is over well inside a fifth of a second, so most of them were being missed even where they were being looked for — the keys were quietly dropping presses for the same reason, and now do not.
+- **Walking into a new map no longer leaves the overlay on the last map's scale.** The zoom ladder is built from the map's size — a small map has fewer rungs, and the same rung is worth a different number of pixels per tile on each — and nothing rebuilt it when the map changed. The game rebuilds its own at that moment and starts it at the most zoomed-in rung, so the overlay now goes back to the top rung with it.
+- Five assertions cover the button zones, measured off a real minimap: every corner of the plus button and of the minus button lands on its own button, a click on the map itself is not taken for a zoom, the zones scale with the minimap rather than being a fixed pixel count, and a frame with no size on it answers nothing.
+
 ## 2.32.0
 
 **The blob now checks itself**

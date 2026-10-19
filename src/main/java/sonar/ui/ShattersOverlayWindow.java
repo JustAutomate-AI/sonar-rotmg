@@ -10,9 +10,13 @@ import java.awt.event.MouseEvent;
  * drawing small marks for whatever {@link ShattersRadar} has found. It is
  * click-through during normal play so it never blocks the game; turning on
  * calibration makes it draggable and resizable so it can be lined up with
- * your minimap once, the same way its reference tool (Potato) does it -
- * there is no live sync to the game's own zoom, so re-touch calibration if
- * you change your minimap's zoom afterwards.
+ * your minimap once, the same way its reference tool (Potato) does it.
+ * <p>
+ * The minimap's zoom level is in no packet and no file, so it cannot be read - but every way
+ * of changing it can be watched. The overlay mirrors the game's own zoom keys, whatever they
+ * are bound to, and the two grey buttons the game draws in the minimap's corner, and it goes
+ * back to the top rung with the game whenever the map changes. Aim is set once; scale follows
+ * on its own from there.
  */
 class ShattersOverlayWindow extends JWindow {
 
@@ -20,9 +24,19 @@ class ShattersOverlayWindow extends JWindow {
     private Point dragStart;
     private Rectangle dragBounds;
     private int dragMode; // 0 none, 1 move, 2 resize
-    private final Timer repaintTimer = new Timer(200, e -> {
+    private final Timer repaintTimer = new Timer(200, e -> repaint());
+
+    /**
+     * The zoom is watched far more often than the overlay is redrawn.
+     * <p>
+     * A click on the minimap's own zoom button is over well inside the 200ms the repaint runs
+     * at, so sharing that timer dropped most of them. Watching the keys and the mouse costs
+     * three calls into user32 and allocates nothing, so it can afford a timer of its own.
+     */
+    private final Timer inputTimer = new Timer(40, e -> {
         pollZoomKeys();
-        repaint();
+        pollZoomButtons();
+        followMapChange();
     });
 
     ShattersOverlayWindow() {
@@ -92,6 +106,7 @@ class ShattersOverlayWindow extends JWindow {
         });
         setClickThrough(true);
         repaintTimer.start();
+        inputTimer.start();
     }
 
     private void paintOverlay(Graphics2D g) {
@@ -631,6 +646,7 @@ class ShattersOverlayWindow extends JWindow {
 
     // ---- stepping the zoom while the game has the keyboard ----
 
+    private static final int VK_LBUTTON = 0x01;
     private static final int VK_CONTROL = 0x11, VK_SHIFT = 0x10,
             VK_OEM_PLUS = 0xBB, VK_OEM_MINUS = 0xBD, VK_ADD = 0x6B, VK_SUBTRACT = 0x6D;
     private boolean plusWasDown, minusWasDown;
@@ -670,6 +686,100 @@ class ShattersOverlayWindow extends JWindow {
         if (minus && !minusWasDown) stepZoom(1);
         plusWasDown = plus;
         minusWasDown = minus;
+    }
+
+    // ---- stepping the zoom when the minimap's own buttons are clicked ----
+
+    /**
+     * The minimap has a zoom of its own on screen, and it is what people actually use.
+     * <p>
+     * Mirroring the keys covered half the ways to zoom. The other half is the pair of grey
+     * plus and minus buttons the game draws in the minimap's top right corner - no key is
+     * pressed when one is clicked, so {@link #pollZoomKeys()} never saw it and the overlay sat
+     * on whatever rung it was left on while the map under it changed scale. That is the whole
+     * of "doesn't link with the zoom levels".
+     * <p>
+     * The overlay is click-through, so it is handed no mouse events and has to watch the
+     * button globally, the same way it watches the keys. The buttons are inside the frame the
+     * overlay is already lined up with, so where they are is known without asking: measured off
+     * the minimap, each is about a tenth of the frame wide, stacked against the top right
+     * corner, together filling the top fifth of that corner.
+     */
+    private static final double BUTTONS_FROM_RIGHT = 0.14, PLUS_TO = 0.115, MINUS_TO = 0.24;
+
+    /**
+     * Which zoom button a point in the frame is on: -1 for plus, 1 for minus, 0 for neither.
+     * <p>
+     * Measured off a 475 by 478 minimap, where the two sit at x 421-468, y 5-49 and y 57-103.
+     * The zones are a little wider than the buttons on purpose: a click a pixel outside one
+     * does nothing in the game either, and missing a real press costs more than catching a
+     * near miss - which only ever steps the overlay somewhere the next click puts right.
+     */
+    static int zoomButtonAt(int x, int y, int w, int h) {
+        if (w <= 0 || h <= 0) return 0;
+        if (x < w - w * BUTTONS_FROM_RIGHT || x >= w || y < 0) return 0;
+        if (y < h * PLUS_TO) return -1;
+        if (y < h * MINUS_TO) return 1;
+        return 0;
+    }
+
+    private boolean clickWasDown;
+
+    private void pollZoomButtons() {
+        boolean nowDown = down(VK_LBUTTON);
+        // the low bit says the button went down since the last look, which catches a click that
+        // began and ended between two ticks
+        boolean clicked = (nowDown && !clickWasDown) || (!nowDown && pressedSinceLastLook(VK_LBUTTON));
+        clickWasDown = nowDown;
+        // while calibrating the window takes its own clicks, and those mean something else
+        if (!clicked || calibrating || !isVisible()) return;
+        Point at;
+        try {
+            at = MouseInfo.getPointerInfo().getLocation();
+        } catch (Throwable headless) {
+            return;
+        }
+        if (at == null) return;
+        Rectangle box = getBounds();
+        int step = zoomButtonAt(at.x - box.x, at.y - box.y, box.width, box.height);
+        if (step != 0) stepZoom(step);
+    }
+
+    /** True if the key went down since the previous call, even if it is already back up. */
+    private static boolean pressedSinceLastLook(int vk) {
+        try {
+            return (User32.INSTANCE.GetAsyncKeyState(vk) & 0x0001) != 0;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    // ---- keeping step with the map the overlay is drawn over ----
+
+    private int sawMap = -1;
+
+    /**
+     * Follows the map rather than the window.
+     * <p>
+     * The zoom ladder is built from the map's size, so the same rung is a different number of
+     * pixels per tile on a different map - and the rungs are differently many, since a small
+     * map has fewer. Nothing recomputed either when the map changed, so walking through a
+     * portal left the overlay drawing at the last map's scale on this map's ladder.
+     * <p>
+     * The game rebuilds its own ladder at the same moment and starts it at the most zoomed-in
+     * rung, which is what {@code MiniMapZoomButtons} is constructed with, so the overlay goes
+     * back to the top rung with it.
+     */
+    private void followMapChange() {
+        int now = ShattersRadar.mapGeneration();
+        if (now == sawMap) return;
+        boolean first = sawMap < 0;
+        sawMap = now;
+        int top = first ? Math.max(0, Math.min(rungCount() - 1, level)) : 0;
+        if (!first) sonar.util.PropertiesManager.setProperties("sonar.shatters.zoomlevel", "0");
+        level = top;
+        pixelsPerTile = loadScale(level);
+        repaint();
     }
 
     private static final int GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x00080000, WS_EX_TRANSPARENT = 0x00000020;
