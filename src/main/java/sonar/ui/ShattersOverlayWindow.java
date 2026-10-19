@@ -14,9 +14,9 @@ import java.awt.event.MouseEvent;
  * <p>
  * The minimap's zoom level is in no packet and no file, so it cannot be read - but every way
  * of changing it can be watched. The overlay mirrors the game's own zoom keys, whatever they
- * are bound to, and the two grey buttons the game draws in the minimap's corner, and it goes
- * back to the top rung with the game whenever the map changes. Aim is set once; scale follows
- * on its own from there.
+ * are bound to; the two grey buttons the game draws in the minimap's corner; and the wheel
+ * over the minimap. It also goes back to full zoom with the game whenever a new instance
+ * loads. Aim is set once; scale follows on its own from there.
  */
 class ShattersOverlayWindow extends JWindow {
 
@@ -107,6 +107,7 @@ class ShattersOverlayWindow extends JWindow {
         setClickThrough(true);
         repaintTimer.start();
         inputTimer.start();
+        MouseWheelWatch.start(this::wheeled);
     }
 
     private void paintOverlay(Graphics2D g) {
@@ -743,6 +744,29 @@ class ShattersOverlayWindow extends JWindow {
         Rectangle box = getBounds();
         int step = zoomButtonAt(at.x - box.x, at.y - box.y, box.width, box.height);
         if (step != 0) stepZoom(step);
+    }
+
+    /**
+     * The third way to zoom: the wheel over the minimap.
+     * <p>
+     * It is how it is actually done most of the time, and it leaves no trace that either of
+     * the other two watches for - no key goes down and no button is clicked. {@link
+     * MouseWheelWatch} is what sees it; this decides whether it was meant for the minimap.
+     * <p>
+     * Scrolling away from you zooms in, which is the way round every map in every other
+     * program does it and the way the game does it too. A notch is a rung, and a wheel that
+     * sends several at once steps several.
+     */
+    private void wheeled(int screenX, int screenY, int notches) {
+        if (calibrating || !isVisible()) return;
+        Rectangle box = getBounds();
+        if (!box.contains(screenX, screenY)) return;
+        // away from you is a lower rung, the same direction the plus button goes
+        int by = notches > 0 ? -1 : 1;
+        int steps = Math.min(Math.abs(notches), rungCount());
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            for (int i = 0; i < steps; i++) stepZoom(by);
+        });
     }
 
     /** True if the key went down since the previous call, even if it is already back up. */

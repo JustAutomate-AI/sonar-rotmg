@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.34.0
+
+**The overlay follows the wheel, which is the way the minimap is actually zoomed**
+
+- The minimap has three zooms, not two. 2.33.0 added the **buttons** to the **keys** Sonar already mirrored, and those two are confirmed working. The third is the **wheel over the minimap** — which is how it is done most of the time, and which leaves no trace either of the others watches for: no key goes down and no button is clicked.
+- The wheel cannot be polled the way a key can. `GetAsyncKeyState` answers for things with an up and a down, and the wheel has neither — it only ever happens. The one way to see it from outside the window it was aimed at is a **low-level mouse hook**, which asks Windows to call Sonar as each mouse event goes past on its way to whoever it was meant for. Sonar now keeps one.
+- **It only ever looks.** The hook reads the wheel's direction and where the pointer was, then hands the event on untouched, exactly as it arrived. Nothing is swallowed, redirected or sent — the game receives every event it would have received with Sonar closed. A hook that dawdles makes the whole machine's mouse feel sticky, so the callback does the least it can: two reads out of the event and a hand-off, on a thread of its own.
+- A scroll only counts when the pointer is **inside the overlay's frame**, which is the minimap. Scrolling anywhere else on screen does nothing, and while calibration is on the wheel keeps its own meaning. Scrolling away from you zooms in, and a wheel that sends several notches at once steps several rungs.
+- Four assertions cover the one thing here that is easy to get wrong: the wheel's travel is the **signed** high half of the event's `mouseData`, and read as unsigned every scroll towards you comes out as 65,416 and the overlay zooms the wrong way. A notch each way reads as one notch each way, several read as several, and the buttons held while scrolling do not reach the travel.
+- The hook is verified to install and unhook cleanly. It could not be exercised end to end here without sending a synthetic wheel event, which is not something Sonar will do with the game running.
+
 ## 2.33.1
 
 **A new Nexus is a new instance**
