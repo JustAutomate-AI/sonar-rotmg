@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.43.2
+
+**A blank overlay says why it is blank**
+
+Reported as "no overlay and no information being displayed — about as broken as it gets", and the reporting was the problem as much as the blankness.
+
+- **The readout could not be reached.** It was only painted while calibrating, and the calibrate button was removed in 2.42.1 once nothing needed calibrating by hand. So the one surface that could explain an empty overlay became unreachable at exactly the moment the overlay gained several new ways to be legitimately empty.
+- **Every blank frame now writes its reason where the map would have been.** `no instance loaded yet`, `no ground sent yet`, `the game has not said where you are`, `looking off the edge of the map`, or `map layer is switched off` — along with how many tiles are known, whether clicks are passing through to the game, and what the zoom measurement last concluded.
+- **This was found without the game.** The overlay was run on its own against a map with ground in it and photographed: it drew nothing, and the reason was that nothing had told it where the player was. An overlay that draws nothing and says nothing is indistinguishable from one that is not running, which is why it was reported as not running.
+- The full readout can also be turned on permanently with `sonar.shatters.readout=true`.
+
 ## 2.43.1
 
 **The overlay draws again**
