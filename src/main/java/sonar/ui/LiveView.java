@@ -1026,33 +1026,33 @@ class LiveView {
     private javax.swing.JComponent shattersAccessory() {
         javax.swing.Box nav = javax.swing.Box.createHorizontalBox();
         nav.add(shattersToggle);
-        nav.add(javax.swing.Box.createHorizontalStrut(6));
-        nav.add(shattersMap);
-        shattersMap.setToolTipText("Replace your minimap with Sonar's own: the ground it has seen, the people, "
-                + "what can be fought, the ways out and you, at a zoom you set with the wheel");
-        nav.add(javax.swing.Box.createHorizontalStrut(6));
-        nav.add(shattersCalibrate);
-        nav.add(javax.swing.Box.createHorizontalStrut(6));
-        nav.add(shattersRecentre);
-        nav.add(javax.swing.Box.createHorizontalStrut(6));
-        nav.add(shattersPortals);
-        shattersCalibrate.setToolTipText("Drag the overlay onto your minimap by hand, for when it cannot be found");
-        shattersRecentre.setToolTipText("Look for your minimap in the game's window again");
-        shattersPortals.setToolTipText("Mark every portal around you, so a by-hand line-up can be checked without a Shatters");
+        shattersToggle.setToolTipText("Sonar's own minimap over the game's: the ground it has seen and remembers, "
+                + "the people, what can be fought, the ways out and you");
         syncShattersButtons();
         return nav;
     }
 
-    /** Only shows the by-hand buttons when finding the minimap did not work. */
+    /**
+     * One button, because there is one thing to decide.
+     * <p>
+     * There were five. Each arrived to work around something that did not work on its own:
+     * <b>Map</b> because covering the minimap was a gamble worth being able to take back,
+     * <b>Calibrate</b> and <b>Find minimap</b> because the overlay could not reliably find the
+     * minimap, <b>Portals</b> because a by-hand line-up needed something to line up against.
+     * Every one of those has since been fixed rather than worked around - the minimap is found
+     * by its own colours, the zoom is measured off the screen rather than set by hand, and the
+     * map draws nothing until it has ground worth showing. A button whose reason to exist has
+     * been fixed is a button that only makes the decision harder.
+     * <p>
+     * The escape hatches are still there for anyone who finds a case these do not cover, as
+     * {@code sonar.shatters.drawmap} and {@code sonar.shatters.sync}. They are settings now
+     * rather than controls, which is what they always were.
+     */
     private void syncShattersButtons() {
-        boolean on = shattersOverlay != null && shattersOverlay.drawMap();
-        shattersMap.setText(on ? "Map: on" : "Map: off");
-        shattersMap.setPrimary(on);
-        shattersMap.setVisible(shattersEnabled);
-        boolean stuck = shattersEnabled && !alignedAutomatically;
-        shattersCalibrate.setVisible(stuck);
-        shattersRecentre.setVisible(stuck);
-        shattersPortals.setVisible(stuck || ShattersRadar.portalTest());
+        shattersMap.setVisible(false);
+        shattersCalibrate.setVisible(false);
+        shattersRecentre.setVisible(false);
+        shattersPortals.setVisible(false);
     }
 
     /** True once the minimap has been found on its own, which is the ordinary case. */
@@ -1494,6 +1494,18 @@ class LiveView {
                     + shown().targets.size() + " enemies and " + pasts.size() + " past instances here)");
             return;
         }
+
+        // The overlay offers one decision, so it offers one button.
+        //
+        // There were five. Each worked around something that did not work on its own, and each
+        // of those has since been fixed rather than worked around - so this asserts the count
+        // to stop them creeping back the next time something does not work.
+        javax.swing.JComponent bar = shattersAccessory();
+        int showing = 0;
+        for (java.awt.Component c : bar.getComponents()) {
+            if (c instanceof SonarButton && c.isVisible()) showing++;
+        }
+        report.accept("the Shatters panel offers one button, not five", showing == 1);
 
         // the windows keep their places: a drag on the title bar or the corner does nothing at all
         Rectangle home = damageWindow.getBounds();
@@ -2709,6 +2721,7 @@ class LiveView {
                 ShattersRadar.mapGeneration() - before == 3);
 
         checkOwnMinimap(report);
+
         checkRememberedMap(report);
         checkHistorySaves(report);
         checkOverlayOutsideShatters(report);
