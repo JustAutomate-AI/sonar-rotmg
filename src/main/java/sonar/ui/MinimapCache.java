@@ -202,8 +202,9 @@ final class MinimapCache {
         // the renders' main land colour before any comparison began. Measured: 15% of one
         // render and 37% of another were being dropped. Both are under 12% now, and what is
         // left is roads and the white event zones, which are rightly neither.
-        if (g > r + 10 || (g >= r - 12 && g > b + 25)) return GRASS;
-        if (r >= 130 && g >= 110 && b < 160 && r >= g) return SAND;
+        // olive is dull: pale sand is also green-ish against its blue, and must not be caught
+        if (g > r + 10 || (g >= r - 12 && g > b + 25 && b < 100)) return GRASS;
+        if (r >= 130 && g >= 110 && b <= 170 && r >= g) return SAND;
         return OTHER;
     }
 

@@ -108,6 +108,41 @@ jobs:
           name: sonar-${{ steps.v.outputs.version }}
           path: dist/*
 
+      # The release is a draft until its files are on it.
+      #
+      # Sonar finds updates through /releases/latest, and GitHub leaves drafts out of that.
+      # So while this job is running nobody can see the version yet, and the moment it is
+      # published it is already downloadable. Before this the release was published first,
+      # because publishing it is what pushed the tag that starts this job, and anyone who
+      # checked for updates in the two minutes it takes to build was shown a version with
+      # nothing behind it.
+      #
+      # The notes come from CHANGELOG.md, the entry for this version, so a tag pushed on its
+      # own still produces a release with something written on it. A draft created by hand
+      # first, with notes of its own, is used as it is.
+      - name: Make sure the release exists, as a draft
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = "${{ steps.v.outputs.version }}"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { "release $tag already exists"; exit 0 }
+          $lines = Get-Content CHANGELOG.md
+          $start = -1
+          for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -eq "## $version") { $start = $i + 1; break } }
+          if ($start -lt 0) { throw "CHANGELOG.md has no entry for $version" }
+          $end = $lines.Count
+          for ($i = $start; $i -lt $lines.Count; $i++) { if ($lines[$i] -like '## *') { $end = $i; break } }
+          $notes = ($lines[$start..($end - 1)] -join "`n").Trim()
+          $notes | Set-Content -Encoding utf8 release-notes.md
+          $title = ($notes -split "`n" | Where-Object { $_ -match '^\*\*(.+)\*\*$' } | Select-Object -First 1) -replace '^\*\*|\*\*$', ''
+          if (-not $title) { $title = "Sonar $version" } else { $title = "$version " + [char]0x2014 + " " + $title.ToLower().Substring(0,1) + $title.Substring(1) }
+          gh release create $tag --draft --title "$title" --notes-file release-notes.md
+          "created draft $tag"
+
       - name: Attach everything to the release
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
@@ -119,3 +154,11 @@ jobs:
             "dist/Sonar-${{ steps.v.outputs.version }}-setup.msi" `
             "dist/SHA256SUMS-${{ steps.v.outputs.version }}.txt" `
             --clobber
+
+      # Only now, with all three files on it. From here Sonar can see it, and it can install it.
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit ${{ github.ref_name }} --draft=false --latest

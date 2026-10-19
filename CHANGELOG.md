@@ -2,6 +2,26 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.52.0
+
+**An update is never visible before it can be installed**
+
+- **The release is a draft until its files are on it.** Sonar finds updates through GitHub's latest release, and GitHub leaves drafts out of that. So while the two-minute build runs nobody can see the version, and the moment it is published it is already downloadable. Before this the release was published first — publishing it is what started the build — and anyone who checked in those two minutes was shown a version with nothing behind it.
+- **The notes come from the changelog.** The entry for the version, taken from `CHANGELOG.md`, so a tag pushed on its own still produces a release with something written on it.
+- The build itself is not faster and cannot be made much faster — about forty seconds of compiling and thirty-four of building a Windows installer, on a Windows runner the installer needs. But waiting on it is gone: from the outside an update is either not there yet or installs at once.
+
+**The vault is whole on a fresh install, and "1961 this run" was never a bug**
+
+- **The Vault ships complete** — room, island, chests — from RealmEye's render of it, aligned to the tile grid against a real recording of the room: 93.8% of the room's squares land where the render has floor, at 24.9 render pixels per tile.
+- **The Nexus stays as a recording of the current season's layout.** There are several Nexus sets — this one is the Halloween one — and RealmEye's render is of an older green one. It was tested rather than assumed: at the only scale it fits at all, a recording of the current Nexus lands as a smear across the old courtyard, aligned with nothing. A wrong Nexus would be worse than a partial one, so the partial one ships and grows as it is walked.
+- **The overlay's "1,961 this run" was the sight radius.** It showed on three different instances in a row and looked like a counter failing to reset. The installed build's new log settled it: resets happen exactly as they should, and 1,961 is simply how many tiles fit inside the circle you can see — π × 25² ≈ 1,963. Every instance starts with exactly that many. It also proves the server sends nothing beyond sight, which is why a whole map can only ever be shipped.
+- The terrain classifier no longer reads pale sand as grass, which the self-test caught the moment it was changed.
+
+**The realm library is back to several worlds**
+
+- The game uses a set of pre-selected static layouts — historically thirteen — rather than one. Worlds one to five are back in the jar alongside RealmEye's map as the sixth, and slots seven to thirteen are ready for the rest. With more than one layout nothing is laid down until the coast has said which; with one it is laid down at once.
+- Recognition is by coastline now, in the self-test as in the app: the only comparison that survives a map drawn in a palette of its own.
+
 ## 2.51.0
 
 **Instance maps load the moment you arrive**
