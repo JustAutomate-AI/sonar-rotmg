@@ -242,6 +242,10 @@ final class ShattersRadar {
         String name = LiveModel.prettyMapName(map.displayName != null && !map.displayName.isEmpty()
                 ? map.displayName : map.name);
         if (!sawNewInstance(name, map.width, map.height, map.seed)) return;
+        // recorded here too, not only on the interface tick, so anything explaining itself in
+        // the first fifth of a second knows which instance it is in
+        mapWidth = map.width;
+        mapHeight = map.height;
         MinimapCache.remember();
         MinimapView.reset(map.width, map.height);
         MinimapCache.recall(name, map.width, map.height);
@@ -262,6 +266,12 @@ final class ShattersRadar {
      */
     private static volatile int mapGeneration;
     private static volatile String mapKey = "";
+    private static volatile String mapName = "";
+
+    /** What instance the radar thinks it is in, for anything that has to explain itself. */
+    static String mapName() {
+        return mapName;
+    }
 
     static int mapGeneration() {
         return mapGeneration;
@@ -270,6 +280,7 @@ final class ShattersRadar {
     /** Lets the self-test step the counter the way a map load does. */
     static boolean sawNewInstance(String name, int w, int h, int seed) {
         String key = name + "|" + w + "x" + h + "|" + seed;
+        mapName = name;
         if (key.equals(mapKey)) return false;
         mapKey = key;
         mapGeneration++;

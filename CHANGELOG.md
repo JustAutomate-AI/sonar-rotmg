@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.43.4
+
+**The map layer can be switched back on**
+
+The overlay's own diagnostic panel answered this one in a single screenshot: `map layer is switched off`, `0 tiles known`.
+
+- **Removing the Map button stranded anyone who had switched it off.** `Map: on/off` wrote a setting, and 2.42.1 removed the button once the overlay was a map rather than a layer over one. Anyone already set to off then had an overlay that drew nothing, for a reason that was true and permanent, with no control left to change it. Reported as an overlay showing nothing at all, which is exactly what it was.
+- **A stored "off" is discarded once**, since the thing that wrote it is gone. The setting is still read afterwards for anyone who sets it by hand in `sonar.properties`, which is all it was ever meant to be.
+- **The panel gives every fact at once** rather than the first check that failed: which instance, how many tiles are known and how many came from this run, whether the game has said where you are, whether clicks pass through, and what the zoom measurement concluded. A panel that stops at the first blocker costs one screenshot per cause, and there are five.
+- The instance's size is recorded when the map loads rather than on the next interface tick, so the panel knows where it is during the first fifth of a second too.
+
 ## 2.43.3
 
 **An update that is thirty seconds early is not a broken updater**
