@@ -2808,6 +2808,15 @@ class LiveView {
             if (id == ShattersRadar.PORTAL || id == ShattersRadar.MOVER) clash = true;
         }
         report.accept("the test marks cannot be mistaken for a real Shatters object", !clash);
+
+        // the game has three kinds of portal and the test knew one of them, so the other two
+        // went unmarked in a realm full of marked ones - which reads as a missed portal
+        report.accept("every kind of portal the game has counts as a portal",
+                ShattersRadar.isPortal("Portal") && ShattersRadar.isPortal("GuildHallPortal")
+                        && ShattersRadar.isPortal("ArenaPortal"));
+        report.accept("and nothing else does",
+                !ShattersRadar.isPortal("Character") && !ShattersRadar.isPortal("Wall")
+                        && !ShattersRadar.isPortal(null) && !ShattersRadar.isPortal("PortalChest"));
         ShattersRadar.setPortalTest(was);
     }
 

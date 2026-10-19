@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.36.1
+
+**The portal the overlay kept missing**
+
+- Lining the Shatters overlay up is checked against portals, because the Shatters is rare and a realm is full of them. One portal was never marked while every other one in the same realm was — which reads as the overlay missing something, and sent the search towards calibration.
+- It was not calibration. The test matched the object class `Portal` exactly, and the game has **three**: `Portal`, `GuildHallPortal` and `ArenaPortal`. The two it did not know went unmarked. Matching on the ending finds all three, and finds a fourth if one is ever added without anybody noticing it had to be.
+- Two assertions: every kind of portal the game has counts as one, and nothing else does — a `PortalChest` is not a portal.
+
+Worth knowing about the other direction: the client is only told about entities near enough to see, so a portal on the far side of a realm is not in the data at all and no amount of matching will mark it. A portal that is missing while you are standing next to it is a bug; one missing from across the realm is the game.
+
 ## 2.36.0
 
 **Instance history has never saved anything, and now does**

@@ -379,6 +379,21 @@ final class ShattersRadar {
      * it on the minimap at wherever it currently is - so they settle whether
      * a mark actually follows something as it moves.
      */
+    /**
+     * Whether an object class is a way out of here.
+     * <p>
+     * Nearly all of them are the plain {@code Portal}, but not all: the game also has
+     * {@code GuildHallPortal} and {@code ArenaPortal}, and matching the one name exactly left
+     * those two unmarked while every other portal in the same realm was found - which looks
+     * exactly like the overlay missing a portal rather than the test not knowing the word.
+     * <p>
+     * Matching on the ending rather than listing the three means a kind added later is found
+     * without anybody noticing it had to be.
+     */
+    static boolean isPortal(String clazz) {
+        return clazz != null && clazz.endsWith("Portal");
+    }
+
     private static void trackTestMarks(GameData data) {
         playerX = data.player != null && data.player.pos != null ? data.player.pos.x : Float.NaN;
         playerY = data.player != null && data.player.pos != null ? data.player.pos.y : Float.NaN;
@@ -387,7 +402,7 @@ final class ShattersRadar {
         for (Entity e : data.entityList.values()) {
             if (e == null || e.pos == null) continue;
             String kind = sonar.assets.IdToAsset.getClazz(e.objectType);
-            if ("Portal".equals(kind)) {
+            if (isPortal(kind)) {
                 found.add(new Mark(PORTAL, e.pos.x, e.pos.y));
                 continue;
             }
