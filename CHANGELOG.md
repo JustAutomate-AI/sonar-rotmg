@@ -12,6 +12,16 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 - It still holds while you are *in* the instance: a board clicked in by hand stays exactly as entered until you press Live or walk out.
 - Six assertions: a fresh grid is the game's to fill in, entering a board by hand takes it off the game, it stays taken while you are still in that instance, the next instance hands it back, the pane says so once so the buttons go back with it, and it does not say so twice.
 
+## 2.38.2
+
+**The installer stops asking questions, for people who have not updated yet too**
+
+- 2.38.0 made Sonar run the installer quietly, and that works — but only from 2.38.0 onward, because **the copy doing the updating is the old one**. Anybody still on 2.37.1 or earlier gets their own updater, which shows the installer. Telling them the fix is in the version they cannot reach without the fix is not a fix.
+- What an old copy *does* get is the **new release's installer**, because that is what it downloads and runs. So the pages come out of the package instead, and that reaches everybody on their very next update.
+- Two jpackage flags are gone. `--win-dir-chooser` added the **Destination Folder** page with its Change button; `--license-file` added a licence page before it. Between them they were most of why updating felt like installing.
+- Nothing is lost either way. The install is **per user** and goes where per-user installs go, so the folder was a question with one sensible answer — and `LICENSE.md` ships inside the app folder regardless, which is where anybody looking for it would look.
+- So: on **2.38.0 or later**, an update is silent — a small window, and Sonar comes back. On anything **older**, the next update is a progress bar instead of a wizard, and the one after that is silent.
+
 ## 2.38.1
 
 **The ground was being stretched to fill the frame**
