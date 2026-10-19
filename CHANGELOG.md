@@ -2,6 +2,20 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.41.0
+
+**The Shatters map is remembered between runs**
+
+The overlay drew the ground as you walked it, so the first minute of a run was a dark window. Potato does not have this problem in the realm: it ships fourteen pre-drawn images and shows you a whole map the moment you walk in. Worth saying plainly, because it was the reason to go looking — **Potato does not do this for the Shatters**. In there it draws shapes over the game's own minimap and no ground at all; the pre-drawn images are realm-only. So there was no image to copy, only a trick, and the trick suits the Shatters better than it suits the realm.
+
+- **The Shatters is learned once and handed back every run after.** It is the same map every time — the route is memorised, which is the whole reason the overlay is wanted — so the tiles the game sent last run are still true this run. Sonar keeps them and lays them down on the way in, before a single packet of the new instance has arrived.
+- **The map completes itself over a few runs.** Each run is merged into the recording rather than replacing it, so ground nobody walked this time is still drawn from the time somebody did. It does not need one perfect run that visited everything.
+- **A recording that stops matching is thrown away.** Remembered ground is a claim about squares nobody has looked at yet, so it has to be able to be wrong. Every tile the game sends for a square the recording has an opinion about is a vote, and after twelve hundred votes a recording that loses is dropped — keeping every square this run's own packets painted. The readout says so rather than the map quietly emptying.
+- **A realm is refused, by name.** It is generated per instance, so a recording of one would be confidently wrong in the next, which is worse than an empty map. The test is the name and not the size, because size is exactly what a generated map shares with a fixed one.
+- Kept to the Shatters for now. `sonar.minimap.remember` takes `shatters` (the default), `all`, or `off`; `all` still refuses realms, and is there to try the feature somewhere easier to get into than the Shatters — the Nexus is a fixed map and one teleport away.
+- The recording is written on the way out of an instance and again if Sonar is closed mid-run, beside a file and moved over it, so a recording is never half a file. It lives in `maps/`, one small PNG per map, one pixel per tile.
+- Nineteen assertions on it, the load-bearing ones being that a realm gets nothing invented for it, that a recording of the wrong size is refused rather than stretched over the map, that a run's own ground survives a recording being dropped, and that two runs merge with the newer one winning where they disagree.
+
 ## 2.40.0
 
 **The Shatters overlay is a minimap now, not a layer over one**

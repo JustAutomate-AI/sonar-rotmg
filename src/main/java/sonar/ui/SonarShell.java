@@ -706,6 +706,13 @@ public class SonarShell extends JPanel {
                 }
                 SonarShell s = instance;
                 if (s != null) s.live.save();
+                // a run that ends by the window closing instead of by teleporting out still
+                // walked ground worth keeping
+                try {
+                    MinimapCache.rememberNow();
+                } catch (RuntimeException ignored) {
+                    // closing must not be blocked by a map that would not write
+                }
                 // the sniffer never outlives the window, and never starts by itself next time
                 try {
                     Sniffer.stopPacketSniffer();
