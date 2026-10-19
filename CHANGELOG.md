@@ -12,6 +12,19 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 - It still holds while you are *in* the instance: a board clicked in by hand stays exactly as entered until you press Live or walk out.
 - Six assertions: a fresh grid is the game's to fill in, entering a board by hand takes it off the game, it stays taken while you are still in that instance, the next instance hands it back, the pane says so once so the buttons go back with it, and it does not say so twice.
 
+## 2.39.0
+
+**The settings page measures itself, and a typed word arrives**
+
+Two faults with one shape: something was drawn that nothing had counted.
+
+- **The zoom buttons disappeared when the page was zoomed in.** The **WORDS TO WATCH FOR** section was missing from the page's height calculation altogether — not shortened, absent. A pane scrolls to the height it says it is, so everything painted below the uncounted section hung off the bottom with nothing to scroll to. Zoom in far enough that the sections above fill the window and the zoom controls themselves are the first thing over the edge, which is a particularly unhelpful way to lose a control.
+- The section's height is now written once and read by both the painting and the measuring, so the next edit to either cannot put them back out of step.
+- **Add a word did not add words.** It had exactly one way to commit — the Enter key — into a text field that was asked for focus *before* the popup was on screen, which does nothing. So the field often was not what you were typing into, and the word simply never arrived. There is an **Add** button now, focus is requested once the popup actually exists, and what a typed word becomes is decided in one place rather than inline in the popup.
+- Six assertions: the words section is given room when empty and grows by a row per word; a typed word is kept; asking for the whole word is spelled by quoting it; nothing typed adds nothing; and a word already watched for is not watched for twice.
+
+**Still open: the realm biome fame bonuses.** The game's own panel pays these cumulatively — `Foe +20`, `Adversary +100`, **+120** — where Sonar pays 20. Sonar's thresholds match the published table exactly (200 / 1,000 / 5,000 / 10,000 / 50,000 at 20 / 100 / 400 / 1,000 / 2,500), its cumulative arithmetic is right, and each biome reads its own decoded field rather than an index into a shared list, so none of the usual suspects explains it. That leaves the decoded **count** landing below 1,000 when the game has it above. Settling that needs one character's copied working, which prints the decoded count beside the raw blob the count came out of.
+
 ## 2.38.2
 
 **The installer stops asking questions, for people who have not updated yet too**

@@ -153,10 +153,29 @@ class SettingsPane extends Pane {
         return HEAD + 56                               // sound heading + volume
                 + HEAD + listHeight(w, bags.size())    // loot pings
                 + HEAD + listHeight(w, chat.size())    // chat pings
+                + HEAD + keywordsHeight(ChatPings.keywords().size())  // words to watch for
                 + HEAD + 60                            // themes
                 + HEAD + SWATCH + 30                   // accent
                 + HEAD + 62                            // zoom
                 + HEAD + 78;                           // saved instances
+    }
+
+    /**
+     * How tall the words section is, for the count of words in it.
+     * <p>
+     * It was missing from {@link #contentHeight()} entirely. The pane scrolls to the height it
+     * says it is, so everything painted below the missing section hung off the bottom with
+     * nothing to scroll to - which showed up as the zoom buttons disappearing once the pane
+     * was zoomed in far enough for the sections above to fill the window.
+     * <p>
+     * A section whose height is written out twice will be wrong again the next time either
+     * copy is edited, so both the painting and the measuring read it from here.
+     */
+    static int keywordsHeight(int words) {
+        int explanation = 56;
+        int list = words == 0 ? 26 : words * 30;
+        int button = 28 + 16;
+        return explanation + list + button;
     }
 
     @Override
@@ -567,24 +586,57 @@ class SettingsPane extends Pane {
         body.add(whole, BorderLayout.SOUTH);
         menu.add(body);
 
-        field.addActionListener(e -> {
-            String word = field.getText().trim();
+        Runnable commit = () -> {
+            boolean added = addWord(field.getText(), whole.isSelected());
             menu.setVisible(false);
-            if (word.isEmpty()) return;
-            // quoting is how the matcher is told to want the whole word
-            if (whole.isSelected()) word = "\"" + word.replace("\"", "") + "\"";
-            java.util.List<String> words = ChatPings.keywords();
-            for (String had : words) {
-                if (had.equalsIgnoreCase(word)) return;
-            }
-            words.add(word);
-            ChatPings.setKeywords(words);
+            if (!added) return;
             java.awt.Window w = javax.swing.SwingUtilities.getWindowAncestor(this);
             if (w != null) w.repaint();
-        });
+            revalidate();
+            repaint();
+        };
+        field.addActionListener(e -> commit.run());
+
+        // Enter was the only way to commit, and the field was not reliably the thing being
+        // typed into anyway, so a word could be typed and simply not arrive. A button says
+        // what to do and works whether or not the field ever took focus.
+        javax.swing.JButton ok = new javax.swing.JButton("Add");
+        ok.setFont(SonarTheme.bold(11f));
+        ok.setFocusPainted(false);
+        ok.addActionListener(e -> commit.run());
+        javax.swing.JPanel bottom = new javax.swing.JPanel(new BorderLayout(6, 0));
+        bottom.setBackground(SonarTheme.RAISED);
+        bottom.add(whole, BorderLayout.CENTER);
+        bottom.add(ok, BorderLayout.EAST);
+        body.remove(whole);
+        body.add(bottom, BorderLayout.SOUTH);
 
         menu.show(this, x, y);
-        field.requestFocusInWindow();
+        // asking for focus before the popup is on screen does nothing, which is most of why
+        // typing into it did nothing
+        javax.swing.SwingUtilities.invokeLater(field::requestFocusInWindow);
+    }
+
+    /**
+     * Takes a typed word and keeps it, or says why it was not kept.
+     * <p>
+     * Pulled out of the popup so that what a word becomes can be checked without a window:
+     * blank is nothing, a word already watched for is not watched for twice, and asking for
+     * the whole word is spelled by quoting it, which is what the matcher reads.
+     *
+     * @return true when the list changed.
+     */
+    static boolean addWord(String typed, boolean wholeWordOnly) {
+        String word = typed == null ? "" : typed.trim();
+        if (word.isEmpty()) return false;
+        if (wholeWordOnly) word = "\"" + word.replace("\"", "") + "\"";
+        java.util.List<String> words = ChatPings.keywords();
+        for (String had : words) {
+            if (had.equalsIgnoreCase(word)) return false;
+        }
+        words.add(word);
+        ChatPings.setKeywords(words);
+        return true;
     }
 
     private void zone(Rectangle r, Runnable action) {
