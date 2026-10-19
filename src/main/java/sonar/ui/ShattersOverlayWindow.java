@@ -285,6 +285,7 @@ class ShattersOverlayWindow extends JWindow {
         double tilesWide = w / pixelsPerTile, tilesHigh = h / pixelsPerTile;
         double[] me = ShattersRadar.playerFromView(tilesWide, tilesHigh);
         boolean drewMap = paintMap(g, w, h, tilesWide, tilesHigh);
+        paintLayoutNotice(g, w, h);
         paintLive(g, w, h, tilesWide, tilesHigh);
         // An overlay that draws nothing and says nothing is indistinguishable from one that is
         // not running. Every blank frame here has a reason and the reason is known at the
@@ -411,6 +412,36 @@ class ShattersOverlayWindow extends JWindow {
 
     /** Why there is nothing on screen, when there is nothing on screen. */
     private String blankBecause = "";
+
+    private String noticed = "";
+    private long noticedUntil;
+
+    /**
+     * Says so, briefly, when a whole map has just been laid down.
+     * <p>
+     * Recognising the realm and drawing the rest of it is the one thing the overlay does that
+     * nobody can verify by looking - a map that is suddenly complete looks the same whether it
+     * is the right map or the wrong one. So it says which it picked and how sure it was, for
+     * long enough to read and not long enough to be in the way.
+     */
+    private void paintLayoutNotice(Graphics2D g, int w, int h) {
+        String from = MinimapCache.lastRecalledFrom();
+        if (!from.isEmpty() && !from.equals(noticed)) {
+            noticed = from;
+            noticedUntil = System.currentTimeMillis() + 8000;
+        }
+        if (noticed.isEmpty() || System.currentTimeMillis() > noticedUntil) return;
+        g.setFont(SonarTheme.font(10f));
+        FontMetrics fm = g.getFontMetrics();
+        String text = noticed;
+        int tw = fm.stringWidth(text);
+        int bh = fm.getHeight() + 6;
+        int x = Math.max(2, (w - tw) / 2 - 5), y = 4;
+        g.setColor(new Color(10, 11, 15, 220));
+        g.fillRoundRect(x, y, Math.min(w - 4, tw + 10), bh, 6, 6);
+        g.setColor(new Color(170, 200, 160));
+        g.drawString(text, x + 5, y + fm.getAscent() + 3);
+    }
 
     /**
      * Which part of the map goes where on the frame.

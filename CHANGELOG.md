@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.48.1
+
+**The overlay says which map it just laid down**
+
+Recognising the realm and drawing the rest of it is the one thing the overlay does that cannot be checked by looking: a map that is suddenly complete looks the same whether it is the right map or the wrong one.
+
+- So it says which layout it picked and how sure it was, across the top of the overlay for eight seconds — long enough to read, not long enough to be in the way.
+- `world 3, recognised from the ground you walked (1,204 of 1,310 squares agreed)`, or the same for one of your own recordings.
+- This matters most while the library is being built up. If nothing matches, the overlay stays as it was and says nothing, which is the correct behaviour and was previously indistinguishable from the feature not running.
+
 ## 2.48.0
 
 **Sonar knows which realm you are in, and draws the whole of it**
