@@ -57,6 +57,20 @@ final class MinimapView {
     private static volatile int agreed, disagreed;
     private static volatile boolean judged;
 
+    /**
+     * Whether the recalled map is a render rather than a recording.
+     * <p>
+     * A layout Sonar ships is somebody's picture of the realm, not a copy of Sonar's own tile
+     * colours, so it never agrees pixel for pixel and the check below would throw away every
+     * correct one. When it is approximate the same check still runs, but on what kind of
+     * ground each square is - which is what the layout was recognised by in the first place.
+     */
+    private static volatile boolean approximate;
+
+    static void setRecalledIsApproximate(boolean yes) {
+        approximate = yes;
+    }
+
     /** Squares this run's own packets painted, so a thrown-away recording does not take them with it. */
     private static volatile java.util.BitSet wire;
     private static volatile int fromWire;
@@ -183,7 +197,10 @@ final class MinimapView {
         if (memory != null && x < memory.getWidth() && y < memory.getHeight()) {
             int remembered = memory.getRGB(x, y);
             if ((remembered >>> 24) != 0) {
-                if ((remembered & 0xFFFFFF) == (rgb & 0xFFFFFF)) agreed++;
+                boolean alike = approximate
+                        ? MinimapCache.terrainOf(remembered) == MinimapCache.terrainOf(rgb)
+                        : (remembered & 0xFFFFFF) == (rgb & 0xFFFFFF);
+                if (alike) agreed++;
                 else disagreed++;
             }
         }
