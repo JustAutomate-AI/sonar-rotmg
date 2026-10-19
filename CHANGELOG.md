@@ -2,14 +2,23 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.34.2
+
+**The realm is 2048 tiles wide, and the ladder has a rung too many for it**
+
+- 2.34.1 reasoned backwards from a count and got it wrong. The realm's minimap has six zoom levels — counted in the game — and since the number of rungs depends on the map's size alone, that looked like it fixed the realm at 1024 tiles wide. It does not. **The realm reports 2048**, which RealmShark's own Potato confirms by branching on exactly that number, and this ladder gives a 2048-tile map **seven** rungs.
+- So the ladder is one rung too long for the realm, and the self-test now says so instead of asserting the convenient reading. What is left standing is only what is true: the count does not depend on how big the minimap is drawn, and each doubling of the map's width adds exactly one rung.
+- **The count alone cannot say which end is wrong.** Dropping the whole-map rung at the bottom and halving the top rung both give six, at every map size. Telling them apart needs a scale rather than a count — how many tiles the minimap spans when it is zoomed the whole way in, which is 48 under one reading and 96 under the other. Until that is measured, nothing is changed in the ladder itself; a guess here would move every mark on the overlay.
+- No behaviour changes in this release. It corrects a claim that was wrong in 2.34.1's notes and replaces an assertion that asserted it.
+
 ## 2.34.1
 
 **The overlay says what size the map is**
 
-- Counted in the game: the realm's minimap has **six** zoom levels. Sonar's ladder gives six for the realm too, so the two agree — but only one thing decides how many rungs there are, and until now the overlay never said what that thing was.
+- Counted in the game: the realm's minimap has **six** zoom levels. Only one thing decides how many rungs the ladder has, and until now the overlay never said what that thing was. (**Corrected in 2.34.2:** this entry originally concluded from the count that the realm is 1024 tiles wide. It is 2048, and the ladder gives seven for it. The six and the seven do not agree.)
 - How many rungs the ladder has depends on the **map's size alone**. The minimap's own size cancels out of it: drawing the minimap bigger scales the top rung and the whole-map rung by the same factor, so a 192-pixel minimap and a 950-pixel one over the same map have exactly as many steps as each other. That is worth knowing because it means a disagreement over the number of steps is never a calibration problem and never a screen-size problem — it is only ever the map's size.
 - So the calibration readout now prints it: `map is 1024 x 1024 tiles`, beside the step it is on and out of how many. If the count ever disagrees with the game's again, the number that explains it is on screen.
-- Three assertions pin the realm's six: a 1024-tile map has six rungs at every minimap size tried, the count does not move with the minimap's size, and a map twice as wide has one more rung while half as wide has one fewer.
+- Three assertions cover it: the count does not move with the minimap's size, and each doubling of the map's width adds exactly one rung.
 
 ## 2.34.0
 
