@@ -8,7 +8,7 @@
 #
 #   gh attestation verify Sonar-<version>-setup.msi --repo JustAutomate-AI/sonar-rotmg
 #
-# The self-test is not run here. Its 217 assertions read the game's own sprite sheets,
+# The self-test is not run here. Its assertions read the game's own sprite sheets,
 # which only exist on a machine with Realm of the Mad God installed, so it stays a gate
 # that is passed locally before the tag is pushed.
 
@@ -39,6 +39,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          # Gradle's downloaded dependencies and wrapper, kept between runs. Without this
+          # every release re-resolved and re-downloaded the lot from a cold runner, which
+          # was the single largest step in the build.
+          cache: gradle
 
       - name: Work out the version
         id: v
@@ -55,13 +59,25 @@ jobs:
 
       - name: Build
         shell: pwsh
-        run: ./gradlew.bat shadowJar
+        # --build-cache reuses task outputs across runs alongside the dependency cache above;
+        # the daemon is pointless on a runner that is thrown away after one build.
+        run: ./gradlew.bat shadowJar --build-cache --no-daemon
 
       # jpackage needs WiX 3 to produce an MSI, and JDK 17 cannot use WiX 4 or later.
       # It is fetched here rather than taken from the runner image, which does not
       # reliably carry it, and the hash is checked so the build depends on one exact
       # artifact instead of whatever the URL happens to serve.
+      # WiX is the same 30MB zip every single time, pinned by hash below, so it is kept
+      # between runs rather than fetched from GitHub on each one.
+      - name: Reuse WiX if we already have it
+        id: wixcache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/wix314
+          key: wix-3.14.1-rtm
+
       - name: Fetch WiX 3.14
+        if: steps.wixcache.outputs.cache-hit != 'true'
         id: wix
         shell: pwsh
         run: |
@@ -76,7 +92,7 @@ jobs:
 
       - name: Package the zip, the installer and the checksums
         shell: pwsh
-        run: ./tools/make-package.ps1 -Version ${{ steps.v.outputs.version }} -Wix '${{ steps.wix.outputs.dir }}'
+        run: ./tools/make-package.ps1 -Version ${{ steps.v.outputs.version }} -Wix "$env:RUNNER_TEMP\wix314"
 
       - name: Check both files were produced
         shell: pwsh
@@ -95,7 +111,10 @@ jobs:
             dist/Sonar-${{ steps.v.outputs.version }}-windows.zip
             dist/Sonar-${{ steps.v.outputs.version }}-setup.msi
 
+      # Only for a run with no release to attach to. On a tag the same three files are
+      # uploaded to the release a few lines down, and uploading them twice is pure waiting.
       - name: Keep the build for inspection
+        if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
           name: sonar-${{ steps.v.outputs.version }}

@@ -360,7 +360,7 @@ class ShattersOverlayWindow extends JWindow {
     private boolean paintMap(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
         blankBecause = "";
         if (!drawMap) {
-            blankBecause = "map layer is switched off";
+            blankBecause = "Minimap is off in Sonar";
             return false;
         }
         java.awt.image.BufferedImage map = MinimapView.image();
@@ -819,8 +819,8 @@ class ShattersOverlayWindow extends JWindow {
                         MinimapSync.state()}
                 : new String[]{
                         "Sonar overlay",
-                        "the map layer is off",
-                        "press Minimap in Sonar to draw the ground",
+                        "Minimap is off in Sonar",
+                        "turn it on to draw the ground",
                         "in: " + where,
                         MinimapView.painted() + " tiles known and waiting"};
         paintPanel(g, w, h, lines);

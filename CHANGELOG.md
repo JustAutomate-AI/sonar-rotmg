@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.49.4
+
+**Releases build faster, and the panel names the button**
+
+- **Gradle's dependencies and task outputs are kept between runs.** Every release was re-resolving and re-downloading the lot onto a cold runner, which at 39 seconds was the largest step in the build. The daemon is also turned off, since it is pointless on a machine thrown away after one build.
+- **WiX is cached too.** It is the same 30MB zip every time, pinned by hash, and was being fetched from GitHub on every run.
+- **The build is no longer uploaded twice.** On a tag the three files go to the release; they were also being uploaded as a workflow artifact, which is the same bytes and the same wait. That step now runs only for builds with no release to attach to.
+- **The panel names the real button.** It said "the map layer is off", and there is no button called that — it is `Minimap`, beside `Overlay`. My name for it, not the app's.
+
 ## 2.49.3
 
 **Marks grow as you zoom out**
