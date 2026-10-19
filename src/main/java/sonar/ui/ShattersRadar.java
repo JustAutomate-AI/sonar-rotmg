@@ -208,12 +208,17 @@ final class ShattersRadar {
     private static volatile int mapWidth, mapHeight;
 
     /**
-     * Counts up once per map walked into.
+     * Counts up once per instance loaded into.
      * <p>
      * The overlay's zoom ladder is built from the map's size, so it has to be rebuilt when the
-     * map is - and the game resets its own minimap zoom at the same moment. Nothing in the
-     * packets announces a map change on its own; the name and the dimensions together do, and
-     * they are already read here every tick.
+     * map is - and the game resets its own minimap to full zoom at the same moment, confirmed
+     * in play rather than only read out of the client.
+     * <p>
+     * What marks the moment is the <b>seed</b>. The name and the dimensions look like they
+     * would do, and they do for a dungeon, but two Nexuses are the same name at the same size
+     * and so are two realms of the same name - the very hops where a zoom gets reset most
+     * often. The seed is what the game generates the instance from, so it is different for
+     * every instance even when nothing else is, and it already arrives in the same packet.
      */
     private static volatile int mapGeneration;
     private static volatile String mapKey = "";
@@ -221,6 +226,16 @@ final class ShattersRadar {
     static int mapGeneration() {
         return mapGeneration;
     }
+
+    /** Lets the self-test step the counter the way a map load does. */
+    static boolean sawNewInstance(String name, int w, int h, int seed) {
+        String key = name + "|" + w + "x" + h + "|" + seed;
+        if (key.equals(mapKey)) return false;
+        mapKey = key;
+        mapGeneration++;
+        return true;
+    }
+
     private static volatile boolean inShatters;
     /** Where the player was when the marks were last taken; NaN until known. */
     private static volatile float playerX = Float.NaN, playerY = Float.NaN;
@@ -316,11 +331,7 @@ final class ShattersRadar {
         inShatters = name.toLowerCase().contains("shatters");
         mapWidth = data.map.width;
         mapHeight = data.map.height;
-        String key = name + "|" + mapWidth + "x" + mapHeight;
-        if (!key.equals(mapKey)) {
-            mapKey = key;
-            mapGeneration++;
-        }
+        sawNewInstance(name, mapWidth, mapHeight, data.map.seed);
         if (portalTest) {
             trackTestMarks(data);
             return;
