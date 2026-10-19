@@ -150,7 +150,8 @@ class LiveView {
     });
     private boolean shattersEnabled = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.enabled"));
     private boolean shattersCalibrating;
-    private final SonarButton shattersRecentre = new SonarButton("Recentre", false, this::recentreShatters);
+    private final SonarButton shattersRecentre = new SonarButton("Find minimap", false, this::recentreShatters);
+    private final SonarButton shattersMap = new SonarButton("Map: on", true, this::toggleShattersMap);
     /** Marks portals anywhere, so calibration can be checked without waiting for a Shatters. */
     private final SonarButton shattersPortals = new SonarButton("Portals: off", false, this::togglePortalTest);
     private ShattersOverlayWindow shattersOverlay;
@@ -1014,6 +1015,11 @@ class LiveView {
         nav.add(shattersToggle);
         nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersRecentre);
+        shattersRecentre.setToolTipText("Finds your minimap in the game's window and puts the overlay exactly on it");
+        nav.add(javax.swing.Box.createHorizontalStrut(6));
+        nav.add(shattersMap);
+        shattersMap.setToolTipText("Draws the ground Sonar has seen under the marks, so the zoom is Sonar's own "
+                + "rather than a guess at the game's");
         nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersPortals);
         shattersPortals.setToolTipText("Mark portals instead, anywhere, so the overlay can be lined up without a Shatters");
@@ -1049,11 +1055,35 @@ class LiveView {
         refresh();
     }
 
-    /** Puts the overlay back over the minimap, for when it has wandered or was never placed. */
+    /**
+     * Finds the minimap and puts the overlay on it.
+     * <p>
+     * This used to drop the overlay on a guessed rectangle and switch calibration on so it
+     * could be dragged the rest of the way. It now looks for the real thing first - the
+     * minimap's frame has a colour nothing else on the HUD uses - and only falls back to the
+     * dragging when the search comes up empty, which it says rather than leaving somebody to
+     * wonder why the overlay moved somewhere odd.
+     */
     private void recentreShatters() {
+        if (shattersOverlay == null) toggleShatters();
         if (shattersOverlay == null) return;
-        shattersOverlay.resetPlacement();
-        if (!shattersCalibrating) toggleShattersCalibrate();
+        String what = shattersOverlay.alignToMinimap();
+        boolean found = what.startsWith("Lined up");
+        SonarNote.setPlain(what);
+        if (!found && !shattersCalibrating) toggleShattersCalibrate();
+        else if (found && shattersCalibrating) toggleShattersCalibrate();
+        refresh();
+    }
+
+    /** Draws the ground Sonar has seen under the marks, or goes back to marks alone. */
+    private void toggleShattersMap() {
+        if (shattersOverlay == null) toggleShatters();
+        if (shattersOverlay == null) return;
+        boolean on = !shattersOverlay.drawMap();
+        shattersOverlay.setDrawMap(on);
+        shattersMap.setText(on ? "Map: on" : "Map: off");
+        shattersMap.setPrimary(on);
+        refresh();
     }
 
     private void toggleShatters() {
@@ -2627,6 +2657,8 @@ class LiveView {
         report.accept("and each one stepped the count exactly once",
                 ShattersRadar.mapGeneration() - before == 3);
 
+        checkOwnMinimap(report);
+
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
         // way - so the sign is the thing worth pinning down
@@ -2647,6 +2679,67 @@ class LiveView {
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
                         && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
                         && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
+    }
+
+    /**
+     * Sonar's own minimap, and finding the game's.
+     * <p>
+     * The overlay spent its life trying to read a zoom the game does not publish. Drawing its
+     * own ground ends that, and finding the minimap by colour ends the dragging - both taken
+     * from RealmShark's Potato, which has worked this way for years.
+     */
+    private static void checkOwnMinimap(java.util.function.BiConsumer<String, Boolean> report) {
+        // The scan, on a picture drawn to the geometry measured off a real 2560x1440 game
+        // window: a five pixel frame in 0xFF7D7D7D flush to the top right corner, the darker
+        // 0xFF363636 border directly beneath it, and the map inside.
+        final int FRAME = -8553091, BORDER = -13224394, BLACK = 0xFF000000;
+        int W = 240, H = 200, bw = 120, bh = 130, thick = 5, x0 = W - bw;
+        java.awt.image.BufferedImage shot = new java.awt.image.BufferedImage(W, H, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D gg = shot.createGraphics();
+        gg.setColor(java.awt.Color.BLACK);
+        gg.fillRect(0, 0, W, H);
+        gg.setColor(new java.awt.Color(FRAME, true));
+        gg.fillRect(x0, 0, bw, bh);
+        gg.setColor(new java.awt.Color(BLACK, true));
+        gg.fillRect(x0 + thick, thick, bw - 2 * thick, bh - 2 * thick);
+        gg.setColor(new java.awt.Color(BORDER, true));
+        gg.fillRect(x0, bh, bw, 6);
+        gg.dispose();
+
+        java.awt.Rectangle got = MinimapLocator.findIn(shot, 0, 0);
+        report.accept("the minimap is found in the game's window by its own frame colour",
+                got != null && got.x == x0 + thick && got.y == thick
+                        && got.width == bw - 2 * thick && got.height == bh - 2 * thick + 1);
+        report.accept("and the frame it returns is the map, with the frame itself taken off",
+                got != null && got.width == 110 && got.height == 121);
+
+        // a window with no minimap in it must come back empty-handed and say why, never guess
+        java.awt.image.BufferedImage blank = new java.awt.image.BufferedImage(W, H, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        report.accept("a window with no minimap in it is not guessed at",
+                MinimapLocator.findIn(blank, 0, 0) == null && !MinimapLocator.trouble().isEmpty());
+
+        // the tile colours: the sheets store them as floats, and both conventions are in use
+        report.accept("a tile colour written nought to one comes out at full strength",
+                MinimapView.packForTest(new float[]{1f, 0f, 0f, 1f}) == 0xFFFF0000);
+        report.accept("and one written nought to 255 is not taken for nought to one",
+                MinimapView.packForTest(new float[]{255f, 128f, 0f, 255f}) == 0xFFFF8000);
+        report.accept("a tile that is pure black is still drawn as ground, not as unexplored",
+                MinimapView.packForTest(new float[]{0f, 0f, 0f, 1f}) != 0);
+
+        // the map itself: sized to the instance, painted as tiles land, forgotten on the next
+        MinimapView.reset(140, 140);
+        report.accept("a new instance gets a map its own size", MinimapView.width() == 140 && MinimapView.height() == 140);
+        int before = MinimapView.painted();
+        MinimapView.tile(5, 5, 1);
+        MinimapView.tile(-1, 5, 1);
+        MinimapView.tile(5, 9999, 1);
+        report.accept("tiles off the edge of the map are dropped rather than thrown",
+                MinimapView.painted() - before <= 1);
+        MinimapView.reset(2048, 2048);
+        report.accept("walking into the realm starts the map over", MinimapView.painted() == 0
+                && MinimapView.width() == 2048);
+        MinimapView.clear();
+        report.accept("and leaving the game forgets it", MinimapView.image() == null);
     }
 
     /**

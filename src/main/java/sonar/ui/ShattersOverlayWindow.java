@@ -129,6 +129,7 @@ class ShattersOverlayWindow extends JWindow {
         // what the minimap is showing, in tiles, so the clamp at the map's edge can be worked out
         double tilesWide = w / pixelsPerTile, tilesHigh = h / pixelsPerTile;
         double[] me = ShattersRadar.playerFromView(tilesWide, tilesHigh);
+        paintMap(g, w, h, tilesWide, tilesHigh);
         if (calibrating) {
             g.setColor(new Color(255, 255, 255, 50));
             g.drawOval((int) (cx - radius), (int) (cy - radius), (int) (radius * 2), (int) (radius * 2));
@@ -172,6 +173,62 @@ class ShattersOverlayWindow extends JWindow {
     }
 
     /**
+     * Sonar's own map, drawn under the marks.
+     * <p>
+     * This is the thing that makes the zoom stop mattering. While the overlay was only marks
+     * on the game's minimap, it had to be at the game's zoom or the marks sat on the wrong
+     * ground - and the game's zoom cannot be read, only guessed at from the ways a person
+     * might have changed it. Drawing the ground as well as the marks ends that: the two are
+     * at the same zoom because they are the same picture, and that zoom is whichever one was
+     * last asked for here.
+     * <p>
+     * One pixel per tile, scaled up with the nearest neighbour so the tiles stay square
+     * instead of smearing, and drawn at the transparency set in the options so the game's own
+     * minimap still reads through it. Where Sonar has not seen a tile it paints nothing, which
+     * leaves the game's own minimap showing in that square rather than a hole.
+     */
+    private void paintMap(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
+        if (!drawMap) return;
+        java.awt.image.BufferedImage map = MinimapView.image();
+        if (map == null) return;
+        double[] centre = ShattersRadar.viewCentre(tilesWide, tilesHigh);
+        if (centre == null) return;
+        double x0 = centre[0] - tilesWide / 2, y0 = centre[1] - tilesHigh / 2;
+        // the source rectangle can run off the map at the edges; drawImage clips it for us, so
+        // the destination is shifted by however much was cut rather than the picture stretched
+        int sx1 = (int) Math.floor(x0), sy1 = (int) Math.floor(y0);
+        int sx2 = (int) Math.ceil(x0 + tilesWide), sy2 = (int) Math.ceil(y0 + tilesHigh);
+        int dx1 = (int) Math.round((sx1 - x0) * pixelsPerTile), dy1 = (int) Math.round((sy1 - y0) * pixelsPerTile);
+        int dx2 = (int) Math.round((sx2 - x0) * pixelsPerTile), dy2 = (int) Math.round((sy2 - y0) * pixelsPerTile);
+        java.awt.Composite was = g.getComposite();
+        Object hint = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, mapAlpha()));
+        g.drawImage(map, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2, null);
+        g.setComposite(was);
+        if (hint != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
+    }
+
+    /** Whether Sonar draws its own ground under the marks. Off puts the overlay back to marks alone. */
+    private boolean drawMap = !"false".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.drawmap"));
+
+    void setDrawMap(boolean on) {
+        drawMap = on;
+        sonar.util.PropertiesManager.setProperties("sonar.shatters.drawmap", String.valueOf(on));
+        repaint();
+    }
+
+    boolean drawMap() {
+        return drawMap;
+    }
+
+    /** How solid Sonar's ground is drawn, nought to one. */
+    private float mapAlpha() {
+        int pct = getInt("sonar.shatters.mapalpha", 70);
+        return Math.max(0.05f, Math.min(1f, pct / 100f));
+    }
+
+    /**
      * The centre of this window stands for where you are, so calibration is
      * only ever "put this on top of my own icon". The game draws you as a gold
      * diamond, so the reticle is a gold diamond of the same size: line the two
@@ -207,6 +264,7 @@ class ShattersOverlayWindow extends JWindow {
                 String.format("%.2f px per tile", pixelsPerTile),
                 "zoom step " + (level + 1) + " of " + rungCount(),
                 mw > 0 ? "map is " + mw + " x " + mh + " tiles" : "map size not known yet",
+                drawMap ? MinimapView.painted() + " tiles drawn" : "drawing marks only",
                 w + " x " + h + " window",
                 where,
                 lastFix.isEmpty() ? "right-click a mark's real icon to set the scale" : lastFix,
@@ -375,11 +433,42 @@ class ShattersOverlayWindow extends JWindow {
      * zoom. Restores that level's calibrated scale if it has one.
      */
     void stepZoom(int by) {
-        int next = Math.max(0, Math.min(rungCount() - 1, level + by));
-        if (next == level) return;
-        level = next;
+        if (by == 0) return;
+        double next = by < 0 ? pixelsPerTile * 2 : pixelsPerTile / 2;
+        double floor = fitScale(), ceiling = MAX_SCALE;
+        // never past the whole map, and never so far in that one tile fills the frame
+        next = Math.max(Math.min(floor, ceiling), Math.min(ceiling, next));
+        if (Math.abs(next - pixelsPerTile) < 1e-9) return;
+        pixelsPerTile = next;
+        level = Math.max(0, Math.min(rungCount() - 1, level + by));
         sonar.util.PropertiesManager.setProperties("sonar.shatters.zoomlevel", String.valueOf(level));
-        pixelsPerTile = loadScale(level);
+        repaint();
+    }
+
+    /**
+     * The most zoomed out worth going: the whole map in the frame.
+     * <p>
+     * Past this the map sits in the middle of an empty window and every mark crowds into the
+     * same few pixels, so there is nothing below it worth having.
+     */
+    private double fitScale() {
+        int mw = ShattersRadar.mapWidth(), mh = ShattersRadar.mapHeight();
+        if (mw <= 0 || mh <= 0) return 0.05;
+        return Math.max(0.05, Math.min(getWidth() / (double) mw, getHeight() / (double) mh));
+    }
+
+    /**
+     * The zoom a fresh instance opens at.
+     * <p>
+     * The game puts its own minimap back to full zoom on every instance load, and Potato
+     * resets its zoom the same way, so a map walked into starts where the eye expects it:
+     * close in. Forty-eight tiles across is the game's own most zoomed-in step, which makes
+     * this the one rung Sonar and the game are certain to agree on.
+     */
+    private void resetZoomForNewInstance() {
+        double want = getWidth() / 48.0;
+        pixelsPerTile = Math.max(fitScale(), Math.min(MAX_SCALE, want));
+        level = 0;
         repaint();
     }
 
@@ -611,12 +700,33 @@ class ShattersOverlayWindow extends JWindow {
      * window.
      */
     void resetPlacement() {
-        Rectangle r = defaultBounds();
+        Rectangle found = MinimapLocator.find();
+        Rectangle r = found != null ? found : defaultBounds();
+        lastFix = found != null
+                ? "found your minimap: " + r.width + " x " + r.height
+                : "could not find your minimap - " + MinimapLocator.trouble();
         setBounds(r);
         saveBounds();
-        pixelsPerTile = loadScale(level);
-        saveScale();
+        saveHome();
+        resetZoomForNewInstance();
         repaint();
+    }
+
+    /**
+     * Puts the overlay on the minimap without anybody dragging it there.
+     * <p>
+     * Returns what happened rather than throwing or going quiet, because the one thing worse
+     * than not finding the minimap is moving the overlay somewhere wrong and saying nothing.
+     */
+    String alignToMinimap() {
+        Rectangle found = MinimapLocator.find();
+        if (found == null) return "Could not find your minimap - " + MinimapLocator.trouble() + ".";
+        setBounds(found);
+        saveBounds();
+        saveHome();
+        resetZoomForNewInstance();
+        repaint();
+        return "Lined up with your minimap: " + found.width + " by " + found.height + " pixels.";
     }
 
     private void saveBounds() {
@@ -767,7 +877,7 @@ class ShattersOverlayWindow extends JWindow {
         if (!box.contains(screenX, screenY)) return;
         // away from you is a lower rung, the same direction the plus button goes
         int by = notches > 0 ? -1 : 1;
-        int steps = Math.min(Math.abs(notches), rungCount());
+        int steps = Math.min(Math.abs(notches), 8);
         javax.swing.SwingUtilities.invokeLater(() -> {
             for (int i = 0; i < steps; i++) stepZoom(by);
         });
@@ -802,13 +912,8 @@ class ShattersOverlayWindow extends JWindow {
     private void followMapChange() {
         int now = ShattersRadar.mapGeneration();
         if (now == sawMap) return;
-        boolean first = sawMap < 0;
         sawMap = now;
-        int top = first ? Math.max(0, Math.min(rungCount() - 1, level)) : 0;
-        if (!first) sonar.util.PropertiesManager.setProperties("sonar.shatters.zoomlevel", "0");
-        level = top;
-        pixelsPerTile = loadScale(level);
-        repaint();
+        resetZoomForNewInstance();
     }
 
     private static final int GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x00080000, WS_EX_TRANSPARENT = 0x00000020;
