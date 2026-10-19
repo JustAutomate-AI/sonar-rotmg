@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.34.1
+
+**The overlay says what size the map is**
+
+- Counted in the game: the realm's minimap has **six** zoom levels. Sonar's ladder gives six for the realm too, so the two agree — but only one thing decides how many rungs there are, and until now the overlay never said what that thing was.
+- How many rungs the ladder has depends on the **map's size alone**. The minimap's own size cancels out of it: drawing the minimap bigger scales the top rung and the whole-map rung by the same factor, so a 192-pixel minimap and a 950-pixel one over the same map have exactly as many steps as each other. That is worth knowing because it means a disagreement over the number of steps is never a calibration problem and never a screen-size problem — it is only ever the map's size.
+- So the calibration readout now prints it: `map is 1024 x 1024 tiles`, beside the step it is on and out of how many. If the count ever disagrees with the game's again, the number that explains it is on screen.
+- Three assertions pin the realm's six: a 1024-tile map has six rungs at every minimap size tried, the count does not move with the minimap's size, and a map twice as wide has one more rung while half as wide has one fewer.
+
 ## 2.34.0
 
 **The overlay follows the wheel, which is the way the minimap is actually zoomed**
