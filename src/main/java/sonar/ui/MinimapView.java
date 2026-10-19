@@ -86,6 +86,8 @@ final class MinimapView {
      * Sonar is pointed at is a dungeon.
      */
     static synchronized void reset(int mapW, int mapH) {
+        System.out.println("[map] reset to " + mapW + "x" + mapH + " (was " + width + "x" + height
+                + ", " + painted + " tiles, " + fromWire + " from the wire)");
         int w = Math.max(1, Math.min(MOST, mapW)), h = Math.max(1, Math.min(MOST, mapH));
         image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         width = w;

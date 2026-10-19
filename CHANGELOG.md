@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.49.5
+
+**Lesser enemies stay small, and the map writes down what it is doing**
+
+- **Growth is spent on what is worth finding.** Every mark growing as the view widens makes a realm full of rats as loud as the god standing among them, which is the opposite of what zooming out is for. A sprite's own width decides: the game already draws big things big, so an eight-pixel rat barely grows and a boss grows to twice its size. No list to keep up to date.
+- **Every map load is written to the log**, along with what the picture was before it, and a complaint when the map Sonar is painting into is a different size from the map it is in. A tile outside that picture is silently dropped, which looks exactly like tiles not arriving — and the tile counts suggested that was happening, since three different instances in a row reported the same number of tiles "this run".
+
 ## 2.49.4
 
 **Releases build faster, and the panel names the button**
