@@ -3290,6 +3290,25 @@ class LiveView {
                 !MinimapCache.recognises(50, 50));
 
         // and realms are no longer refused outright, which was the mistake this replaces
+        // a recording of your own covers only where you have been, which is the gap the
+        // shipped library exists to fill - so one must not hide the other
+        java.awt.image.BufferedImage mine =
+                new java.awt.image.BufferedImage(60, 60, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 20; y++) for (int x = 0; x < 60; x++) mine.setRGB(x, y, 0xFF336699);
+        MinimapView.reset(60, 60);
+        MinimapView.prime(mine);
+        int knownBefore = MinimapView.painted();
+        java.awt.image.BufferedImage whole =
+                new java.awt.image.BufferedImage(60, 60, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 60; y++) for (int x = 0; x < 60; x++) whole.setRGB(x, y, 0xFF992211);
+        int filled = MinimapView.primeUnder(whole);
+        report.accept("a shipped map fills in only what is not known yet",
+                filled == 60 * 60 - knownBefore);
+        report.accept("and leaves what you walked exactly as it was",
+                MinimapView.image().getRGB(5, 5) == 0xFF336699
+                        && MinimapView.image().getRGB(5, 40) == 0xFF992211);
+        MinimapView.clear();
+
         report.accept("a realm is a map Sonar records, now that layouts can be told apart",
                 MinimapCache.remembers("Realm of the Mad God"));
         report.accept("layouts of one map are kept side by side rather than overwriting",

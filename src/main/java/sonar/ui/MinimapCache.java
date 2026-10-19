@@ -295,6 +295,7 @@ final class MinimapCache {
     }
 
     private static volatile boolean looking;
+    private static volatile boolean triedShipped;
     private static volatile int matchedLayout;
 
     /** Which numbered layout this instance was recognised as, or zero. */
@@ -316,16 +317,23 @@ final class MinimapCache {
      * and direction by, not a survey.
      */
     static void lookForLayout(String mapName, int w, int h) {
-        if (looking || matchedLayout != 0) return;
+        if (looking || triedShipped) return;
         if (!remembers(mapName)) return;
-        if (MinimapView.recalling()) return;            // already drawing a remembered map
+        // It used to stop here if any recording was already in place, on the reasoning that a
+        // map being drawn needs no second one. That was wrong, and it made the shipped library
+        // unreachable for anybody who had ever walked the map before: a recording of your own
+        // covers only where you have been, which is exactly the gap the library exists to
+        // fill. So a recording no longer blocks the search - it is filled in under.
         if (MinimapView.fromWire() < ENOUGH_TO_RECOGNISE * 3) return;
         looking = true;
+        triedShipped = true;
         Thread t = new Thread(() -> {
             try {
                 BufferedImage live = MinimapView.copy();
                 if (live == null) return;
-                java.util.List<File> layouts = layoutsOf(mapName, w, h);
+                java.util.List<File> layouts = matchedLayout != 0
+                        ? java.util.Collections.<File>emptyList()   // already using one of mine
+                        : layoutsOf(mapName, w, h);
                 File best = null;
                 int bestAgreed = 0, bestCompared = 0;
                 for (int i = 0; i < layouts.size(); i++) {
@@ -375,7 +383,9 @@ final class MinimapCache {
                     matchedShipped = worldNo;
                     shippedScore = worldAgreed + " of " + worldCompared;
                     MinimapView.setRecalledIsApproximate(true);
-                    int put = MinimapView.prime(world);
+                    // under, not over: everything already known came off the wire or out of a
+                    // recording of this person's own, and both are better evidence than a render
+                    int put = MinimapView.primeUnder(world);
                     lastRecalled = "world " + worldNo + ", recognised from the ground you walked ("
                             + shippedScore + " squares agreed)";
                     trouble = "";
@@ -420,6 +430,7 @@ final class MinimapCache {
         openH = h;
         matchedLayout = 0;
         matchedShipped = 0;
+        triedShipped = false;
         shippedScore = "";
         MinimapView.setRecalledIsApproximate(false);
         keptAt = System.currentTimeMillis();
