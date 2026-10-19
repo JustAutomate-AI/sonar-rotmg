@@ -3218,7 +3218,7 @@ class LiveView {
             int bestAt = -1, bestAgreed = -1, runnerUp = -1;
             for (int j = 0; j < worlds.size(); j++) {
                 int[] score = MinimapCache.agreementByCoast(walked, worlds.get(j));
-                if (!MinimapCache.recognises(score[0], score[1])) continue;
+                if (!MinimapCache.recognisesCoast(score[0], score[1])) continue;
                 if (score[0] > bestAgreed) {
                     runnerUp = bestAgreed;
                     bestAgreed = score[0];

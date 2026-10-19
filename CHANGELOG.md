@@ -2,6 +2,22 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.53.0
+
+**The Nexus and the Vault are whole the moment you arrive**
+
+- **The Vault ships complete** — room, island, chests — and **the Halloween Nexus ships complete**: four times the ground anyone had walked, from a render of this season's layout found on the Nexus wiki page and aligned against a real recording of it (93.8% of the recorded floor lands on the render's floor; the red carpet lines up).
+- **Your own recording no longer hides the complete map.** Sonar used the recording you had and only looked at the shipped map if you had none — so walking a map once was enough to hide the whole copy of it for ever. The Vault shipped whole in 2.52.0 and showed as three rooms, because three rooms was what had been walked. The shipped map goes down first now and your recording goes over it.
+- **A failed world match is said and logged** instead of leaving `your own runs` standing alone on the status line as if that were the whole story.
+
+**The realm is whole the moment you arrive, and it is the right one**
+
+- **RealmEye's chart of the realm is the current realm, and it ships aligned to the tile grid.** Scored against a real recording by balanced coastline accuracy — water and land counted separately so that "put the beach anywhere on land" cannot win — it reaches **91%**: 96% of recorded water is water on the chart and 86% of recorded land is land. The alignment is scale 1.035, offset (−332, −180), which puts the spawn beach exactly on the chart's sandy south-west coast.
+- **It is laid down the instant a realm loads**, under whatever has been walked, and the coast keeps voting on it as tiles arrive. There is one layout, so there is nothing to wait for.
+- **Every other candidate was tested the same way and refused.** Potato's thirteen worlds, fetched from RealmShark's repository with their tile fingerprints, score **zero exact matches** in Sonar's own palette across thousands of squares — they predate the realm rework and describe a game that no longer exists. The five world renders reach 75–85% only under a free search and about 50% in place. None ships.
+- **Recognition is by balanced coastline now.** Plain agreement let a wrong map score the land fraction for free; the right map scores about ninety on the balanced measure, the wrong ones fifty to seventy, which is a gap a threshold can sit in.
+- "1,961 this run" is the sight radius (π × 25²), confirmed from the log: every reset happens as it should.
+
 ## 2.52.0
 
 **An update is never visible before it can be installed**
