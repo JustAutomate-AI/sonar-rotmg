@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.48.2
+
+**The overlay explains an empty map even when marks are on it**
+
+Reported: a realm with people, beacons and enemies drawn all over it and no ground underneath them, and nothing on screen saying why.
+
+- **The panel that knew the answer had been silenced.** It only appeared when *nothing at all* was drawn, so the moment there were marks it went quiet — which is exactly the case that most needed explaining. Marks proved the overlay was alive, so missing ground looked deliberate. It now appears whenever the ground layer drew nothing, marks or no marks.
+- **A failed world match says how close it got**: `none of the 5 known worlds matched (best was 410 of 1,900)`. A match that misses by a hair and a match that misses by a mile are different problems, and they looked identical.
+- **Layouts are loaded one at a time.** The library was being decoded all at once to compare against — at a realm's size that is eighty megabytes of image held together, on top of the sixteen the live map already costs. Matching only ever needs one at a time.
+
 ## 2.48.1
 
 **The overlay says which map it just laid down**
