@@ -533,6 +533,20 @@ class ShattersOverlayWindow extends JWindow {
                 ? (ShattersRadar.mapName().isEmpty() ? "an instance" : ShattersRadar.mapName())
                 + " " + ShattersRadar.mapWidth() + "x" + ShattersRadar.mapHeight()
                 : "no instance seen yet";
+        // The sniffer being off explains every other line at once, so it is not a line - it
+        // replaces them. Without it there are no packets, so there is no instance, no ground
+        // and no position, and the panel was reporting all three as though each were its own
+        // fault. Five true statements, none of them the useful one.
+        if (!snifferRunning()) {
+            String[] off = {
+                    "Sonar overlay",
+                    "the sniffer is not running",
+                    "nothing can be drawn without it:",
+                    "no map, no ground, no position",
+                    "start it from Sonar's title bar"};
+            paintPanel(g, w, h, off);
+            return;
+        }
         String[] lines = {
                 "Sonar overlay",
                 blankBecause.isEmpty() ? "nothing to draw" : blankBecause,
@@ -542,6 +556,19 @@ class ShattersOverlayWindow extends JWindow {
                 ShattersRadar.viewCentre(10, 10) == null ? "you are not placed yet" : "you are placed",
                 clickLine(),
                 MinimapSync.state()};
+        paintPanel(g, w, h, lines);
+    }
+
+    /** Whether packets are arriving at all. Everything else the panel says depends on it. */
+    static boolean snifferRunning() {
+        try {
+            return sonar.backend.Sniffer.isRunning();
+        } catch (Throwable e) {
+            return true;   // cannot tell; do not blame the sniffer for something else
+        }
+    }
+
+    private void paintPanel(Graphics2D g, int w, int h, String[] lines) {
         g.setFont(SonarTheme.font(10f));
         FontMetrics fm = g.getFontMetrics();
         int tw = 0;
