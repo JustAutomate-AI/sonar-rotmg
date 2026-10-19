@@ -395,8 +395,12 @@ final class ShattersRadar {
         mapHeight = data.map.height;
         if (sawNewInstance(name, mapWidth, mapHeight, data.map.seed)) {
             // the tiles of the instance just left mean nothing here, and the new one's are
-            // already arriving: the first update packet lands with the map info
+            // already arriving: the first update packet lands with the map info. In that order:
+            // keep what was walked before it is wiped, wipe it, then hand back whatever Sonar
+            // already knows about where we have just arrived.
+            MinimapCache.remember();
             MinimapView.reset(mapWidth, mapHeight);
+            MinimapCache.recall(name, mapWidth, mapHeight);
         }
         // Where you are, set before anything decides this is not a Shatters.
         //

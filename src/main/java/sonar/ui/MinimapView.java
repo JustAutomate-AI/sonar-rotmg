@@ -24,6 +24,12 @@ import java.awt.image.BufferedImage;
  * whatever zoom it is on. A tile that has not been seen stays transparent, which is the right
  * answer twice over: it is what the game's own minimap does with unexplored ground, and it
  * lets the game's minimap show through underneath wherever Sonar has nothing to say.
+ * <p>
+ * One thing Potato's images do buy, which live tiles alone cannot: a map is whole the moment
+ * you walk in, not as you walk it. {@link MinimapCache} gets that back for any map whose
+ * layout does not change between runs, by keeping each run's tiles and handing them back on
+ * the way in - so the ground here can be a mix of what the game has sent this run and what it
+ * sent the last one, and this class knows which is which so a wrong recording can be caught.
  */
 final class MinimapView {
 
@@ -38,6 +44,27 @@ final class MinimapView {
     private static volatile int painted;
 
     /**
+     * The recording this instance was handed on the way in, kept to be checked against.
+     * <p>
+     * A recalled map is a claim about ground nobody has looked at yet, so it has to be able to
+     * be wrong. Every tile the game sends for a square the recording already had an opinion
+     * about is a vote, and once enough votes are in a recording that disagrees with the wire is
+     * thrown away. That is what makes the feature safe to widen past the one fixed map it
+     * starts on: a wrong recording costs a few hundred tiles of staleness, not a wrong map for
+     * the whole run.
+     */
+    private static volatile BufferedImage recalled;
+    private static volatile int agreed, disagreed;
+    private static volatile boolean judged;
+
+    /** Squares this run's own packets painted, so a thrown-away recording does not take them with it. */
+    private static volatile java.util.BitSet wire;
+    private static volatile int fromWire;
+
+    /** Enough tiles to tell a right recording from a wrong one; a handful of them never would. */
+    private static final int ENOUGH_TO_JUDGE = 1200;
+
+    /**
      * Starts a fresh map for a new instance.
      * <p>
      * Sized to the map rather than to the largest map there is: a dungeon 140 tiles across
@@ -50,12 +77,81 @@ final class MinimapView {
         width = w;
         height = h;
         painted = 0;
+        recalled = null;
+        agreed = disagreed = fromWire = 0;
+        judged = false;
+        wire = new java.util.BitSet(w * h);
     }
 
     /** Forgets the map without starting another; the next instance will size its own. */
     static synchronized void clear() {
         image = null;
         width = height = painted = 0;
+        recalled = null;
+        agreed = disagreed = fromWire = 0;
+        judged = false;
+        wire = null;
+    }
+
+    /**
+     * Lays a recording under the fresh map, and keeps it to be checked against.
+     * <p>
+     * Returns the number of squares it put down. Called by {@link MinimapCache} the moment
+     * after {@link #reset}, before any of the instance's own tiles have arrived, so nothing
+     * live is ever painted over by something remembered.
+     */
+    static synchronized int prime(BufferedImage recording) {
+        BufferedImage img = image;
+        if (img == null || recording == null) return 0;
+        int w = Math.min(width, recording.getWidth()), h = Math.min(height, recording.getHeight());
+        int laid = 0;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int argb = recording.getRGB(x, y);
+                if ((argb >>> 24) == 0) continue;
+                img.setRGB(x, y, argb);
+                laid++;
+            }
+        }
+        recalled = recording;
+        agreed = disagreed = 0;
+        judged = false;
+        painted += laid;
+        return laid;
+    }
+
+    /**
+     * Throws the recording away, keeping every square this run's own packets painted.
+     * <p>
+     * The map goes back to what has actually been walked, which is what it would have been
+     * without a recording at all.
+     */
+    static synchronized void forgetRecalled() {
+        recalled = null;
+        judged = true;
+        BufferedImage img = image;
+        if (img == null) return;
+        java.util.BitSet seen = wire;
+        int kept = 0;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (seen != null && seen.get(x + y * width)) {
+                    kept++;
+                    continue;
+                }
+                img.setRGB(x, y, 0);
+            }
+        }
+        painted = kept;
+    }
+
+    /** A still copy of the map, for writing to disk while the live one carries on. */
+    static synchronized BufferedImage copy() {
+        BufferedImage img = image;
+        if (img == null) return null;
+        BufferedImage out = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        out.getGraphics().drawImage(img, 0, 0, null);
+        return out;
     }
 
     /**
@@ -66,13 +162,45 @@ final class MinimapView {
      * arrive in bursts of hundreds as the map is explored, and this is on the packet thread.
      */
     static void tile(int x, int y, int type) {
-        BufferedImage img = image;
-        if (img == null || type <= 0) return;
-        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        if (type <= 0) return;
         int rgb = colourOf(type);
         if (rgb == 0) return;
+        paint(x, y, rgb);
+    }
+
+    /**
+     * One square, in a colour already worked out.
+     * <p>
+     * Split from {@link #tile} so the agreement checking can be exercised without the extracted
+     * assets, which a self-test run may not have: a tile id is only a colour if the sheets are
+     * there to say which.
+     */
+    private static void paint(int x, int y, int rgb) {
+        BufferedImage img = image;
+        if (img == null) return;
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        BufferedImage memory = recalled;
+        if (memory != null && x < memory.getWidth() && y < memory.getHeight()) {
+            int remembered = memory.getRGB(x, y);
+            if ((remembered >>> 24) != 0) {
+                if ((remembered & 0xFFFFFF) == (rgb & 0xFFFFFF)) agreed++;
+                else disagreed++;
+            }
+        }
+        if ((img.getRGB(x, y) >>> 24) == 0) painted++;
         img.setRGB(x, y, rgb);
-        painted++;
+        java.util.BitSet seen = wire;
+        if (seen != null) {
+            int bit = x + y * width;
+            if (bit >= 0 && !seen.get(bit)) {
+                seen.set(bit);
+                fromWire++;
+            }
+        }
+        if (!judged && memory != null && agreed + disagreed >= ENOUGH_TO_JUDGE) {
+            judged = true;
+            if (disagreed > agreed) forgetRecalled();
+        }
     }
 
     /**
@@ -135,6 +263,29 @@ final class MinimapView {
     /** How many tiles have been painted, which is how much of the map has been walked. */
     static int painted() {
         return painted;
+    }
+
+    /** Lets the self-test paint a square in a colour of its choosing, assets or no assets. */
+    static void paintForTest(int x, int y, int rgb) {
+        paint(x, y, rgb);
+    }
+
+    /** How many squares this run's own packets have painted, recording aside. */
+    static int fromWire() {
+        return fromWire;
+    }
+
+    /** Whether the map on screen still includes ground Sonar was handed rather than sent. */
+    static boolean recalling() {
+        return recalled != null;
+    }
+
+    static int agreed() {
+        return agreed;
+    }
+
+    static int disagreed() {
+        return disagreed;
     }
 
     /** Lets the self-test work the colour table without the game or a packet. */

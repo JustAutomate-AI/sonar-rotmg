@@ -2709,6 +2709,7 @@ class LiveView {
                 ShattersRadar.mapGeneration() - before == 3);
 
         checkOwnMinimap(report);
+        checkRememberedMap(report);
         checkHistorySaves(report);
         checkOverlayOutsideShatters(report);
         checkPuzzleResetsPerInstance(report);
@@ -3085,6 +3086,103 @@ class LiveView {
                 && MinimapView.width() == 2048);
         MinimapView.clear();
         report.accept("and leaving the game forgets it", MinimapView.image() == null);
+    }
+
+    /**
+     * A fixed map is learned once and handed back every run after.
+     * <p>
+     * The whole claim of the feature is that ground Sonar was never sent this run is still
+     * right, so the checks are about the two ways that can go wrong: handing back a recording
+     * of a map that is generated fresh each time, and handing back one that has gone stale.
+     * The first is refused by name, the second is caught by counting how often the wire
+     * disagrees and throwing the recording away when it loses.
+     * <p>
+     * Uses a map named so it passes the real gate and collides with nothing real, and takes
+     * its own files away afterwards.
+     */
+    private static void checkRememberedMap(java.util.function.BiConsumer<String, Boolean> report) {
+        final String kept = "Shatters Self Test";
+        final int W = 40, H = 40;
+        java.io.File file = MinimapCache.fileForTest(kept, W, H);
+        if (file.isFile()) file.delete();
+
+        report.accept("the Shatters is a map Sonar keeps", MinimapCache.remembers("The Shatters"));
+        report.accept("a realm is not, because it is built fresh every time",
+                !MinimapCache.remembers("Realm of the Mad God"));
+        report.accept("and nothing is kept for a map with no name", !MinimapCache.remembers(""));
+        report.accept("a realm stays refused even when every other map is being kept",
+                !MinimapCache.remembers("Realm of the Mad God"));
+        report.accept("a map name becomes one file name however it is capitalised",
+                MinimapCache.slug("The Shatters").equals(MinimapCache.slug("the shatters"))
+                        && MinimapCache.slug("The Shatters").equals("the-shatters"));
+        report.accept("and the size is part of it, so a map that changed size is a new recording",
+                MinimapCache.fileName("The Shatters", 140, 140).equals("the-shatters-140x140.png"));
+
+        // a run: paint a short diagonal, then keep it
+        MinimapView.reset(W, H);
+        for (int i = 0; i < 10; i++) MinimapView.paintForTest(i, i, 0xFF203040);
+        MinimapCache.openForTest(kept, W, H);
+        int written = MinimapCache.writeAndCountForTest(kept, W, H, MinimapView.copy());
+        report.accept("a run's ground is written out when the instance changes", written == 10);
+
+        // the next run: the map is there before a single tile has arrived
+        MinimapView.reset(W, H);
+        int primed = MinimapCache.recall(kept, W, H);
+        report.accept("and handed back on the way in, before any tile has arrived",
+                primed == 10 && MinimapView.painted() == 10 && MinimapView.fromWire() == 0);
+        report.accept("the overlay says where that ground came from",
+                !MinimapCache.lastRecalledFrom().isEmpty());
+
+        // a second run that walks somewhere else: the recording gains ground rather than losing it
+        for (int i = 0; i < 10; i++) MinimapView.paintForTest(20 + i, 5, 0xFF203040);
+        int merged = MinimapCache.writeAndCountForTest(kept, W, H, MinimapView.copy());
+        report.accept("a map completes itself over several runs instead of needing one perfect run",
+                merged == 20);
+
+        // the newer run wins where the two disagree, because it came off the wire just now
+        java.awt.image.BufferedImage older = new java.awt.image.BufferedImage(4, 4, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.image.BufferedImage newer = new java.awt.image.BufferedImage(4, 4, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        older.setRGB(0, 0, 0xFFAA0000);
+        older.setRGB(1, 1, 0xFF00AA00);
+        newer.setRGB(0, 0, 0xFF0000AA);
+        java.awt.image.BufferedImage both = MinimapCache.merge(older, newer);
+        report.accept("where two runs disagree the newer one wins",
+                both.getRGB(0, 0) == 0xFF0000AA && both.getRGB(1, 1) == 0xFF00AA00);
+
+        // a recording that does not match what the game is sending is dropped, not trusted
+        MinimapView.reset(60, 60);
+        java.awt.image.BufferedImage wrong = new java.awt.image.BufferedImage(60, 60, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 60; y++) for (int x = 0; x < 60; x++) wrong.setRGB(x, y, 0xFFFF0000);
+        int laid = MinimapView.prime(wrong);
+        report.accept("a recording covers the map it was made of", laid == 3600);
+        for (int y = 0; y < 40; y++) for (int x = 0; x < 40; x++) MinimapView.paintForTest(x, y, 0xFF00FF00);
+        report.accept("a recording the game keeps contradicting is thrown away",
+                !MinimapView.recalling() && MinimapView.disagreed() > MinimapView.agreed());
+        report.accept("and what was actually walked survives it being thrown away",
+                MinimapView.painted() == MinimapView.fromWire() && MinimapView.fromWire() == 1600);
+
+        // and one the game agrees with is kept
+        MinimapView.reset(60, 60);
+        MinimapView.prime(wrong);
+        for (int y = 0; y < 40; y++) for (int x = 0; x < 40; x++) MinimapView.paintForTest(x, y, 0xFFFF0000);
+        report.accept("a recording the game keeps confirming is kept", MinimapView.recalling());
+
+        // a map Sonar does not keep gets nothing, and says so rather than guessing
+        MinimapView.reset(2048, 2048);
+        int none = MinimapCache.recall("Realm of the Mad God", 2048, 2048);
+        report.accept("no ground is invented for a map that is built fresh every time",
+                none == 0 && MinimapView.painted() == 0 && !MinimapCache.lastTrouble().isEmpty());
+        report.accept("and nothing is recorded for it either", MinimapCache.openMapForTest().isEmpty());
+
+        // a recording of the wrong size is refused rather than stretched over the map
+        MinimapView.reset(80, 80);
+        int mismatched = MinimapCache.recall(kept, 80, 80);
+        report.accept("a recording that does not fit the map is refused, not stretched",
+                mismatched == 0 && MinimapView.painted() == 0);
+
+        MinimapView.clear();
+        file.delete();
+        report.accept("the self-test leaves no recording of its own behind", !file.isFile());
     }
 
     /**

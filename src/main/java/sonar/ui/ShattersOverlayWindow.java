@@ -352,6 +352,25 @@ class ShattersOverlayWindow extends JWindow {
     }
 
     /** What calibration needs to know while it is being done, in the window's own corner. */
+    /**
+     * What part of the ground on screen was remembered rather than sent this run.
+     * <p>
+     * Worth a few characters on the readout, because a map that is complete before you have
+     * walked it looks like a bug until you know why it is not one - and because a recording
+     * that gets thrown away for disagreeing with the wire should say so rather than quietly
+     * emptying the map.
+     */
+    private static String recalledNote() {
+        if (MinimapView.recalling()) {
+            int wire = MinimapView.fromWire();
+            return ", " + wire + " this run";
+        }
+        if (MinimapView.disagreed() > 0 && MinimapView.disagreed() > MinimapView.agreed()) {
+            return ", recording dropped - it did not match";
+        }
+        return "";
+    }
+
     private void paintReadout(Graphics2D g, int w, int h) {
         int found = ShattersRadar.marks().size();
         String where = ShattersRadar.offsetFromPlayer(new ShattersRadar.Mark(0, 0, 0)) == null
@@ -363,7 +382,7 @@ class ShattersOverlayWindow extends JWindow {
                 String.format("%.2f px per tile", pixelsPerTile),
                 "zoom step " + (level + 1) + " of " + rungCount(),
                 mw > 0 ? "map is " + mw + " x " + mh + " tiles" : "map size not known yet",
-                drawMap ? MinimapView.painted() + " tiles drawn" : "drawing marks only",
+                drawMap ? MinimapView.painted() + " tiles drawn" + recalledNote() : "drawing marks only",
                 w + " x " + h + " window",
                 where,
                 lastFix.isEmpty() ? "right-click a mark's real icon to set the scale" : lastFix,
