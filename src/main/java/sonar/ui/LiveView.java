@@ -2533,6 +2533,22 @@ class LiveView {
         }
         report.accept("the ladder matches the game's own algorithm at every size tried", agrees);
 
+        // Ground truth, counted in the game: the realm's minimap has six zoom levels. How many
+        // rungs the ladder has turns out to depend on the map's size alone - the frame cancels
+        // out of it, because growing the minimap scales the top rung and the whole-map rung by
+        // the same factor - so six rungs says what size the realm is, and nothing else can.
+        boolean sixEverywhere = true;
+        for (int frame : new int[]{192, 448, 475, 950}) {
+            if (ShattersOverlayWindow.ladderFor(frame, frame, 1024, 1024).length != 6) sixEverywhere = false;
+        }
+        report.accept("a 1024-tile map has six zoom levels, which is what the realm has", sixEverywhere);
+        report.accept("and how many rungs there are does not depend on how big the minimap is drawn",
+                ShattersOverlayWindow.ladderFor(192, 192, 1024, 1024).length
+                        == ShattersOverlayWindow.ladderFor(950, 950, 1024, 1024).length);
+        report.accept("a map twice as wide has one more rung, and half as wide one fewer",
+                ShattersOverlayWindow.ladderFor(475, 478, 2048, 2048).length == 7
+                        && ShattersOverlayWindow.ladderFor(475, 478, 512, 512).length == 5);
+
         // the old model said 480 tiles across at the first step; the real base is 192, so on a
         // frame the size of the user's minimap the two differ by about the factor measured off a
         // screenshot of the Nexus - roughly 2.4

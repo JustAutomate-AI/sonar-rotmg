@@ -200,9 +200,13 @@ class ShattersOverlayWindow extends JWindow {
         int found = ShattersRadar.marks().size();
         String where = ShattersRadar.offsetFromPlayer(new ShattersRadar.Mark(0, 0, 0)) == null
                 ? "you are not placed yet" : found + (found == 1 ? " mark" : " marks");
+        // the map's own size is the only input to how many rungs there are, so it is the first
+        // thing to read when the overlay's count disagrees with the game's
+        int mw = ShattersRadar.mapWidth(), mh = ShattersRadar.mapHeight();
         String[] lines = {
                 String.format("%.2f px per tile", pixelsPerTile),
                 "zoom step " + (level + 1) + " of " + rungCount(),
+                mw > 0 ? "map is " + mw + " x " + mh + " tiles" : "map size not known yet",
                 w + " x " + h + " window",
                 where,
                 lastFix.isEmpty() ? "right-click a mark's real icon to set the scale" : lastFix,
