@@ -151,6 +151,7 @@ class LiveView {
     private boolean shattersEnabled = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.enabled"));
     private boolean shattersCalibrating;
     private final SonarButton shattersRecentre = new SonarButton("Find minimap", false, this::recentreShatters);
+    private final SonarButton shattersMap = new SonarButton("Map: off", false, this::toggleShattersMap);
     /** Marks portals anywhere, so calibration can be checked without waiting for a Shatters. */
     private final SonarButton shattersPortals = new SonarButton("Portals: off", false, this::togglePortalTest);
     private ShattersOverlayWindow shattersOverlay;
@@ -1026,6 +1027,10 @@ class LiveView {
         javax.swing.Box nav = javax.swing.Box.createHorizontalBox();
         nav.add(shattersToggle);
         nav.add(javax.swing.Box.createHorizontalStrut(6));
+        nav.add(shattersMap);
+        shattersMap.setToolTipText("Draw the ground Sonar has seen over your minimap. Off by default: it is at "
+                + "Sonar's own zoom, not the game's, so it sits on top of your minimap rather than matching it");
+        nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersCalibrate);
         nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersRecentre);
@@ -1040,6 +1045,10 @@ class LiveView {
 
     /** Only shows the by-hand buttons when finding the minimap did not work. */
     private void syncShattersButtons() {
+        boolean on = shattersOverlay != null && shattersOverlay.drawMap();
+        shattersMap.setText(on ? "Map: on" : "Map: off");
+        shattersMap.setPrimary(on);
+        shattersMap.setVisible(shattersEnabled);
         boolean stuck = shattersEnabled && !alignedAutomatically;
         shattersCalibrate.setVisible(stuck);
         shattersRecentre.setVisible(stuck);
@@ -1107,11 +1116,18 @@ class LiveView {
      */
     private void overlayOn() {
         if (shattersOverlay == null) return;
-        shattersOverlay.setDrawMap(true);
         String what = shattersOverlay.alignToMinimap();
         alignedAutomatically = what.startsWith("Lined up");
         if (!alignedAutomatically) SonarNote.setPlain(what + " Line it up by hand instead.");
         syncShattersButtons();
+    }
+
+    /** Turns Sonar's own ground on or off over the game's minimap. */
+    private void toggleShattersMap() {
+        if (shattersOverlay == null) return;
+        shattersOverlay.setDrawMap(!shattersOverlay.drawMap());
+        syncShattersButtons();
+        refresh();
     }
 
     private void toggleShatters() {
