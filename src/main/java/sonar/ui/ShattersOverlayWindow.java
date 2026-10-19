@@ -554,7 +554,7 @@ class ShattersOverlayWindow extends JWindow {
                 paintReticle(g, x, y, w, h);
                 continue;
             }
-            paintMark(g, m.type, m.kindId(), x, y);
+            paintMark(g, m.type, m.kindId(), x, y, tilesWide);
         }
     }
 
@@ -567,7 +567,7 @@ class ShattersOverlayWindow extends JWindow {
      * diamonds, and those two shapes are most of what is on a realm minimap. Matching them
      * costs nothing and means the picture can be read by somebody who has never been told how.
      */
-    private void paintMark(Graphics2D g, int kind, int id, int x, int y) {
+    private void paintMark(Graphics2D g, int kind, int id, int x, int y, double tilesWide) {
         if (kind == ShattersRadar.ALLY) {
             g.setColor(new Color(0, 0, 0, 170));
             g.fillOval(x - 5, y - 5, 10, 10);
@@ -586,7 +586,7 @@ class ShattersOverlayWindow extends JWindow {
                 // Big enough to recognise and outlined, because a sprite at fourteen pixels on
                 // black ground is a smudge: these are drawn at the size the damage board draws
                 // them, with the same dark outline it uses to lift them off the background.
-                int size = FACE_SIZE;
+                int size = faceSizeFor(tilesWide);
                 g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
                 return;
             }
@@ -615,13 +615,29 @@ class ShattersOverlayWindow extends JWindow {
     private static final int FACE_SIZE = Math.max(10, Math.min(48,
             getInt("sonar.shatters.marksize", 26)));
 
+    /**
+     * How big a thing is drawn, given how much map is on screen.
+     * <p>
+     * A mark drawn at a fixed number of pixels keeps the same size whatever the zoom, which
+     * sounds right and is not: zoomed out, the ground it sits on is a whole realm and a
+     * mark that was legible over forty tiles is lost over two thousand. So it grows as the
+     * view widens, up to twice its size, which keeps it findable without letting it swallow
+     * the map it is drawn on.
+     */
+    static int faceSizeFor(double tilesWide) {
+        double grow = Math.max(1.0, Math.min(2.0, tilesWide / 96.0));
+        return (int) Math.round(FACE_SIZE * grow);
+    }
+
     private static java.awt.image.BufferedImage faceOf(int objectType) {
         if (objectType <= 0) return null;
         java.awt.image.BufferedImage known = FACES.get(objectType);
         if (known != null) return known == NO_FACE ? null : known;
         java.awt.image.BufferedImage got = null;
         try {
-            javax.swing.ImageIcon icon = sonar.assets.ImageBuffer.getOutlinedIcon(objectType, FACE_SIZE);
+            // drawn at the largest size it will ever be asked for, and scaled down from there,
+            // so zooming does not re-cut every sprite
+            javax.swing.ImageIcon icon = sonar.assets.ImageBuffer.getOutlinedIcon(objectType, FACE_SIZE * 2);
             if (icon != null && icon.getIconWidth() > 0) {
                 java.awt.image.BufferedImage b = new java.awt.image.BufferedImage(
                         icon.getIconWidth(), icon.getIconHeight(), java.awt.image.BufferedImage.TYPE_INT_ARGB);

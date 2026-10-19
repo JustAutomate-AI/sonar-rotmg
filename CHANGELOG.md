@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.49.3
+
+**Marks grow as you zoom out**
+
+- A mark drawn at a fixed number of pixels keeps the same size at every zoom, which sounds right and is not: zoomed out, the ground beneath it is a whole realm, and a mark that was legible over forty tiles is lost over two thousand. Marks now grow as the view widens — up to twice their size, never more, so they stay findable without swallowing the map they are drawn on.
+- Each sprite is cut once at the largest size it will ever be asked for and scaled down from there, so zooming does not re-cut every sprite on the map.
+
 ## 2.49.2
 
 **Things on the map are big enough to recognise, and the map stops vanishing**
