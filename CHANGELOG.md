@@ -2,6 +2,19 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.48.0
+
+**Sonar knows which realm you are in, and draws the whole of it**
+
+A realm is one of a limited set of fixed layouts and the game never says which one. Sonar now ships a render of each and recognises yours from the ground you have walked — so a realm draws complete on an install that has never been anywhere.
+
+- **Recognised, not guessed.** Two realms disagree about where the sea is almost everywhere, so a strip of walked ground is enough to pick one out. Four hundred comparable squares and ninety per cent agreement before anything is drawn.
+- **Compared by kind of ground, not by colour.** A shipped layout is a render of the realm, not a copy of Sonar's own tile colours — it has coastline shading, roads and icons drawn over it and a palette of its own, so comparing exactly would reject every correct answer. Water, sand, grass, rock: four kinds that survive the difference, and a square neither side can place is not counted as evidence either way.
+- **Keyed on size, not on name.** Every realm instance carries a different name — Nilus, Vesta, whatever the server called it — so a name is exactly the wrong key for the one map that most needs recognising. Two thousand and forty-eight squares across is a realm and nothing else is.
+- **A render is not a survey**, and the overlay does not pretend otherwise: your own tiles overwrite it as they arrive, and ground changed by an event will be whatever it was when the render was made. It is a skeleton for judging distance and direction by.
+- Five worlds so far, at one pixel per tile, about 620KB each.
+- Seven assertions, the load-bearing one being that each world is recognised as **itself** and none is mistaken for another — drawing the wrong realm is far worse than drawing none, because it looks exactly like a map and is wrong everywhere you have not been.
+
 ## 2.47.1
 
 **The overlay belongs to the game's window**

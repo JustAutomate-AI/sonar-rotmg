@@ -3127,6 +3127,62 @@ class LiveView {
     }
 
     /**
+     * Telling the shipped worlds apart from a strip of walked ground.
+     * <p>
+     * A realm is one of a known set of layouts and the game never says which. Sonar ships a
+     * render of each, and a render is not a recording - it has coastline shading, roads and
+     * icons drawn over it, and a palette of its own - so they are compared by what kind of
+     * ground each square is rather than by colour.
+     * <p>
+     * The real test is not that a world matches itself, which is easy, but that it does not
+     * match the other twelve. Drawing the wrong world is far worse than drawing none: it looks
+     * exactly like a map and is wrong everywhere you have not been.
+     */
+    private static void checkWorldRecognition(java.util.function.BiConsumer<String, Boolean> report) {
+        java.util.List<java.awt.image.BufferedImage> worlds = MinimapCache.shippedLayouts(2048, 2048);
+        report.accept("Sonar ships a library of realm layouts", worlds.size() >= 2);
+        if (worlds.size() < 2) return;
+
+        report.accept("sea is told from grass, sand and rock",
+                MinimapCache.terrainOf(0xFF2B4C94) == MinimapCache.WATER
+                        && MinimapCache.terrainOf(0xFF6B9B3A) == MinimapCache.GRASS
+                        && MinimapCache.terrainOf(0xFFD8CFA0) == MinimapCache.SAND
+                        && MinimapCache.terrainOf(0xFF1A1A1A) == MinimapCache.DARK);
+        report.accept("and a square nobody has walked is not given a kind",
+                MinimapCache.terrainOf(0x00123456) == MinimapCache.UNKNOWN);
+
+        // every world against every other, using a vertical strip as a stand-in for a walk
+        int right = 0, wrong = 0, ambiguous = 0;
+        for (int i = 0; i < worlds.size(); i++) {
+            java.awt.image.BufferedImage walked =
+                    new java.awt.image.BufferedImage(2048, 2048, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            for (int y = 400; y < 1648; y += 2) {
+                for (int x = 700; x < 1348; x += 2) walked.setRGB(x, y, worlds.get(i).getRGB(x, y));
+            }
+            int bestAt = -1, bestAgreed = -1, runnerUp = -1;
+            for (int j = 0; j < worlds.size(); j++) {
+                int[] score = MinimapCache.agreementByTerrain(walked, worlds.get(j));
+                if (!MinimapCache.recognises(score[0], score[1])) continue;
+                if (score[0] > bestAgreed) {
+                    runnerUp = bestAgreed;
+                    bestAgreed = score[0];
+                    bestAt = j;
+                } else if (score[0] > runnerUp) {
+                    runnerUp = score[0];
+                }
+            }
+            if (bestAt == i) right++;
+            else wrong++;
+            if (bestAt == i && runnerUp > 0 && bestAgreed - runnerUp < bestAgreed * 0.02) ambiguous++;
+        }
+        report.accept("each world is recognised as itself from a strip of walked ground (" + right
+                + " of " + worlds.size() + ")", right == worlds.size());
+        report.accept("and none is mistaken for another", wrong == 0);
+        report.accept("with the winner clear of the runner up (" + ambiguous + " close calls)",
+                ambiguous == 0);
+    }
+
+    /**
      * A map is kept as it is learned, not only on the way out of it.
      * <p>
      * Writing only on the way out is the one moment a recording is certainly complete, and it
@@ -3322,6 +3378,7 @@ class LiveView {
 
         checkMapStartsOverBeforeTheTiles(report);
         checkLayoutRecognition(report);
+        checkWorldRecognition(report);
         checkKeptAsLearned(report);
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);

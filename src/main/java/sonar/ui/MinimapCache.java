@@ -176,6 +176,92 @@ final class MinimapCache {
         return new int[]{agreed, compared};
     }
 
+    /**
+     * What kind of ground a colour is, coarsely.
+     * <p>
+     * A shipped layout is somebody's render of the map, not a picture of Sonar's own tile
+     * colours, so the two never agree pixel for pixel - the render has coastline shading,
+     * roads and icons drawn over it, and its palette is its own. Comparing them exactly would
+     * reject every correct answer.
+     * <p>
+     * What does survive the difference is what kind of ground a square is. Water is blue in
+     * both, grass is green in both, sand is pale in both, a lava field is dark in both. Five
+     * classes is enough to tell thirteen realms apart, because two realms disagree about
+     * where the sea is almost everywhere.
+     */
+    static final int UNKNOWN = -1, WATER = 0, SAND = 1, GRASS = 2, DARK = 3, OTHER = 4;
+
+    static int terrainOf(int argb) {
+        if ((argb >>> 24) == 0) return UNKNOWN;
+        int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
+        if (b > r + 25 && b > g + 15) return WATER;
+        int brightest = Math.max(r, Math.max(g, b));
+        if (brightest < 70) return DARK;
+        if (g > r + 18) return GRASS;
+        if (r > 140 && g > 125 && b < 170) return SAND;
+        return OTHER;
+    }
+
+    /**
+     * How well a layout agrees with the walked ground, by kind of ground rather than by colour.
+     * <p>
+     * Only squares both know anything about are compared, and only where both have an opinion
+     * worth having: a square either side calls {@link #OTHER} is one the classes could not
+     * place, and counting those would be counting confusion as evidence.
+     *
+     * @return {agreed, compared}
+     */
+    static int[] agreementByTerrain(BufferedImage live, BufferedImage layout) {
+        if (live == null || layout == null) return new int[]{0, 0};
+        int w = Math.min(live.getWidth(), layout.getWidth());
+        int h = Math.min(live.getHeight(), layout.getHeight());
+        int agreed = 0, compared = 0;
+        for (int y = 0; y < h; y += 3) {
+            for (int x = 0; x < w; x += 3) {
+                int mine = terrainOf(live.getRGB(x, y));
+                if (mine == UNKNOWN || mine == OTHER) continue;
+                int theirs = terrainOf(layout.getRGB(x, y));
+                if (theirs == UNKNOWN || theirs == OTHER) continue;
+                compared++;
+                if (mine == theirs) agreed++;
+            }
+        }
+        return new int[]{agreed, compared};
+    }
+
+    /**
+     * The layouts that ship with Sonar, for a map of this size.
+     * <p>
+     * A realm is keyed on its size and nothing else. Every realm instance carries a different
+     * name - Nilus, Vesta, whatever the server called it - so a name is exactly the wrong key
+     * for the one map that most needs recognising. Two thousand and forty-eight squares across
+     * is a realm and nothing else is.
+     */
+    static java.util.List<BufferedImage> shippedLayouts(int w, int h) {
+        java.util.List<BufferedImage> out = new java.util.ArrayList<>();
+        if (w != 2048 || h != 2048) return out;
+        for (int n = 1; n <= MOST_LAYOUTS; n++) {
+            BufferedImage got = readResource("/maps/realm-" + w + "x" + h + "-" + n + ".png");
+            if (got == null) break;
+            out.add(got);
+        }
+        return out;
+    }
+
+    private static volatile int matchedShipped;
+
+    /** Which shipped world this instance was recognised as, or zero. */
+    static int matchedShipped() {
+        return matchedShipped;
+    }
+
+    /** How sure the shipped match was, as agreed-of-compared, for the readout. */
+    private static volatile String shippedScore = "";
+
+    static String shippedScore() {
+        return shippedScore;
+    }
+
     /** Squares that must be comparable before a layout is picked, and how much of them must agree. */
     private static final int ENOUGH_TO_RECOGNISE = 400;
     private static final double MUST_AGREE = 0.90;
@@ -231,7 +317,38 @@ final class MinimapCache {
                     }
                 }
                 if (best == null) {
-                    trouble = "this layout has not been seen before";
+                    // Nothing of this person's own matched, so try the ones Sonar ships.
+                    //
+                    // These are renders of the realm, not recordings of it, so they are
+                    // compared by what kind of ground each square is rather than by colour -
+                    // see agreementByTerrain. It is the only path that can draw a whole realm
+                    // on an install that has never been anywhere.
+                    java.util.List<BufferedImage> shipped = shippedLayouts(w, h);
+                    BufferedImage world = null;
+                    int worldNo = 0, worldAgreed = 0, worldCompared = 0;
+                    for (int i = 0; i < shipped.size(); i++) {
+                        int[] score = agreementByTerrain(live, shipped.get(i));
+                        if (!recognises(score[0], score[1])) continue;
+                        if (score[0] > worldAgreed) {
+                            worldAgreed = score[0];
+                            worldCompared = score[1];
+                            world = shipped.get(i);
+                            worldNo = i + 1;
+                        }
+                    }
+                    if (world == null) {
+                        trouble = shipped.isEmpty() ? "this layout has not been seen before"
+                                : "none of the " + shipped.size() + " known worlds matched this ground";
+                        return;
+                    }
+                    matchedShipped = worldNo;
+                    shippedScore = worldAgreed + " of " + worldCompared;
+                    MinimapView.setRecalledIsApproximate(true);
+                    int put = MinimapView.prime(world);
+                    lastRecalled = "world " + worldNo + ", recognised from the ground you walked ("
+                            + shippedScore + " squares agreed)";
+                    trouble = "";
+                    if (put <= 0) lastRecalled = "";
                     return;
                 }
                 BufferedImage winner = read(best);
@@ -271,6 +388,9 @@ final class MinimapCache {
         openW = w;
         openH = h;
         matchedLayout = 0;
+        matchedShipped = 0;
+        shippedScore = "";
+        MinimapView.setRecalledIsApproximate(false);
         keptAt = System.currentTimeMillis();
         keptAtTiles = 0;
         BufferedImage recorded = null;
