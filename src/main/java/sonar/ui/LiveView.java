@@ -2695,6 +2695,7 @@ class LiveView {
         checkOwnMinimap(report);
         checkHistorySaves(report);
         checkOverlayOutsideShatters(report);
+        checkPuzzleResetsPerInstance(report);
 
         // the wheel's travel is the signed high half of mouseData. Read as unsigned, every
         // scroll towards you comes out a large positive number and the overlay zooms the wrong
@@ -2716,6 +2717,32 @@ class LiveView {
                 ShattersOverlayWindow.zoomButtonAt(0, 0, 0, 0) == 0
                         && ShattersOverlayWindow.zoomButtonAt(-5, -5, 475, 478) == 0
                         && ShattersOverlayWindow.zoomButtonAt(600, 20, 475, 478) == 0);
+    }
+
+    /**
+     * The puzzle grid is prepared fresh for every instance.
+     * <p>
+     * Entering a board by hand takes the grid off the game until Live is pressed, which is
+     * right while you are standing in front of that board. It was wrong the moment you left:
+     * the pane stayed in hand-entered mode across the portal, so the next Shatters found the
+     * grid already taken and never filled it in. The solver that had worked by itself a few
+     * times looked as though it had stopped working for good, and nothing said why.
+     */
+    private static void checkPuzzleResetsPerInstance(java.util.function.BiConsumer<String, Boolean> report) {
+        PuzzlePane pane = new PuzzlePane();
+        pane.show(ShattersPuzzle.current());
+        report.accept("a fresh grid is the game's to fill in", !pane.isManual());
+
+        pane.reset();                                   // entered by hand, as Clear does
+        report.accept("entering a board by hand takes the grid off the game", pane.isManual());
+        pane.show(ShattersPuzzle.current());
+        report.accept("and it stays taken while you are still in that instance", pane.isManual());
+
+        ShattersRadar.sawNewInstance("The Shatters", 140, 140, 777);
+        pane.show(ShattersPuzzle.current());
+        report.accept("walking into the next instance hands the grid back to the game", !pane.isManual());
+        report.accept("and says so, so the buttons go back with it", pane.takeJustWentLive());
+        report.accept("but only says it once", !pane.takeJustWentLive());
     }
 
     /**
@@ -3863,6 +3890,8 @@ class LiveView {
         bossSegmentsWindow.setNote(m.stages.isEmpty() ? "" : m.stages.size() + (m.stages.size() == 1 ? " segment" : " segments"));
         ShattersPuzzle.Solution puzzle = ShattersPuzzle.current();
         puzzlePane.show(puzzle);
+        // a new instance hands the grid back to the game on its own; the buttons follow it
+        if (puzzlePane.takeJustWentLive()) syncPuzzleButtons();
         if (puzzlePane.isManual()) {
             puzzleWindow.setNote("entered by hand");
         } else {
