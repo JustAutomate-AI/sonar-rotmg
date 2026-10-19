@@ -137,6 +137,34 @@ final class MinimapView {
     }
 
     /**
+     * Lays a recording down only where nothing is known yet.
+     * <p>
+     * For a map Sonar ships rather than one this person recorded. Everything already on the
+     * picture came off the wire or out of their own runs, and both are better evidence than
+     * somebody's render - so the render fills the gaps and touches nothing else.
+     */
+    static synchronized int primeUnder(BufferedImage recording) {
+        BufferedImage img = image;
+        if (img == null || recording == null) return 0;
+        int w = Math.min(width, recording.getWidth()), h = Math.min(height, recording.getHeight());
+        int laid = 0;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int argb = recording.getRGB(x, y);
+                if ((argb >>> 24) == 0) continue;
+                if ((img.getRGB(x, y) >>> 24) != 0) continue;   // already known, and better known
+                img.setRGB(x, y, argb);
+                laid++;
+            }
+        }
+        recalled = recording;
+        agreed = disagreed = 0;
+        judged = false;
+        painted += laid;
+        return laid;
+    }
+
+    /**
      * Throws the recording away, keeping every square this run's own packets painted.
      * <p>
      * The map goes back to what has actually been walked, which is what it would have been

@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.50.0
+
+**The shipped map library was unreachable, and now is not**
+
+The whole point of shipping realm layouts is to draw the map you have not walked. It has never once run on an install that had walked the map before, because of one line.
+
+- **A recording of your own stopped the library being tried at all.** `lookForLayout` began by giving up if any map was already drawn, on the reasoning that a map being drawn needs no second one. But a recording of your own covers only where you have been — which is exactly the gap the library exists to fill. Anyone who had ever walked a realm could never see a shipped one, and the status line said `your own runs` forever.
+- **A shipped map now fills in under what is already there.** Everything already on the picture came off the wire or out of your own runs, and both are better evidence than somebody's render, so the render fills the gaps and touches nothing else.
+- Two assertions on exactly that: a shipped map fills in only what is not yet known, and leaves what you walked precisely as it was.
+
 ## 2.49.7
 
 **The build speed-up is taken back out, because it was a slow-down**
