@@ -3134,13 +3134,15 @@ class LiveView {
      * that was legible over forty tiles is lost over two thousand.
      */
     private static void checkMarksGrowWithTheView(java.util.function.BiConsumer<String, Boolean> report) {
-        int close = ShattersOverlayWindow.faceSizeFor(48);
-        int mid = ShattersOverlayWindow.faceSizeFor(192);
-        int wide = ShattersOverlayWindow.faceSizeFor(2304);
-        report.accept("zoomed right in, a mark is its plain size",
-                close > 0 && close == ShattersOverlayWindow.faceSizeFor(96));
-        report.accept("and it grows as the view widens", mid > close && wide >= mid);
-        report.accept("but never past twice, so it cannot swallow the map", wide <= close * 2);
+        // a big sprite is something worth finding; a small one is a rat
+        int bigClose = ShattersOverlayWindow.faceSizeFor(48, 64);
+        int bigWide = ShattersOverlayWindow.faceSizeFor(2304, 64);
+        int smallClose = ShattersOverlayWindow.faceSizeFor(48, 8);
+        int smallWide = ShattersOverlayWindow.faceSizeFor(2304, 8);
+        report.accept("something worth finding grows as the view widens", bigWide > bigClose);
+        report.accept("and never past twice its own size", bigWide <= bigClose * 2);
+        report.accept("a lesser enemy is not emphasised by zooming out", smallWide == smallClose);
+        report.accept("and is drawn smaller than something worth finding", smallWide < bigWide);
     }
 
     /**

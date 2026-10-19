@@ -586,7 +586,7 @@ class ShattersOverlayWindow extends JWindow {
                 // Big enough to recognise and outlined, because a sprite at fourteen pixels on
                 // black ground is a smudge: these are drawn at the size the damage board draws
                 // them, with the same dark outline it uses to lift them off the background.
-                int size = faceSizeFor(tilesWide);
+                int size = faceSizeFor(tilesWide, face.getWidth());
                 g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
                 return;
             }
@@ -625,8 +625,29 @@ class ShattersOverlayWindow extends JWindow {
      * the map it is drawn on.
      */
     static int faceSizeFor(double tilesWide) {
-        double grow = Math.max(1.0, Math.min(2.0, tilesWide / 96.0));
-        return (int) Math.round(FACE_SIZE * grow);
+        return faceSizeFor(tilesWide, 0);
+    }
+
+    /**
+     * How big a thing is drawn, given the view and how big the thing itself is.
+     * <p>
+     * Growing every mark as the view widens makes a whole realm of rats as loud as the god
+     * standing among them, which is the opposite of what a map zoomed out is for: the further
+     * out you go the more you are looking for the few things that matter. So the growth is
+     * spent on what is worth finding.
+     * <p>
+     * What counts as worth finding is not a list to keep up to date - the game already draws
+     * big things big. A sprite's own width says what it is: eight pixels is a rat, and the
+     * things people zoom out to look for are drawn larger than that. So a lesser enemy barely
+     * grows, and a boss grows to twice its size.
+     */
+    static int faceSizeFor(double tilesWide, int spriteWidth) {
+        double wide = Math.max(0.0, Math.min(1.0, (tilesWide - 96.0) / 400.0));
+        // 0 for an ordinary sprite, 1 for anything drawn at double size or more
+        double matters = spriteWidth <= 0 ? 0.5
+                : Math.max(0.0, Math.min(1.0, (spriteWidth / (double) (FACE_SIZE * 2) - 0.5) * 2));
+        double grow = 1.0 + wide * matters;
+        return (int) Math.round(FACE_SIZE * (0.72 + 0.28 * matters) * grow);
     }
 
     private static java.awt.image.BufferedImage faceOf(int objectType) {

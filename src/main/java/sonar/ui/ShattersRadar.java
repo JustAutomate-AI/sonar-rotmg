@@ -260,7 +260,13 @@ final class ShattersRadar {
         if (map == null) return;
         String name = LiveModel.prettyMapName(map.displayName != null && !map.displayName.isEmpty()
                 ? map.displayName : map.name);
-        if (!sawNewInstance(name, map.width, map.height, map.seed)) return;
+        System.out.println("[map] packet: " + name + " " + map.width + "x" + map.height
+                + " seed=" + map.seed + "  (view was " + MinimapView.width() + "x" + MinimapView.height()
+                + ", " + MinimapView.painted() + " tiles)");
+        if (!sawNewInstance(name, map.width, map.height, map.seed)) {
+            System.out.println("[map] ...not a new instance, nothing reset");
+            return;
+        }
         // recorded here too, not only on the interface tick, so anything explaining itself in
         // the first fifth of a second knows which instance it is in
         mapWidth = map.width;
@@ -286,6 +292,7 @@ final class ShattersRadar {
     private static volatile int mapGeneration;
     private static volatile String mapKey = "";
     private static volatile String mapName = "";
+    private static volatile long lastSizeComplaint;
 
     /** What instance the radar thinks it is in, for anything that has to explain itself. */
     static String mapName() {
@@ -482,8 +489,21 @@ final class ShattersRadar {
         // this has to handle itself, or the map stays null until the next hop.
         if (sawNewInstance(name, mapWidth, mapHeight, data.map.seed)
                 && (MinimapView.width() != mapWidth || MinimapView.height() != mapHeight)) {
+            System.out.println("[map] tick caught an instance the packet did not: " + name
+                    + " " + mapWidth + "x" + mapHeight);
             MinimapView.reset(mapWidth, mapHeight);
             MinimapCache.recall(name, mapWidth, mapHeight);
+        }
+        // the one that would explain a map that never grows: the radar knows the size and the
+        // picture being painted into is a different one
+        if (mapWidth > 0 && MinimapView.width() > 0 && MinimapView.width() != mapWidth) {
+            long now = System.currentTimeMillis();
+            if (now - lastSizeComplaint > 5000) {
+                lastSizeComplaint = now;
+                System.out.println("[map] MISMATCH: in " + name + " " + mapWidth + "x" + mapHeight
+                        + " but painting into " + MinimapView.width() + "x" + MinimapView.height()
+                        + " - every tile outside that is being dropped");
+            }
         }
         // Where you are, set before anything decides this is not a Shatters.
         //
