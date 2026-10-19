@@ -193,6 +193,7 @@ class ShattersOverlayWindow extends JWindow {
         if (map == null) return;
         double[] centre = ShattersRadar.viewCentre(tilesWide, tilesHigh);
         if (centre == null) return;
+
         double x0 = centre[0] - tilesWide / 2, y0 = centre[1] - tilesHigh / 2;
         // the source rectangle can run off the map at the edges; drawImage clips it for us, so
         // the destination is shifted by however much was cut rather than the picture stretched
@@ -209,8 +210,16 @@ class ShattersOverlayWindow extends JWindow {
         if (hint != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
     }
 
-    /** Whether Sonar draws its own ground under the marks. Off puts the overlay back to marks alone. */
-    private boolean drawMap = !"false".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.drawmap"));
+    /**
+     * Whether Sonar draws its own ground under the marks.
+     * <p>
+     * <b>Off unless asked for.</b> Sonar's ground is at Sonar's zoom and the game's minimap
+     * underneath is at the game's, and the two cannot be made to agree - that is the whole
+     * reason for drawing our own. Laid over a minimap somebody is actually playing by, a
+     * second copy of the same ground at a different scale makes the real one harder to read,
+     * which is a bad trade to make for somebody without asking them first.
+     */
+    private boolean drawMap = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.drawmap"));
 
     void setDrawMap(boolean on) {
         drawMap = on;
@@ -222,7 +231,14 @@ class ShattersOverlayWindow extends JWindow {
         return drawMap;
     }
 
-    /** How solid Sonar's ground is drawn, nought to one. */
+    /**
+     * How solid Sonar's ground is drawn, nought to one.
+     * <p>
+     * Never fully solid by default. Covering the game's minimap was tried and was worse than
+     * what it replaced: in a realm walked into a minute ago Sonar has a patch of ground the
+     * size of the view and nothing else, so a solid overlay is a black box where a working
+     * minimap used to be. Sonar's ground goes on top of the game's, not instead of it.
+     */
     private float mapAlpha() {
         int pct = getInt("sonar.shatters.mapalpha", 70);
         return Math.max(0.05f, Math.min(1f, pct / 100f));
@@ -727,6 +743,50 @@ class ShattersOverlayWindow extends JWindow {
         resetZoomForNewInstance();
         repaint();
         return "Lined up with your minimap: " + found.width + " by " + found.height + " pixels.";
+    }
+
+    /**
+     * Reads the game's zoom off the minimap instead of guessing at it.
+     * <p>
+     * Sonar has the ground and the colour the game draws each tile as, so it can render the
+     * same picture the minimap is showing at any scale. The minimap is a rectangle of pixels
+     * this window is now sitting exactly on top of. So render at every scale the game could
+     * be using, compare, and keep the one that matches - and the answer is right whatever was
+     * pressed to get there.
+     * <p>
+     * It needs explored ground to work from. In a realm walked into a minute ago there is a
+     * patch the size of the view and black everywhere else, and black agrees with black at
+     * every scale; so a match is only taken when it is clearly better than the alternatives,
+     * and otherwise the zoom is left exactly as it was.
+     */
+    private String matchZoomToTheGame() {
+        try {
+            java.awt.image.BufferedImage mine = MinimapView.image();
+            if (mine == null) return "";
+            // the window is over the minimap; hide it so the picture is the game's, not ours
+            boolean was = isVisible();
+            if (was) setVisible(false);
+            java.awt.image.BufferedImage shot;
+            try {
+                Thread.sleep(60);               // let the desktop repaint what was underneath
+                shot = MinimapLocator.pictureOf(getBounds());
+            } finally {
+                if (was) setVisible(true);
+            }
+            if (shot == null) return "";
+            double[] rungs = ladderNow();
+            double got = MinimapMatch.bestScaleLive(shot, mine, getWidth(), getHeight(), rungs);
+            if (got <= 0) return "  The zoom could not be read yet - walk a little and try again.";
+            double[] centre = ShattersRadar.viewCentre(getWidth() / got, getHeight() / got);
+            if (centre == null) return "";
+            double sure = MinimapMatch.confidence(shot, mine, centre[0], centre[1], rungs, got);
+            if (sure < 1.35) return "  Too little explored ground to read the zoom - walk a little and try again.";
+            pixelsPerTile = got;
+            repaint();
+            return String.format("  Matched the game's zoom at %.2f pixels per tile.", got);
+        } catch (Throwable cannot) {
+            return "";
+        }
     }
 
     private void saveBounds() {

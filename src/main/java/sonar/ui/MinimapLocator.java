@@ -136,6 +136,12 @@ final class MinimapLocator {
         return new Rectangle(x, y, width, height);
     }
 
+    /** A picture of just the minimap, for reading the game's zoom off it. */
+    static BufferedImage pictureOf(Rectangle where) {
+        if (where == null || where.width <= 0 || where.height <= 0) return null;
+        return capture(where);
+    }
+
     private static BufferedImage capture(Rectangle window) {
         try {
             // only ever the game's own window, never the screen
