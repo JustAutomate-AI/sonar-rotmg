@@ -11,13 +11,12 @@ final class Motion {
 
     private final JComponent owner;
     private final ArrayList<Value> values = new ArrayList<>();
-    private final Timer timer;
-    private long last;
+    /** Stepped by the shared {@link AnimationClock}, at the display's rate, only while moving. */
+    private final AnimationClock.Animated stepper = this::frame;
+    private boolean running;
 
     Motion(JComponent owner) {
         this.owner = owner;
-        timer = new Timer(15, e -> frame());
-        timer.setCoalesce(true);
     }
 
     Value value(double start) {
@@ -37,26 +36,29 @@ final class Motion {
         values.remove(v);
     }
 
-    private void frame() {
-        long now = System.nanoTime();
-        double dt = Math.min(0.05, (now - last) / 1e9);
-        last = now;
+    private boolean frame(double dt) {
         boolean moving = false;
         for (int i = 0; i < values.size(); i++) {
             moving |= values.get(i).step(dt);
         }
         owner.repaint();
-        if (!moving) timer.stop();
+        if (!moving) running = false;
+        if (moving) PerfProbe.stillMoving(this, owner, values);
+        return moving;
     }
 
     private void wake() {
-        if (!timer.isRunning()) {
-            last = System.nanoTime();
-            timer.start();
+        if (!running) {
+            running = true;
+            AnimationClock.start(stepper);
         }
     }
 
     final class Value {
+        double targetForProbe() {
+            return target;
+        }
+
         private double now, target;
         private final double speed;
 
