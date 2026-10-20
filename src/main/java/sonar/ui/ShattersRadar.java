@@ -434,11 +434,19 @@ final class ShattersRadar {
         // Clamping alone gives that behaviour: with a map narrower than the view, mapWidth - half
         // is below half, so the inner min picks it and the outer max returns half - the frame's
         // left edge sitting on tile zero. No special case is needed.
-        if (mapWidth > 0 && tilesWide > 0) {
+        // Exalt does not do that while the map is bigger than the view. Seen in a realm at
+        // 0.61 px a tile, standing on the spawn beach 120 tiles from the map's south edge: the
+        // game kept you dead centre and showed black past the edge, while the overlay stopped
+        // at the edge and drew you 70 pixels low - so every mark, and every click meant for a
+        // player, was 70 pixels out. The clamp stays only where the map no longer fills the
+        // view, which is the one case the game's own source and the Nexus agree on. The old
+        // behaviour is kept behind sonar.shatters.clampview=true in case another map shows it.
+        boolean clampAlways = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.clampview"));
+        if (mapWidth > 0 && tilesWide > 0 && (clampAlways || tilesWide >= mapWidth)) {
             double half = tilesWide / 2;
             cx = Math.max(half, Math.min(mapWidth - half, cx));
         }
-        if (mapHeight > 0 && tilesHigh > 0) {
+        if (mapHeight > 0 && tilesHigh > 0 && (clampAlways || tilesHigh >= mapHeight)) {
             double half = tilesHigh / 2;
             cy = Math.max(half, Math.min(mapHeight - half, cy));
         }

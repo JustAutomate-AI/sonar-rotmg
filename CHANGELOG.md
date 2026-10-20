@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.4
+
+**Clicks land on the player again near the map's edge**
+
+- **The overlay keeps you centred the way the game does.** Near the edge of a map bigger than the minimap's view, the overlay stopped scrolling at the edge and drew you off centre, while the game keeps you dead centre and shows black past the edge. On the spawn beach, zoomed out, that put every mark - and every click meant for a player - about 70 pixels out, so teleporting missed. The view now stays on you unless the whole map fits in it, which is the one case where the game does pin it. `sonar.shatters.clampview=true` restores the old behaviour.
+
 ## 2.54.3
 
 **The realm chart is in the right place**
