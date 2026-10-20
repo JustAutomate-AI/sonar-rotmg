@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.58.1
+
+**The game's hover card shows over the overlay**
+
+- **Resting the pointer on a player on the minimap now fades the overlay out of the way.** The game draws its card for that player - name, class, "click to open menu" - inside its own window, which is under the overlay, so with Sonar's minimap on top the card was hidden behind it. While the pointer is on a player the overlay fades to a tenth in under a tenth of a second, so the card reads as it does without Sonar, and comes back a moment after the pointer moves off. It works in both Minimap and Enemies only. Clicking a player still steps the overlay aside for the menu, as before.
+
 ## 2.58.0
 
 **The overlay keeps up with you**

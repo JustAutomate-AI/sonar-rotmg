@@ -38,6 +38,7 @@ class ShattersOverlayWindow extends JWindow {
     private final Timer inputTimer = new Timer(10, e -> {
         pollZoomKeys();
         pollZoomButtons();
+        pollHoverCard();
         followMapChange();
     });
 
@@ -309,6 +310,13 @@ class ShattersOverlayWindow extends JWindow {
         int w = getWidth(), h = getHeight();
         // a menu the game drew under us is more use than anything we would draw over it
         if (standingAside()) return;
+        // and so is the card it shows for whoever the pointer is resting on: the whole overlay
+        // fades nearly away while it is up, so the card reads as clearly as it does without Sonar
+        long nowNs = System.nanoTime();
+        double since = popupFadeAt == 0 ? 0 : (nowNs - popupFadeAt) / 1e9;
+        popupFadeAt = nowNs;
+        popupFade = fadeToward(popupFade, System.currentTimeMillis() < hoverUntil ? POPUP_ALPHA : 1f, since);
+        if (popupFade < 0.999f) g.setComposite(java.awt.AlphaComposite.SrcOver.derive(popupFade));
         if (calibrating) {
             g.setColor(new Color(255, 255, 255, 70));
             g.setStroke(new BasicStroke(2f));
@@ -2097,8 +2105,50 @@ class ShattersOverlayWindow extends JWindow {
         });
     }
 
+    /*
+     * The game's hover card.
+     *
+     * Resting the pointer on a player on the minimap makes the game draw a card - name, class,
+     * "click to open menu" - at the pointer. The game draws it inside its own window, under the
+     * overlay, so with Sonar's map on top the card was hidden behind it. The card only appears
+     * over a player, and Sonar knows where it draws the players, so while the pointer is on one
+     * the overlay fades to a tenth, and comes back a moment after the pointer leaves.
+     */
+    private static final float POPUP_ALPHA = 0.1f;
+    private static final long POPUP_HOLD_MS = 300;
+    private static final int POPUP_REACH = 14;               // pixels from a player's mark
+    private volatile long hoverUntil;
+    private float popupFade = 1f;
+    private long popupFadeAt;
+
+    /** One step of the fade: down to the card in 80 ms, back up in 180 ms. */
+    static float fadeToward(float current, float target, double seconds) {
+        if (seconds <= 0) return current;
+        float step = (float) (seconds / (target < current ? 0.08 : 0.18));
+        return target < current ? Math.max(target, current - step) : Math.min(target, current + step);
+    }
+
+    /** Is the pointer resting on a player, where the game is showing its card? Run on the input poll. */
+    private void pollHoverCard() {
+        if (calibrating || !isVisible() || !gameItselfInFront()) return;
+        Point at;
+        try {
+            at = MouseInfo.getPointerInfo().getLocation();
+        } catch (Throwable headless) {
+            return;
+        }
+        if (at == null) return;
+        Rectangle box = getBounds();
+        if (!box.contains(at)) return;
+        if (nearSomebody(at.x - box.x, at.y - box.y, POPUP_REACH)) hoverUntil = System.currentTimeMillis() + POPUP_HOLD_MS;
+    }
+
     /** Whether a point on the overlay has a player close enough for the game to open a menu on. */
     private boolean nearSomebody(int px, int py) {
+        return nearSomebody(px, py, 12);
+    }
+
+    private boolean nearSomebody(int px, int py, int reach) {
         double tilesWide = getWidth() / pixelsPerTile, tilesHigh = getHeight() / pixelsPerTile;
         double cx = getWidth() / 2.0, cy = getHeight() / 2.0;
         for (ShattersRadar.Mark m : ShattersRadar.live()) {
@@ -2106,7 +2156,7 @@ class ShattersOverlayWindow extends JWindow {
             double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
             if (off == null) continue;
             double dx = cx + off[0] * pixelsPerTile - px, dy = cy + off[1] * pixelsPerTile - py;
-            if (dx * dx + dy * dy <= 144) return true;      // within twelve pixels
+            if (dx * dx + dy * dy <= reach * reach) return true;
         }
         return false;
     }
