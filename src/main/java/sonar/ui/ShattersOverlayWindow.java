@@ -1359,7 +1359,20 @@ class ShattersOverlayWindow extends JWindow {
     }
 
     void dispose2() {
+        // Off means off. This used to stop the repaint timer and dispose the window, and
+        // leave everything else running: the input timer went on mirroring the game's zoom
+        // keys, the sync timer went on photographing the screen every few seconds, the wheel
+        // hook went on watching every scroll, and the attach timer - still told the overlay
+        // was wanted - put the disposed window straight back up the next time the game came
+        // to the front. Reported as an overlay that did not turn off completely, which is
+        // exactly what it was.
+        wanted = false;
         repaintTimer.stop();
+        inputTimer.stop();
+        syncTimer.stop();
+        attachTimer.stop();
+        MouseWheelWatch.stop();
+        ShattersRadar.setDrawingMap(false);
         dispose();
     }
 

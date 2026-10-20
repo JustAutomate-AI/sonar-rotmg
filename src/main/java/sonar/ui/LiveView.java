@@ -151,8 +151,9 @@ class LiveView {
     private boolean shattersEnabled = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.enabled"));
     private boolean shattersCalibrating;
     private final SonarButton shattersRecentre = new SonarButton("Find minimap", false, this::recentreShatters);
-    private final SonarButton shattersMap = new SonarButton("Minimap: off", false, this::toggleShattersMap);
-    private final SonarButton shattersEnemies = new SonarButton("Enemies only: off", false, this::toggleShattersEnemies);
+    /** Which picture the overlay draws while it is on: Sonar's minimap, or the enemies alone. */
+    private static final int PICTURE_MINIMAP = 0, PICTURE_ENEMIES = 1;
+    private final Segmented shattersPicture = new Segmented(new String[]{"Minimap", "Enemies only"}, PICTURE_MINIMAP, this::pickShattersPicture);
     /** Marks portals anywhere, so calibration can be checked without waiting for a Shatters. */
     private final SonarButton shattersPortals = new SonarButton("Portals: off", false, this::togglePortalTest);
     private ShattersOverlayWindow shattersOverlay;
@@ -1030,13 +1031,10 @@ class LiveView {
         shattersToggle.setToolTipText("Marks the things worth finding on your own minimap - the Void Phantasm, "
                 + "the Stone Idol, the Derelict Monument and the void cracks - and covers nothing else");
         nav.add(javax.swing.Box.createHorizontalStrut(6));
-        nav.add(shattersMap);
-        shattersMap.setToolTipText("Replaces your minimap with Sonar's own: the ground it has seen and remembers, "
-                + "the people, what can be fought, the ways out and you, at a zoom you set with the wheel");
-        nav.add(javax.swing.Box.createHorizontalStrut(6));
-        nav.add(shattersEnemies);
-        shattersEnemies.setToolTipText("Only the enemies, as their sprites, over the game's own minimap - "
-                + "nothing else is drawn, every click goes to the game, and the overlay never steps aside");
+        nav.add(shattersPicture);
+        shattersPicture.setToolTipText("What the overlay draws. Minimap: Sonar's own, replacing the game's - the ground "
+                + "it has seen and remembers, the people, what can be fought, the ways out and you. Enemies only: just "
+                + "the enemies as their sprites over the game's own minimap, nothing else drawn, every click to the game");
         syncShattersButtons();
         return nav;
     }
@@ -1060,14 +1058,19 @@ class LiveView {
      * The second only means anything while the first is on, so it is only offered then.
      */
     private void syncShattersButtons() {
-        boolean on = shattersOverlay != null && shattersOverlay.drawMap();
-        shattersMap.setText(on ? "Minimap: on" : "Minimap: off");
-        shattersMap.setPrimary(on);
-        shattersMap.setVisible(shattersEnabled);
-        boolean foes = shattersOverlay != null && shattersOverlay.enemiesOnly();
-        shattersEnemies.setText(foes ? "Enemies only: on" : "Enemies only: off");
-        shattersEnemies.setPrimary(foes);
-        shattersEnemies.setVisible(shattersEnabled);
+        // Overlay is the one thing that is on or off. While it is on, the switch says which
+        // picture it draws, and it is always drawing one of them: three separate on/offs let
+        // "Minimap off, Enemies only on" and "both on" be states, and neither meant anything
+        // anyone wanted. Reported as buttons that did not work well together, which was fair.
+        if (shattersOverlay != null) {
+            boolean foes = shattersOverlay.enemiesOnly();
+            // an overlay left in neither picture - a map switched off by an older build and
+            // enemies never switched on - is drawing nothing it could not explain; it is the
+            // minimap now, which is what the switch says it is
+            if (!foes && !shattersOverlay.drawMap()) shattersOverlay.setDrawMap(true);
+            shattersPicture.select(foes ? PICTURE_ENEMIES : PICTURE_MINIMAP, false);
+        }
+        shattersPicture.setVisible(shattersEnabled);
         shattersCalibrate.setVisible(false);
         shattersRecentre.setVisible(false);
         shattersPortals.setVisible(false);
@@ -1140,18 +1143,15 @@ class LiveView {
         syncShattersButtons();
     }
 
-    /** Enemies only: their sprites and nothing else, with the game's minimap showing through. */
-    private void toggleShattersEnemies() {
+    /** The switch: Sonar's minimap, or the enemies alone over the game's. Always one of the two. */
+    private void pickShattersPicture(int which) {
         if (shattersOverlay == null) return;
-        shattersOverlay.setEnemiesOnly(!shattersOverlay.enemiesOnly());
-        syncShattersButtons();
-        refresh();
-    }
-
-    /** Turns Sonar's own ground on or off over the game's minimap. */
-    private void toggleShattersMap() {
-        if (shattersOverlay == null) return;
-        shattersOverlay.setDrawMap(!shattersOverlay.drawMap());
+        if (which == PICTURE_ENEMIES) {
+            shattersOverlay.setEnemiesOnly(true);
+        } else {
+            shattersOverlay.setEnemiesOnly(false);
+            shattersOverlay.setDrawMap(true);
+        }
         syncShattersButtons();
         refresh();
     }
@@ -1527,15 +1527,18 @@ class LiveView {
         // folded away a real choice and stranded anyone the folded-away setting was off for.
         // The count is asserted so neither mistake creeps back.
         javax.swing.JComponent bar = shattersAccessory();
-        int buttons = 0, showing = 0;
+        int buttons = 0, switches = 0, switchesShowing = 0;
         for (java.awt.Component c : bar.getComponents()) {
-            if (!(c instanceof SonarButton)) continue;
-            buttons++;
-            if (c.isVisible()) showing++;
+            if (c instanceof SonarButton) buttons++;
+            if (c instanceof Segmented) {
+                switches++;
+                if (c.isVisible()) switchesShowing++;
+            }
         }
-        report.accept("the Shatters panel offers three buttons: Overlay, Minimap, Enemies only", buttons == 3);
-        report.accept("and with the overlay off, only the one that turns it on",
-                shattersEnabled ? showing == 3 : showing == 1);
+        report.accept("the Shatters panel has one on/off, Overlay, and one picture switch, Minimap | Enemies only",
+                buttons == 1 && switches == 1);
+        report.accept("and the switch is only offered while the overlay is on",
+                shattersEnabled ? switchesShowing == 1 : switchesShowing == 0);
 
         // the windows keep their places: a drag on the title bar or the corner does nothing at all
         Rectangle home = damageWindow.getBounds();
