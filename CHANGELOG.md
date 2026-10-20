@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.9
+
+**Off and on again keeps the zoom**
+
+- **Turning the overlay off and on in the same instance carries on at the same zoom step.** A new overlay used to decide it had walked into a new instance and go back to the most zoomed-in step, while the game stayed wherever it had been zoomed - so nothing lined up until the game was zoomed all the way in and back out. A different instance still starts at the top step, as the game does.
+
 ## 2.54.8
 
 **Rings in the game's colours**
