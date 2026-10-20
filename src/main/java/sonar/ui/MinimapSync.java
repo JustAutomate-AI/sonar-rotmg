@@ -82,7 +82,22 @@ final class MinimapSync {
      * the question could not be settled, not that the zoom is nothing. The caller keeps what
      * it had.
      */
+    /** The last photograph of the game's minimap, taken with the overlay out of shot, and where it was. */
+    static volatile BufferedImage lastShot;
+    static volatile Rectangle lastWhere;
+
+    /** A photograph of the game's minimap now, for anything that needs one without a measurement. */
+    static BufferedImage photograph() {
+        Rectangle where = whereItIs();
+        if (where == null) return null;
+        BufferedImage shot = MinimapLocator.pictureOf(where);
+        lastShot = shot;
+        lastWhere = where;
+        return shot;
+    }
+
     static double measure(int frameW, int frameH, double[] candidates) {
+        lastShot = null;
         lastAt = System.currentTimeMillis();
         lastScale = 0;
         lastConfidence = 0;
@@ -109,6 +124,8 @@ final class MinimapSync {
             return 0;
         }
         BufferedImage shot = MinimapLocator.pictureOf(where);
+        lastShot = shot;
+        lastWhere = where;
         if (shot == null) {
             state = "could not photograph the minimap";
             return 0;

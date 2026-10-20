@@ -196,6 +196,11 @@ class ShattersOverlayWindow extends JWindow {
                 // out of shot for the photograph, and back in it immediately afterwards
                 setHiddenFromCapture(true);
                 got = MinimapSync.measure(w, h, candidates);
+                // the same photograph, or a fresh one if the measurement stopped short of taking
+                // it, tells the colour of every icon the game is drawing under a mark of ours
+                java.awt.image.BufferedImage shot = MinimapSync.lastShot;
+                if (shot == null) shot = MinimapSync.photograph();
+                learnIconColours(shot, MinimapSync.lastWhere);
             } catch (Throwable ignored) {
                 // a measurement that throws is a measurement that did not happen
             } finally {
@@ -559,6 +564,28 @@ class ShattersOverlayWindow extends JWindow {
 
     boolean enemiesOnly() {
         return enemiesOnly;
+    }
+
+    /**
+     * Reads off the game's minimap the colour it draws each marked enemy in, so the ring around
+     * that enemy's sprite is the same colour as the game's own icon for it.
+     */
+    private void learnIconColours(java.awt.image.BufferedImage shot, Rectangle where) {
+        if (shot == null || where == null) return;
+        Rectangle me = getBounds();
+        int w = me.width, h = me.height;
+        double tilesWide = w / pixelsPerTile, tilesHigh = h / pixelsPerTile;
+        for (ShattersRadar.Mark m : ShattersRadar.live()) {
+            if (m.type != ShattersRadar.FOE || m.piece == null) continue;
+            double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
+            if (off == null) continue;
+            // where the mark is on screen, then where that is in the photograph
+            int sx = (int) Math.round(me.x + w / 2.0 + off[0] * pixelsPerTile) - where.x;
+            int sy = (int) Math.round(me.y + h / 2.0 + off[1] * pixelsPerTile) - where.y;
+            if (sx < 0 || sy < 0 || sx >= shot.getWidth() || sy >= shot.getHeight()) continue;
+            java.awt.Color c = MinimapIcons.iconColourAt(shot, sx, sy, 7);
+            if (c != null) MinimapIcons.sawColour(m.kindId(), c);
+        }
     }
 
     /** Whether the radar needs to keep the live census at all: for the map, or for the enemies alone. */

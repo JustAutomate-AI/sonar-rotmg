@@ -68,6 +68,8 @@ final class MinimapIcons {
     static java.awt.Color colorOf(int objectType) {
         String piece = pieceOf(objectType);
         if (piece == null) return null;
+        java.awt.Color looked = seen.get(objectType);
+        if (looked != null) return looked;
         Integer c = colors.get(objectType);
         if (c != null) return new java.awt.Color(c);
         switch (piece) {
@@ -108,6 +110,56 @@ final class MinimapIcons {
                 }
             }
         }
+    }
+
+    /**
+     * Colours read off the game's own minimap, per object type: the one source that cannot be
+     * wrong about what colour the game draws a thing in. The XML gives a colour for ten objects
+     * and a kind for the rest, and the game colours by more than the kind - its demon heads
+     * come in purple, green and red - so guessed defaults were wrong more often than right.
+     */
+    private static final java.util.Map<Integer, java.awt.Color> seen = new java.util.concurrent.ConcurrentHashMap<>();
+
+    static void sawColour(int objectType, java.awt.Color c) {
+        if (c != null) seen.put(objectType, c);
+    }
+
+    /** What the game was seen drawing this object in, or null if it has not been looked at yet. */
+    static java.awt.Color seenColour(int objectType) {
+        return seen.get(objectType);
+    }
+
+    /**
+     * The colour of the icon drawn around a point in a photograph of the game's minimap.
+     * <p>
+     * Within a few pixels of where the enemy is, the most common strongly coloured pixel that
+     * is not one of the game's waystone or player blues - those overlap enemies all the time
+     * and are never what an enemy's icon is drawn in. Null when there is nothing coloured there.
+     */
+    static java.awt.Color iconColourAt(java.awt.image.BufferedImage shot, int px, int py, int radius) {
+        if (shot == null) return null;
+        java.util.Map<Integer, Integer> counts = new java.util.HashMap<>();
+        for (int y = Math.max(0, py - radius); y <= Math.min(shot.getHeight() - 1, py + radius); y++) {
+            for (int x = Math.max(0, px - radius); x <= Math.min(shot.getWidth() - 1, px + radius); x++) {
+                int rgb = shot.getRGB(x, y) & 0xFFFFFF;
+                int r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
+                int max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
+                // dark, grey, or white; the game's pink skulls are pale, so the bar for
+                // "coloured" is low, and only near-white is left out
+                if (max < 90 || max - min < 30 || min > 215) continue;
+                boolean blue = b == max && b > r + 60 && g > r;         // waystones and players
+                if (blue) continue;
+                counts.merge(rgb & 0xF8F8F8, 1, Integer::sum);
+            }
+        }
+        int best = -1, most = 0;
+        for (java.util.Map.Entry<Integer, Integer> e : counts.entrySet()) {
+            if (e.getValue() > most) {
+                most = e.getValue();
+                best = e.getKey();
+            }
+        }
+        return most >= 4 ? new java.awt.Color(best | 0x070707) : null;
     }
 
     /** For the self-test. */
