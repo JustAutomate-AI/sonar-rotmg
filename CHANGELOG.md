@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.55.1
+
+**The Shatters finder, fixed**
+
+- **Its targets are drawn where they are.** The Void Phantasm, Stone Idol, Derelict Monument, the Source and the void cracks were pinned to the rim of a circle a little smaller than the frame whenever they were further out than its radius - so anything in the minimap's corners, and nearly everything once zoomed in, was drawn somewhere it was not. They are now placed exactly like every other mark, and only one outside the frame is held at its edge, faded, to point the way.
+- **They draw as their sprites**, large, in a ring the colour of what they are: coral for the Phantasm and the Source, gold for the Stone Idol, violet for the Monument and the void dressing. The old sprite lookup came back empty for most of them.
+- **Enemies only shows them too.** It skipped them altogether.
+
 ## 2.55.0
 
 **Ring colours read off the game itself**

@@ -323,6 +323,7 @@ final class ShattersRadar {
     }
 
     private static volatile boolean inShatters;
+    private static String lastTargets = "";
 
     /**
      * Everything worth drawing on a minimap of our own: other people, things that can be
@@ -588,6 +589,15 @@ final class ShattersRadar {
         }
         // the thing you are hunting first, so it leads the sidebar and draws over the dressing
         found.sort(java.util.Comparator.comparingInt(m -> tier(m.type)));
+        // what was found, written down whenever it changes, so a finder that finds the wrong
+        // thing or nothing can be read off the log rather than argued about
+        StringBuilder seenNow = new StringBuilder();
+        for (Mark m : found) seenNow.append(String.format("%x ", m.type));
+        if (!seenNow.toString().equals(lastTargets)) {
+            lastTargets = seenNow.toString();
+            System.out.println("[shatters] targets in view: " + (found.isEmpty() ? "none" : lastTargets.trim())
+                    + " (" + data.entityList.size() + " entities known)");
+        }
         marks = found;
     }
 

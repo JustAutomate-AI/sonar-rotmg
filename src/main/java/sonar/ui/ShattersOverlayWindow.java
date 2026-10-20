@@ -295,6 +295,7 @@ class ShattersOverlayWindow extends JWindow {
         double tilesWide = w / pixelsPerTile, tilesHigh = h / pixelsPerTile;
         if (enemiesOnly && !calibrating) {
             paintEnemiesOnly(g, w, h, tilesWide, tilesHigh);
+            paintTargets(g, w, h, tilesWide, tilesHigh);
             return;
         }
         double[] me = ShattersRadar.playerFromView(tilesWide, tilesHigh);
@@ -323,7 +324,9 @@ class ShattersOverlayWindow extends JWindow {
         } else if ("true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.readout"))) {
             paintReadout(g, w, h);
         }
-        for (ShattersRadar.Mark m : ShattersRadar.marks()) {
+        if (!calibrating) {
+            paintTargets(g, w, h, tilesWide, tilesHigh);
+        } else for (ShattersRadar.Mark m : ShattersRadar.marks()) {
             double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
             if (off == null) continue;
             double px = off[0] * pixelsPerTile, py = off[1] * pixelsPerTile;
@@ -586,6 +589,62 @@ class ShattersOverlayWindow extends JWindow {
             java.awt.Color c = MinimapIcons.iconColourAt(shot, sx, sy, 7);
             if (c != null) MinimapIcons.sawColour(m.kindId(), c);
         }
+    }
+
+    /**
+     * The Shatters targets - the Void Phantasm, the Stone Idol, the Derelict Monument, the Source
+     * and the void dressing - placed exactly as every other mark is.
+     * <p>
+     * They used to be pinned to the rim of a circle a little smaller than the frame whenever
+     * they were further out than its radius. The game's minimap is a square, so anything in
+     * its corners, and anything at all once zoomed in, was drawn at the rim instead of where it
+     * was - reported as a finder that could not match the scale. And Enemies only skipped them
+     * altogether. Now a target inside the frame is drawn where it is, at the size of every other
+     * important mark, and only one outside the frame is held at the frame's edge, hollowed, to
+     * say which way it is.
+     */
+    private void paintTargets(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
+        double cx = w / 2.0, cy = h / 2.0;
+        int margin = 14;
+        for (ShattersRadar.Mark m : ShattersRadar.marks()) {
+            double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
+            if (off == null) continue;
+            double px = cx + off[0] * pixelsPerTile, py = cy + off[1] * pixelsPerTile;
+            boolean beyond = px < margin || py < margin || px > w - margin || py > h - margin;
+            if (beyond) {
+                // along the line from the middle to the target, stopped at the frame's edge
+                double dx = px - cx, dy = py - cy;
+                double t = Math.min(dx == 0 ? Double.MAX_VALUE : (dx > 0 ? (w - margin - cx) : (margin - cx)) / dx,
+                        dy == 0 ? Double.MAX_VALUE : (dy > 0 ? (h - margin - cy) : (margin - cy)) / dy);
+                px = cx + dx * t;
+                py = cy + dy * t;
+            }
+            drawTarget(g, (int) Math.round(px), (int) Math.round(py), m.type, beyond);
+        }
+    }
+
+    /** A Shatters target: its own sprite, large, in a ring the colour of what it is. */
+    private void drawTarget(Graphics2D g, int x, int y, int type, boolean beyond) {
+        int tier = ShattersRadar.tier(type);
+        java.awt.image.BufferedImage face = type < 0 ? null : faceOf(type);
+        if (face == null || tier == ShattersRadar.HELPER) {
+            drawMark(g, x, y, type, beyond);
+            return;
+        }
+        Color ring = ShattersRadar.isPhantasm(type) || ShattersRadar.isSource(type) ? SonarTheme.CORAL
+                : type == ShattersRadar.STONE_IDOL ? SonarTheme.GOLD : SonarTheme.VIOLET;
+        int size = tier == ShattersRadar.OBJECTIVE ? Math.max(IMPORTANT_SIZE, faceSizeFor(pixelsPerTile, face.getWidth(), true))
+                : Math.max(16, faceSizeFor(pixelsPerTile, face.getWidth(), true));
+        java.awt.Composite old = g.getComposite();
+        if (beyond) g.setComposite(java.awt.AlphaComposite.SrcOver.derive(0.6f));
+        int r = size + 8;
+        g.setStroke(new BasicStroke(tier == ShattersRadar.OBJECTIVE ? 3f : 1.6f));
+        g.setColor(new Color(0, 0, 0, 170));
+        g.drawOval(x - r / 2 - 1, y - r / 2 - 1, r + 2, r + 2);
+        g.setColor(ring);
+        g.drawOval(x - r / 2, y - r / 2, r, r);
+        if (!beyond) g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
+        g.setComposite(old);
     }
 
     /** Whether the radar needs to keep the live census at all: for the map, or for the enemies alone. */
