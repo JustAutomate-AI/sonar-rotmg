@@ -8,7 +8,7 @@ public class Version {
      * The app's version, the one shown in the left rail and used for release names.
      * Comes from Updater.CURRENT, which is where it is raised.
      */
-    public static final String VERSION = "2.55.3";
+    public static final String VERSION = "2.55.4";
 
     /**
      * The asset-extraction format, which is NOT the app's version and does not move
@@ -16,6 +16,6 @@ public class Version {
      * game's assets, so raising it costs every install one re-extraction. Raise it
      * only when what gets extracted actually changes.
      */
-    public static final String ASSET_FORMAT = "v1.9.2";
+    public static final String ASSET_FORMAT = "v1.9.3";
 }
 
