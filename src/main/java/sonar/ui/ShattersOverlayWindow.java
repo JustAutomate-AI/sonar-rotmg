@@ -1102,7 +1102,8 @@ class ShattersOverlayWindow extends JWindow {
      * during calibration with the scroll wheel, since the minimap's own zoom
      * is not something Sonar can read.
      */
-    private double pixelsPerTile = loadScale(loadLevel());
+    private double pixelsPerTile = rememberedMap >= 0 && rememberedMap == ShattersRadar.mapGeneration() && rememberedScale > 0
+            ? rememberedScale : loadScale(loadLevel());
 
     /**
      * The game's minimap zoom is a client-side setting. It is in no packet and
@@ -1114,7 +1115,7 @@ class ShattersOverlayWindow extends JWindow {
      * once and from then on stepping the overlay restores an exact figure
      * rather than a guess.
      */
-    private int level = loadLevel();
+    private int level = rememberedMap >= 0 && rememberedMap == ShattersRadar.mapGeneration() ? rememberedLevel : loadLevel();
 
     /**
      * Which rung the overlay is on. Zero is the most zoomed in, as it is in the game, and the
@@ -1496,6 +1497,9 @@ class ShattersOverlayWindow extends JWindow {
     }
 
     void dispose2() {
+        rememberedMap = sawMap;
+        rememberedLevel = level;
+        rememberedScale = pixelsPerTile;
         // Off means off. This used to stop the repaint timer and dispose the window, and
         // leave everything else running: the input timer went on mirroring the game's zoom
         // keys, the sync timer went on photographing the screen every few seconds, the wheel
@@ -1608,7 +1612,10 @@ class ShattersOverlayWindow extends JWindow {
         setBounds(found);
         saveBounds();
         saveHome();
-        resetZoomForNewInstance();
+        // the same instance keeps the zoom it had when the overlay was last on; the game has not
+        // moved its zoom just because the overlay was switched off and on
+        boolean sameInstance = rememberedMap >= 0 && rememberedMap == ShattersRadar.mapGeneration();
+        if (!sameInstance) resetZoomForNewInstance();
         repaint();
         return "Lined up with your minimap: " + found.width + " by " + found.height + " pixels.";
     }
@@ -1995,7 +2002,22 @@ class ShattersOverlayWindow extends JWindow {
 
     // ---- keeping step with the map the overlay is drawn over ----
 
-    private int sawMap = -1;
+    /**
+     * Which instance the overlay last saw, and the zoom it was at, kept across the overlay being
+     * turned off and on again.
+     * <p>
+     * A new overlay used to start from "no instance seen", so the first thing it did was
+     * decide it had walked into a new one and go back to the most zoomed-in step - while the
+     * game, which had not changed instance at all, stayed wherever it had been zoomed to.
+     * Reported as circles that did not line up after turning the overlay off and on until the
+     * game was zoomed all the way in and back out. Now the same instance carries on at the same
+     * step; a different one still starts at the top, as the game does.
+     */
+    private static int rememberedMap = -1;
+    private static int rememberedLevel;
+    private static double rememberedScale;
+
+    private int sawMap = rememberedMap;
 
     /**
      * Follows the map rather than the window.
