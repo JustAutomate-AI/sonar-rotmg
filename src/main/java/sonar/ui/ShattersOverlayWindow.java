@@ -217,7 +217,7 @@ class ShattersOverlayWindow extends JWindow {
         if (System.currentTimeMillis() - zoomSetByHandAt < 20000) return;
         if ("false".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.sync"))) return;
         final int w = getWidth(), h = getHeight();
-        final double[] candidates = ladderNow();
+        final double[] candidates = zoomsNow();
         syncing = true;
         Thread t = new Thread(() -> {
             double got = 0;
@@ -1352,6 +1352,39 @@ class ShattersOverlayWindow extends JWindow {
         return out;
     }
 
+    /**
+     * Every zoom the game's minimap can actually be at, most zoomed in first.
+     * <p>
+     * The game's zoom doubles and halves, and stops at the two ends: the top rung and the whole
+     * map. Going out from the top therefore runs down {@link #ladderFor}, but coming back in from
+     * the whole map doubles from the whole-map scale, which lands between the ladder's rungs.
+     * Seen in the Vault on 2026-10-20: whole map at 3.23, one step in at 6.46, where the ladder
+     * has 4.9. The measurement was only offered the ladder, so it saw 6.46 clearly - 1.72 times
+     * surer than anything else - and threw it away as a zoom the game does not have.
+     */
+    static double[] zoomsFor(int widthPx, int heightPx, int mapW, int mapH) {
+        double[] ladder = ladderFor(widthPx, heightPx, mapW, mapH);
+        if (ladder.length < 2) return ladder;
+        double top = ladder[0], fit = ladder[ladder.length - 1];
+        java.util.List<Double> all = new java.util.ArrayList<>();
+        for (double s : ladder) all.add(s);
+        for (double s = fit * 2; s < top * 0.97 && all.size() < MOST_RUNGS * 2; s *= 2) all.add(clampScale(s));
+        all.sort(java.util.Collections.reverseOrder());
+        // two zooms within 3% of each other are one zoom as far as a photograph can tell
+        java.util.List<Double> kept = new java.util.ArrayList<>();
+        for (double s : all) if (kept.isEmpty() || kept.get(kept.size() - 1) / s > 1.03) kept.add(s);
+        double[] out = new double[kept.size()];
+        for (int i = 0; i < out.length; i++) out[i] = kept.get(i);
+        return out;
+    }
+
+    /** {@link #zoomsFor} for the overlay as it sits, over the map currently loaded. */
+    private static double[] zoomsNow() {
+        Rectangle at = savedHome();
+        Rectangle box = at != null ? at : defaultBounds();
+        return zoomsFor(box.width, box.height, ShattersRadar.mapWidth(), ShattersRadar.mapHeight());
+    }
+
     private static double[] round2(double[] a) {
         double[] out = new double[a.length];
         for (int i = 0; i < a.length; i++) out[i] = Math.round(a[i] * 100) / 100.0;
@@ -1421,16 +1454,19 @@ class ShattersOverlayWindow extends JWindow {
      *               zoom key is not that: it is a guess at what the game just did, made so the
      *               overlay moves at once rather than five seconds later, and the measurement
      *               must stay free to correct it. Treating the mirror as a hand on the zoom
-     *               silenced the measurement for twenty seconds after every press, and the
-     *               guess - a doubling - is not what the game's steps are.
+     *               silenced the measurement for twenty seconds after every press.
+     *               <p>
+     *               The step itself is a doubling or a halving, which is what the game does, and
+     *               it stops where the game's stops: at the whole map, and at the game's own
+     *               closest zoom. It used to stop only at 64 pixels a tile. A press the game had
+     *               no room for - zooming in while already fully in - still doubled the overlay,
+     *               so it climbed to 64 while the game sat at 9.79, and every step after that
+     *               was out by the same factor: 32, 16, 8 over a minimap at 4.9 and 3.23.
      */
     void stepZoom(int by, boolean byHand) {
         if (by == 0) return;
         if (byHand) zoomSetByHandAt = System.currentTimeMillis();
-        double next = by < 0 ? pixelsPerTile * 2 : pixelsPerTile / 2;
-        double floor = fitScale(), ceiling = MAX_SCALE;
-        // never past the whole map, and never so far in that one tile fills the frame
-        next = Math.max(Math.min(floor, ceiling), Math.min(ceiling, next));
+        double next = nextZoom(pixelsPerTile, by, fitScale(), topScale());
         if (Math.abs(next - pixelsPerTile) < 1e-9) return;
         pixelsPerTile = next;
         level = Math.max(0, Math.min(rungCount() - 1, level + by));
@@ -1444,6 +1480,22 @@ class ShattersOverlayWindow extends JWindow {
      * Past this the map sits in the middle of an empty window and every mark crowds into the
      * same few pixels, so there is nothing below it worth having.
      */
+    /**
+     * One press of the game's zoom from {@code current}: in ({@code by < 0}) doubles, out halves,
+     * never past the whole map ({@code fit}) and never closer than the game's own closest zoom
+     * ({@code top}). A map small enough that the whole of it is closer than that has one zoom.
+     */
+    static double nextZoom(double current, int by, double fit, double top) {
+        double next = by < 0 ? current * 2 : current / 2;
+        return Math.max(fit, Math.min(top, next));
+    }
+
+    /** The game's own closest zoom for a minimap this size: four pixels a tile at 192 across. */
+    private double topScale() {
+        int w = getWidth();
+        return w > 0 ? clampScale(TOP_RUNG * w / (double) NATIVE_MINIMAP) : MAX_SCALE;
+    }
+
     private double fitScale() {
         int mw = ShattersRadar.mapWidth(), mh = ShattersRadar.mapHeight();
         if (mw <= 0 || mh <= 0) return 0.05;
@@ -1772,7 +1824,7 @@ class ShattersOverlayWindow extends JWindow {
                 if (was) setVisible(true);
             }
             if (shot == null) return "";
-            double[] rungs = ladderNow();
+            double[] rungs = zoomsNow();
             double got = MinimapMatch.bestScaleLive(shot, mine, getWidth(), getHeight(), rungs);
             if (got <= 0) return "  The zoom could not be read yet - walk a little and try again.";
             double[] centre = ShattersRadar.viewCentre(getWidth() / got, getHeight() / got);

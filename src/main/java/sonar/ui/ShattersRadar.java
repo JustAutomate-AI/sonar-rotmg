@@ -204,19 +204,22 @@ final class ShattersRadar {
         /** The icon the game's own minimap gives this object, from its XML; null for none. */
         String piece;
 
-        /** Where it stood at the previous server tick, so it can be slid rather than jumped. */
+        /** Where it was being drawn when it last moved, so it can be slid rather than jumped. */
         float fromX = Float.NaN, fromY = Float.NaN;
+
+        /** When that slide began, on {@link System#nanoTime()}. */
+        long slideStart;
 
         /** The object's instance id, so the same thing can be followed from one tick to the next. */
         int eid = -1;
 
-        /** Where to draw it now: slid from the last tick's spot toward this one's. */
+        /** Where to draw it now: slid from where it was being drawn toward where it is. */
         double drawX() {
-            return Float.isNaN(fromX) ? x : fromX + (x - fromX) * progress();
+            return Float.isNaN(fromX) ? x : fromX + (x - fromX) * progress(slideStart);
         }
 
         double drawY() {
-            return Float.isNaN(fromY) ? y : fromY + (y - fromY) * progress();
+            return Float.isNaN(fromY) ? y : fromY + (y - fromY) * progress(slideStart);
         }
 
         /**
@@ -423,8 +426,17 @@ final class ShattersRadar {
             m.eid = e.id;
             Mark before = lastById.get(e.id);
             if (before != null && Math.abs(before.x - m.x) <= TELEPORT && Math.abs(before.y - m.y) <= TELEPORT) {
-                m.fromX = (float) before.drawX();
-                m.fromY = (float) before.drawY();
+                if (before.x == m.x && before.y == m.y) {
+                    // not moved since: carry on with the slide already under way, untouched
+                    m.fromX = before.fromX;
+                    m.fromY = before.fromY;
+                    m.slideStart = before.slideStart;
+                } else {
+                    // moved: start a new slide from exactly where it is being drawn right now
+                    m.fromX = (float) before.drawX();
+                    m.fromY = (float) before.drawY();
+                    m.slideStart = System.nanoTime();
+                }
             }
             if (kind == FOE) {
                 int hp = 0;
@@ -446,6 +458,7 @@ final class ShattersRadar {
             Mark me = new Mark(SELF, playerX, playerY);
             me.fromX = playerFromX;
             me.fromY = playerFromY;
+            me.slideStart = playerSlideStart;
             found.add(me);
         }
         live = found;
@@ -463,51 +476,64 @@ final class ShattersRadar {
      * runs one tick behind - about a fifth of a second - which is the price of motion that is
      * smooth rather than stepped. Anything that moves further than a short dash in one tick has
      * teleported, and is put straight there.
+     * <p>
+     * Each thing slides on its own clock, started at the moment it is seen to have moved, from
+     * the spot it is being drawn at that moment. In 2.56.0 to 2.57.1 there was one clock for
+     * everything, restarted on every radar tick before the starting spots were read - so the
+     * spot read back was always the start of the slide before, never where the slide had got
+     * to. The start never moved on from where a thing was first seen, and every tick it was
+     * thrown back there and slid forward again. Everything is placed relative to you, so after
+     * walking a few tiles from where you arrived, every mark on the overlay bounced between two
+     * spots that far apart, five times a second.
      */
     private static volatile float playerFromX = Float.NaN, playerFromY = Float.NaN;
-    private static volatile long tickStart;
+    private static volatile long playerSlideStart;
     private static volatile double tickNanos = 200_000_000.0;
     private static final float TELEPORT = 12f;
     private static final boolean SMOOTH = !"false".equals(System.getProperty("sonar.smooth",
             sonar.util.PropertiesManager.getProperty("sonar.shatters.smooth")));
     private static java.util.Map<Integer, Mark> lastById = java.util.Collections.emptyMap();
 
-    /** How far through the current tick the picture is, 0 to 1. */
-    static double progress() {
-        if (!SMOOTH || tickStart == 0) return 1;
-        double f = (System.nanoTime() - tickStart) / tickNanos;
+    /** How far through a slide that began at {@code start} the picture is, 0 to 1. */
+    static double progress(long start) {
+        if (!SMOOTH || start == 0) return 1;
+        double f = (System.nanoTime() - start) / tickNanos;
         return f < 0 ? 0 : f > 1 ? 1 : f;
     }
 
-    /** A new server tick has landed: time it, so the slide lasts as long as a tick does. */
-    private static void tickLanded() {
-        long now = System.nanoTime();
-        if (tickStart != 0) {
-            double gap = now - tickStart;
-            if (gap > 40_000_000 && gap < 1_000_000_000) tickNanos = tickNanos * 0.8 + gap * 0.2;
-        }
-        tickStart = now;
+    /**
+     * How long a slide lasts: the time between server ticks, as the packet thread measured it.
+     * <p>
+     * It was the time between radar ticks, which run on Update packets as well as on server
+     * ticks and are spaced by a throttle rather than by the server, so it came out short.
+     */
+    private static void timeTicks(GameData data) {
+        double gap = data.newTickGapNanos;
+        if (gap > 40_000_000 && gap < 1_000_000_000) tickNanos = gap;
     }
 
-    /** Sets the player's position for this tick, sliding from wherever it was being drawn. */
+    /** Sets the player's position, sliding from wherever it is being drawn if it has moved. */
     private static void placePlayer(float x, float y) {
         if (Float.isNaN(x) || Float.isNaN(playerX) || Math.abs(x - playerX) > TELEPORT || Math.abs(y - playerY) > TELEPORT) {
             playerFromX = Float.NaN;
             playerFromY = Float.NaN;
+        } else if (x == playerX && y == playerY) {
+            return;     // not moved: the slide under way carries on as it is
         } else {
             playerFromX = (float) drawPlayerX();
             playerFromY = (float) drawPlayerY();
+            playerSlideStart = System.nanoTime();
         }
         playerX = x;
         playerY = y;
     }
 
     static double drawPlayerX() {
-        return Float.isNaN(playerFromX) ? playerX : playerFromX + (playerX - playerFromX) * progress();
+        return Float.isNaN(playerFromX) ? playerX : playerFromX + (playerX - playerFromX) * progress(playerSlideStart);
     }
 
     static double drawPlayerY() {
-        return Float.isNaN(playerFromY) ? playerY : playerFromY + (playerY - playerFromY) * progress();
+        return Float.isNaN(playerFromY) ? playerY : playerFromY + (playerY - playerFromY) * progress(playerSlideStart);
     }
 
     /** How far a mark is from the player, in tiles, as {east, south}; null until the player is placed. */
@@ -643,7 +669,7 @@ final class ShattersRadar {
         // to know where you are standing in the Nexus and the realm too, or the map has no
         // centre and never appears - so the overlay could only be tried in the one dungeon it
         // is hardest to get into.
-        tickLanded();
+        timeTicks(data);
         placePlayer(data.player != null && data.player.pos != null ? data.player.pos.x : Float.NaN,
                 data.player != null && data.player.pos != null ? data.player.pos.y : Float.NaN);
         // once enough ground has been walked, work out which recorded layout this is and lay
