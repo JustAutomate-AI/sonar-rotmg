@@ -56,6 +56,37 @@ abstract class Pane extends JComponent {
     private double scrollTarget;
     int hoverX = -1, hoverY = -1;
 
+    /*
+     * Press, drag, let go - the way a tablet does it.
+     *
+     * A press used to select at once, so there was no telling a drag from a click: a pen that
+     * slid a little as it touched down still selected, and nothing could be scrolled without a
+     * wheel. Now a press only takes note of where it landed. Moved further than DRAG_SLOP before
+     * it is let go, it was a drag: the content follows the pointer, carries on a little when
+     * flicked, and nothing is selected. Let go without moving that far - however long it was held,
+     * and however much a pen wobbled on the way - it was a click, and selects what was under the
+     * press. A control that follows the pointer itself, like a slider, says so through grabs()
+     * and keeps the press as before.
+     */
+    static final int DRAG_SLOP = dragSlop();
+    private int pressX = -1, pressY, pressContentX, pressContentY;
+    private boolean grabbed, dragging;
+    private int dragFromY;
+    private double dragFromScroll;
+    private final long[] sampleAt = new long[8];
+    private final int[] sampleY = new int[8];
+    private int samples;
+
+    private static int dragSlop() {
+        try {
+            String v = sonar.util.PropertiesManager.getProperty("sonar.dragslop");
+            if (v != null && !v.trim().isEmpty()) return Math.max(2, Math.min(40, Integer.parseInt(v.trim())));
+        } catch (RuntimeException ignored) {
+            // a damaged value just means the default
+        }
+        return 8;
+    }
+
     Pane() {
         MouseAdapter mouse = new MouseAdapter() {
             @Override
@@ -63,7 +94,18 @@ abstract class Pane extends JComponent {
                 SonarNote.dismiss();
                 Container c = SwingUtilities.getAncestorOfClass(FloatWindow.class, Pane.this);
                 if (c != null) ((Workspace) c.getParent()).bringToFront((FloatWindow) c);
-                clicked(contentX(e), contentY(e));
+                pressX = e.getX();
+                pressY = e.getY();
+                pressContentX = contentX(e);
+                pressContentY = contentY(e);
+                dragging = false;
+                // a press catches a flick that is still running, the way a finger stops a list
+                scrollTarget = scroll.get();
+                scroll.jump(scrollTarget);
+                samples = 0;
+                sample(e);
+                grabbed = grabs(pressContentX, pressContentY);
+                if (grabbed) clicked(pressContentX, pressContentY);
             }
 
             @Override
@@ -78,13 +120,39 @@ abstract class Pane extends JComponent {
             public void mouseDragged(MouseEvent e) {
                 hoverX = contentX(e);
                 hoverY = contentY(e);
-                dragged(hoverX, hoverY);
+                if (grabbed || pressX < 0) {
+                    dragged(hoverX, hoverY);
+                    repaint();
+                    return;
+                }
+                if (!dragging && (Math.abs(e.getX() - pressX) > DRAG_SLOP || Math.abs(e.getY() - pressY) > DRAG_SLOP)) {
+                    // from here it is a drag, held from this point so the content does not jump
+                    dragging = true;
+                    dragFromY = e.getY();
+                    dragFromScroll = scroll.get();
+                    SonarNote.dismiss();
+                }
+                if (dragging) {
+                    scrollTarget = dragFromScroll - (e.getY() - dragFromY);
+                    clampScroll();
+                    scroll.jump(scrollTarget);
+                    sample(e);
+                }
                 repaint();
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
+                boolean wasPress = pressX >= 0;
+                if (wasPress && !grabbed) {
+                    if (!dragging) clicked(pressContentX, pressContentY);
+                    else fling();
+                }
+                pressX = -1;
+                grabbed = false;
+                dragging = false;
                 released();
+                repaint();
             }
 
             @Override
@@ -137,6 +205,57 @@ abstract class Pane extends JComponent {
     abstract void paintContent(Graphics2D g, int width);
 
     void clicked(int x, int y) {
+    }
+
+    /**
+     * Whether a press here belongs to a control that follows the pointer, such as a slider. Such
+     * a press is handed to {@link #clicked} straight away and its movement to {@link #dragged},
+     * as every press used to be; anywhere else, a press waits to see whether it is a drag.
+     */
+    boolean grabs(int x, int y) {
+        return false;
+    }
+
+    /** Where the content is scrolled to, in screen pixels; for the self-test. */
+    double scrolled() {
+        return scroll.get();
+    }
+
+    /** Where it is heading, which is further on than {@link #scrolled} while a flick runs out. */
+    double scrollAim() {
+        return scrollTarget;
+    }
+
+    private void sample(MouseEvent e) {
+        int i = samples % sampleAt.length;
+        sampleAt[i] = System.nanoTime();
+        sampleY[i] = e.getY();
+        samples++;
+    }
+
+    /**
+     * A drag let go while still moving carries the content on, slowing to a stop, as a flicked
+     * list does on a tablet. The speed is taken over the last tenth of a second of the drag, so
+     * a drag that was held still before being let go just stops.
+     */
+    private void fling() {
+        if (samples < 2) return;
+        int last = (samples - 1) % sampleAt.length;
+        long now = System.nanoTime();
+        if (now - sampleAt[last] > 60_000_000L) return;          // held still, then let go
+        int first = last;
+        for (int k = 1; k < Math.min(samples, sampleAt.length); k++) {
+            int i = (samples - 1 - k) % sampleAt.length;
+            if (sampleAt[last] - sampleAt[i] > 100_000_000L) break;
+            first = i;
+        }
+        double dt = (sampleAt[last] - sampleAt[first]) / 1e9;
+        if (dt <= 0) return;
+        double speed = (sampleY[last] - sampleY[first]) / dt;    // pixels a second, down is positive
+        if (Math.abs(speed) < 300) return;
+        double carry = Math.max(-2.0 * getHeight(), Math.min(2.0 * getHeight(), speed * 0.3));
+        scrollTarget = scroll.get() - carry;
+        clampScroll();
     }
 
     /**

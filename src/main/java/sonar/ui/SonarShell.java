@@ -295,9 +295,11 @@ public class SonarShell extends JPanel {
         // changelog has no business taking up space beside the pages.
         version.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         version.addMouseListener(new java.awt.event.MouseAdapter() {
+            // let go over the number, not Java's own click, which a pen's wobble cancels
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                WhatsNew.showRecent(SwingUtilities.getWindowAncestor(SonarShell.this), 5);
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e) && version.contains(e.getPoint()))
+                    WhatsNew.showRecent(SwingUtilities.getWindowAncestor(SonarShell.this), 5);
             }
 
             @Override

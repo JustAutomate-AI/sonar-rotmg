@@ -1634,10 +1634,10 @@ class LiveView {
                 damage.width() == Math.round(damage.getWidth() / 2f));
         Pane.setZoom(wasZoom);
 
-        mouse(enemies, java.awt.event.MouseEvent.MOUSE_PRESSED, 30, 110, 0, 0);
+        click(enemies, 30, 110);
         LiveModel m = shown();
         report.accept("clicking an enemy locks the damage window onto it", m.targets.size() > 1 && lockedEnemy != null && lockedEnemy == m.targets.get(1).id);
-        mouse(enemies, java.awt.event.MouseEvent.MOUSE_PRESSED, 30, 20, 0, 0);
+        click(enemies, 30, 20);
         report.accept("clicking Follow the fight releases the lock", lockedEnemy == null);
 
         // the row of enemies above the breakdown: the point of it is reaching one fight's
@@ -1648,20 +1648,20 @@ class LiveView {
         LiveModel.Group stripAll = breakdownEnemies.picked();
         report.accept("the row of enemies leads with the whole instance",
                 stripAll != null && stripAll.kind.equals("overall"));
-        mouse(breakdownEnemies, java.awt.event.MouseEvent.MOUSE_PRESSED, 60, 22, 0, 0);
+        click(breakdownEnemies, 60, 22);
         LiveModel.Group stripTop = breakdownEnemies.picked();
         report.accept("the fight beside it is the one with the most health",
                 stripTop != null && !stripTop.kind.equals("overall") && stripTop.target.maxHp > 0);
         report.accept("picking a fight shows the whole roster against that fight",
                 stripTop != null && !stripTop.target.rows.isEmpty()
                         && stripTop.target.total <= m.whole.total);
-        mouse(breakdownEnemies, java.awt.event.MouseEvent.MOUSE_PRESSED, 20, 22, 0, 0);
+        click(breakdownEnemies, 20, 22);
         report.accept("picking the first tile again puts the whole instance back",
                 breakdownEnemies.picked() != null && breakdownEnemies.picked().kind.equals("overall"));
 
-        mouse(history, java.awt.event.MouseEvent.MOUSE_PRESSED, 30, 70, 0, 0);
+        click(history, 30, 70);
         report.accept("clicking a finished instance opens it for review", isReviewing());
-        mouse(history, java.awt.event.MouseEvent.MOUSE_PRESSED, 30, 20, 0, 0);
+        click(history, 30, 20);
         report.accept("clicking Live returns to the current instance", !isReviewing());
 
         int finished = pasts.size();
@@ -1791,12 +1791,12 @@ class LiveView {
         livePage.validate();
         LiveModel.Row second = m.whole.rows.get(m.whole.rows.get(0).me ? 1 : 0);
         int rowY = (m.whole.rows.indexOf(second)) * 39 + 10;
-        mouse(damage, java.awt.event.MouseEvent.MOUSE_PRESSED, 12, rowY, 0, 0);
+        click(damage, 12, rowY);
         report.accept("clicking the person button of a bar adds that player to the party", Party.has(second.name));
-        mouse(damage, java.awt.event.MouseEvent.MOUSE_PRESSED, 42, rowY, 0, 0);
+        click(damage, 42, rowY);
         report.accept("clicking it again removes them", !Party.has(second.name));
-        mouse(damage, java.awt.event.MouseEvent.MOUSE_PRESSED, 42, rowY, 0, 0);
-        mouse(damage, java.awt.event.MouseEvent.MOUSE_PRESSED, 200, rowY, 0, 0);
+        click(damage, 42, rowY);
+        click(damage, 200, rowY);
         report.accept("clicking a bar opens that player's details", second.name.equals(selectedPlayer));
 
         // the Shared tab is the Instances list filtered to one person, so the two must agree
@@ -1836,9 +1836,9 @@ class LiveView {
         // so it has no size until it is shown; the click needs somewhere to land
         party.setSize(320, 260);
         party.doLayout();
-        mouse(party, java.awt.event.MouseEvent.MOUSE_PRESSED, 30, 20, 0, 0);
+        click(party, 30, 20);
         report.accept("clicking a friend's row in the friends list keeps them", Party.has(second.name));
-        mouse(party, java.awt.event.MouseEvent.MOUSE_PRESSED, party.getWidth() - 15, 20, 0, 0);
+        click(party, party.getWidth() - 15, 20);
         report.accept("clicking the cross on a member in the Party window removes them", !Party.has(second.name));
         audience.select(0, true);
         for (Party.Member pm : savedParty) Party.toggle(pm.name, pm.cls);
@@ -2532,6 +2532,7 @@ class LiveView {
         checkSlides(report);
         checkPrediction(report);
         checkHoverCard(report);
+        checkDragOrSelect(report);
         checkLookAcrossClasses(report);
         checkSegmentWidths(report);
         checkRealmClose(report);
@@ -2691,6 +2692,110 @@ class LiveView {
             report.accept("the slide test could reach the radar (" + e + ")", false);
         }
         placeForTest(Float.NaN, Float.NaN, 0, 0);
+    }
+
+    /** A list that records what it was asked to select and what it was asked to follow. */
+    private static final class TestList extends Pane {
+        final java.util.List<int[]> clicks = new java.util.ArrayList<>();
+        int drags;
+        final int grabBelow;
+
+        TestList(int grabBelow) {
+            this.grabBelow = grabBelow;
+            setSize(200, 100);
+        }
+
+        @Override
+        int contentHeight() {
+            return 2000;
+        }
+
+        @Override
+        void paintContent(Graphics2D g, int width) {
+        }
+
+        @Override
+        void clicked(int x, int y) {
+            clicks.add(new int[]{x, y});
+        }
+
+        @Override
+        boolean grabs(int x, int y) {
+            return y < grabBelow;
+        }
+
+        @Override
+        void dragged(int x, int y) {
+            drags++;
+        }
+
+        void press(int x, int y) {
+            dispatchEvent(new java.awt.event.MouseEvent(this, java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(),
+                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, java.awt.event.MouseEvent.BUTTON1));
+        }
+
+        void drag(int x, int y) {
+            dispatchEvent(new java.awt.event.MouseEvent(this, java.awt.event.MouseEvent.MOUSE_DRAGGED, System.currentTimeMillis(),
+                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK, x, y, 0, false, java.awt.event.MouseEvent.NOBUTTON));
+        }
+
+        void release(int x, int y) {
+            dispatchEvent(new java.awt.event.MouseEvent(this, java.awt.event.MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(),
+                    0, x, y, 1, false, java.awt.event.MouseEvent.BUTTON1));
+        }
+    }
+
+    /**
+     * Drag or select, told apart the way a tablet does: a press that wanders less than
+     * Pane.DRAG_SLOP before it is let go is a click on what was under it; one that goes further
+     * scrolls, and selects nothing.
+     */
+    private static void checkDragOrSelect(java.util.function.BiConsumer<String, Boolean> report) {
+        try {
+            double z = Pane.zoom();
+            TestList tap = new TestList(-1);
+            tap.press(50, 50);
+            tap.drag(53, 52);
+            tap.drag(48, 54);
+            tap.release(51, 53);
+            report.accept("a pen tap that wobbles a few pixels still selects, once, where it landed",
+                    tap.clicks.size() == 1 && Math.abs(tap.clicks.get(0)[0] - Math.round(50 / z)) <= 1
+                            && Math.abs(tap.clicks.get(0)[1] - Math.round(50 / z)) <= 1 && tap.scrolled() == 0);
+
+            TestList slow = new TestList(-1);
+            slow.press(50, 90);
+            for (int y = 85; y >= 10; y -= 5) {
+                slow.drag(50, y);
+                Thread.sleep(8);
+            }
+            Thread.sleep(120);           // held still before letting go: no flick
+            slow.release(50, 10);
+            report.accept("a press dragged up scrolls the list with it, from where the drag took hold",
+                    slow.scrolled() >= 60 && slow.scrolled() <= 80);
+            report.accept("and a drag selects nothing", slow.clicks.isEmpty());
+            report.accept("a drag held still before letting go just stops", Math.abs(slow.scrollAim() - slow.scrolled()) < 1);
+
+            TestList flick = new TestList(-1);
+            flick.press(50, 95);
+            for (int y = 80; y >= 20; y -= 15) {
+                flick.drag(50, y);
+                Thread.sleep(10);
+            }
+            flick.release(50, 20);
+            report.accept("a flick carries the list on past where the pointer stopped",
+                    flick.scrollAim() > flick.scrolled() + 20 && flick.clicks.isEmpty());
+
+            TestList slider = new TestList(30);
+            slider.press(50, 10);
+            boolean atOnce = slider.clicks.size() == 1;
+            slider.drag(80, 12);
+            slider.drag(120, 14);
+            slider.release(120, 14);
+            report.accept("a slider still takes the press at once and follows the pointer, without scrolling",
+                    atOnce && slider.clicks.size() == 1 && slider.drags == 2 && slider.scrolled() == 0);
+        } catch (Exception e) {
+            report.accept("the drag test could run (" + e + ")", false);
+        }
     }
 
     /** The overlay gets out of the way of the game's hover card quickly, and comes back gently. */
@@ -4663,6 +4768,12 @@ class LiveView {
         } catch (Exception e) {
             throw new IllegalStateException(method + " could not be called", e);
         }
+    }
+
+    /** A click as a person makes one: pressed and let go in the same place. Lists select on the release now. */
+    private static void click(Component c, int x, int y) {
+        mouse(c, java.awt.event.MouseEvent.MOUSE_PRESSED, x, y, 0, 0);
+        mouse(c, java.awt.event.MouseEvent.MOUSE_RELEASED, x, y, 0, 0);
     }
 
     private static void mouse(Component c, int id, int x, int y, int screenX, int screenY) {
