@@ -65,6 +65,8 @@ final class MouseWheelWatch {
     private static Thread thread;
     private static volatile com.sun.jna.Pointer hook;
     private static volatile Listener listener;
+    /** The pump thread's Windows id, so {@link #stop()} can tell it to stop taking messages. */
+    private static volatile int pumpThread;
     // held because Windows keeps only the address: let the callback be collected and the hook
     // fires into freed memory
     private static Hook.LowLevelMouseProc proc;
@@ -84,12 +86,31 @@ final class MouseWheelWatch {
                                            com.sun.jna.Pointer wParam, com.sun.jna.Pointer lParam);
 
         int GetMessageW(com.sun.jna.Pointer msg, com.sun.jna.Pointer window, int min, int max);
+
+        boolean PostThreadMessageW(int idThread, int msg, com.sun.jna.Pointer wParam, com.sun.jna.Pointer lParam);
+    }
+
+    private interface Kernel extends com.sun.jna.win32.StdCallLibrary {
+        Kernel INSTANCE = com.sun.jna.Native.load("kernel32", Kernel.class, com.sun.jna.win32.W32APIOptions.DEFAULT_OPTIONS);
+
+        int GetCurrentThreadId();
     }
 
     /** Starts watching, or replaces who is told. Safe to call when it is already running. */
     static synchronized void start(Listener who) {
         listener = who;
-        if (thread != null) return;
+        if (thread != null && thread.isAlive()) {
+            if (hook != null) return;   // running, and now telling the new listener
+            // stopped a moment ago and still on its way out: give it a moment, since a hook
+            // can only be installed by the thread that pumps for it
+            try {
+                thread.join(300);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (thread.isAlive()) return;
+        }
         thread = new Thread(MouseWheelWatch::pump, "sonar-wheel");
         thread.setDaemon(true);
         thread.start();
@@ -106,10 +127,29 @@ final class MouseWheelWatch {
                 // the hook dies with the process in any case
             }
         }
+        // GetMessage only returns when a message arrives, and with the hook gone none will:
+        // WM_QUIT is the one that makes it return, so the thread can end and a later start
+        // can begin again
+        int tid = pumpThread;
+        if (tid != 0) {
+            try {
+                Hook.INSTANCE.PostThreadMessageW(tid, 0x0012, null, null);
+            } catch (Throwable gone) {
+                // then it stays parked, harmlessly, as it always did
+            }
+        }
+    }
+
+    /** The pump is over; whatever started it may start another. */
+    private static synchronized void ended() {
+        thread = null;
+        hook = null;
+        pumpThread = 0;
     }
 
     private static void pump() {
         try {
+            pumpThread = Kernel.INSTANCE.GetCurrentThreadId();
             proc = (nCode, wParam, lParam) -> {
                 if (nCode == HC_ACTION && lParam != null) {
                     long what = com.sun.jna.Pointer.nativeValue(wParam);
@@ -142,6 +182,8 @@ final class MouseWheelWatch {
         } catch (Throwable noHook) {
             // not Windows, or the hook was refused; the keys and the buttons still work
             hook = null;
+        } finally {
+            ended();
         }
     }
 }

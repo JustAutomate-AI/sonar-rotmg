@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.1
+
+**One on/off, one switch**
+
+- **Overlay is the only button that is on or off.** While it is on, a single switch beside it says which picture the overlay draws - **Minimap** or **Enemies only** - and it is always drawing one of them. Three separate on/offs let "Minimap off, Enemies only on" and "both on" be states, and neither meant anything anyone wanted.
+- An overlay left in neither picture by an older build is taken as Minimap, which is what the switch shows.
+- **Overlay off is off.** Turning it off used to stop the drawing and leave the rest running: the game's zoom keys were still mirrored, the screen was still photographed every few seconds for the zoom, the mouse wheel was still watched, and the window was put straight back up the next time the game came to the front. All of it stops now, and turning it back on starts all of it again - including the wheel, which before this stayed dead after an off and on.
+
 ## 2.54.0
 
 **Enemies only**
