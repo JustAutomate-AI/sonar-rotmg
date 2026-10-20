@@ -2519,20 +2519,13 @@ class LiveView {
         report.accept("on a big map the view is centred on you", me != null
                 && Math.abs(me[0]) < 0.01 && Math.abs(me[1]) < 0.01);
 
-        // the same realm, hard against the west edge: the view stops and you slide left of centre
+        // the same realm, hard against the west edge: Exalt keeps you centred and shows black
+        // past the edge, so the overlay must too, or every click lands beside its mark
         placeForTest(20, 1024, 2048, 2048);
         me = ShattersRadar.playerFromView(view, view);
-        report.accept("against the map's edge the view stops and you move off centre",
-                me != null && Math.abs(me[0] - (-40)) < 0.01 && Math.abs(me[1]) < 0.01);
-
-        // a map only a little bigger than the view still clamps: 140 wide against a 120 view can
-        // only slide between 60 and 80, so standing at 30 puts you 30 tiles left of the view
-        placeForTest(30, 95, 140, 140);
-        double[] c = ShattersRadar.viewCentre(view, view);
-        me = ShattersRadar.playerFromView(view, view);
-        report.accept("a map barely bigger than the view clamps rather than following you",
-                c != null && Math.abs(c[0] - 60) < 0.01 && Math.abs(c[1] - 80) < 0.01
-                        && me != null && Math.abs(me[0] - (-30)) < 0.01 && Math.abs(me[1] - 15) < 0.01);
+        report.accept("against the edge of a map bigger than the view you stay centred, as in the game",
+                me != null && Math.abs(me[0]) < 0.01 && Math.abs(me[1]) < 0.01);
+        double[] c;
 
         // A map smaller than the view is pinned to the frame's top left, which is what the game
         // does: MiniMapImp asks whether the map's near edge has come inside the frame and, if so,
