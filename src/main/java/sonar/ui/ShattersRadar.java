@@ -464,13 +464,17 @@ final class ShattersRadar {
         // view, which is the one case the game's own source and the Nexus agree on. The old
         // behaviour is kept behind sonar.shatters.clampview=true in case another map shows it.
         boolean clampAlways = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.clampview"));
-        if (mapWidth > 0 && tilesWide > 0 && (clampAlways || tilesWide >= mapWidth)) {
-            double half = tilesWide / 2;
-            cx = Math.max(half, Math.min(mapWidth - half, cx));
+        // And where the whole map fits in the view - the last zoom step - the game centres it
+        // in the frame. Measured in a realm at that step: every enemy the game marks sat about
+        // 25 pixels right and 30 down from the overlay's ring for it, which is exactly the
+        // margin a centred map leaves and a map pinned to the top left does not.
+        if (mapWidth > 0 && tilesWide > 0) {
+            if (tilesWide >= mapWidth) cx = mapWidth / 2.0;
+            else if (clampAlways) cx = Math.max(tilesWide / 2, Math.min(mapWidth - tilesWide / 2, cx));
         }
-        if (mapHeight > 0 && tilesHigh > 0 && (clampAlways || tilesHigh >= mapHeight)) {
-            double half = tilesHigh / 2;
-            cy = Math.max(half, Math.min(mapHeight - half, cy));
+        if (mapHeight > 0 && tilesHigh > 0) {
+            if (tilesHigh >= mapHeight) cy = mapHeight / 2.0;
+            else if (clampAlways) cy = Math.max(tilesHigh / 2, Math.min(mapHeight - tilesHigh / 2, cy));
         }
         return new double[]{cx, cy};
     }

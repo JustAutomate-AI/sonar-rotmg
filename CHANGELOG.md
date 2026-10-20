@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.6
+
+**The last zoom step lines up**
+
+- **At the most zoomed-out step the map is centred, as the game centres it.** Every other step was already right. At the last one the overlay pinned the map to the frame's top left while the game centres it, so every enemy the game marks sat about 25 pixels right and 30 down from the overlay's ring for it. Measured by matching each ring to the game's own icon for the same enemy.
+- That step's scale is also 1% smaller, to match: the game fits the map into 0.86 of the frame, measured in the realm (`sonar.shatters.fitarea`).
+
 ## 2.54.5
 
 **Bosses and quests stand out**

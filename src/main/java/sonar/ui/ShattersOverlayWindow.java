@@ -1137,7 +1137,7 @@ class ShattersOverlayWindow extends JWindow {
      * fifth further from the middle than the game's own icon for it. Settable, in case
      * another interface scale draws the border differently.
      */
-    static final double MAP_AREA = Math.max(0.5, Math.min(1.0, getDouble("sonar.shatters.fitarea", 0.87)));
+    static final double MAP_AREA = Math.max(0.5, Math.min(1.0, getDouble("sonar.shatters.fitarea", 0.86)));
 
     static double fitFor(int widthPx, int heightPx, int mapW, int mapH) {
         return Math.max(widthPx / (double) mapW, heightPx / (double) mapH) * MAP_AREA;
