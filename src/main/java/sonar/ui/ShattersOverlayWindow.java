@@ -638,7 +638,7 @@ class ShattersOverlayWindow extends JWindow {
                 // Big enough to recognise and outlined, because a sprite at fourteen pixels on
                 // black ground is a smudge: these are drawn at the size the damage board draws
                 // them, with the same dark outline it uses to lift them off the background.
-                int size = faceSizeFor(tilesWide, face.getWidth());
+                int size = faceSizeFor(pixelsPerTile, face.getWidth(), true);
                 g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
                 return;
             }
@@ -678,6 +678,26 @@ class ShattersOverlayWindow extends JWindow {
      */
     static int faceSizeFor(double tilesWide) {
         return faceSizeFor(tilesWide, 0);
+    }
+
+    /**
+     * How big a sprite is drawn, to scale: a footprint in tiles, so it follows the zoom.
+     * <p>
+     * A sprite drawn at a fixed number of pixels is the wrong size at every zoom but one -
+     * reported first as icons too big when zoomed out, then as icons too small when zoomed
+     * in, which is the same complaint from both ends. The game's zoom says how many pixels a
+     * tile is, and a sprite that covers a set number of tiles is right at all of them: twice
+     * the size at twice the zoom, like everything else on the map. A lesser enemy covers a
+     * tile and a half; something the game draws big covers three. Never below eight pixels,
+     * because below that a sprite is a speck and there is nothing left to recognise, and
+     * never past twice the configured mark size.
+     */
+    static int faceSizeFor(double pixelsPerTile, int spriteWidth, boolean toScale) {
+        double matters = spriteWidth <= 0 ? 0.5
+                : Math.max(0.0, Math.min(1.0, (spriteWidth / (double) (FACE_SIZE * 2) - 0.5) * 2));
+        double footprint = 1.6 + 1.6 * matters;   // tiles across
+        int size = (int) Math.round(pixelsPerTile * footprint);
+        return Math.max(8, Math.min(FACE_SIZE * 2, size));
     }
 
     /**
@@ -1074,12 +1094,39 @@ class ShattersOverlayWindow extends JWindow {
      * mis-tuned constant, it is a different shape of answer: the real ladder is 48, 96, 192,
      * 384 tiles across, from a base of 192 rather than 480.
      */
+    /**
+     * How much of the minimap's frame the game actually draws the map into, at the step where
+     * the whole map fits.
+     * <p>
+     * The halving steps are absolute - four pixels a tile, two, one - and lined up exactly.
+     * The last step did not: the overlay fitted the map to its frame, 470 pixels across, and
+     * the game fits it to the area inside its frame's border, which is smaller. Measured on
+     * the Nexus at the bottom step, the game drew 1.64 pixels a tile where the frame alone
+     * would say 1.88 - a fraction of 0.871 - and in a realm every enemy sprite sat about a
+     * fifth further from the middle than the game's own icon for it. Settable, in case
+     * another interface scale draws the border differently.
+     */
+    static final double MAP_AREA = Math.max(0.5, Math.min(1.0, getDouble("sonar.shatters.fitarea", 0.87)));
+
+    static double fitFor(int widthPx, int heightPx, int mapW, int mapH) {
+        return Math.max(widthPx / (double) mapW, heightPx / (double) mapH) * MAP_AREA;
+    }
+
+    private static double getDouble(String key, double fallback) {
+        try {
+            String v = sonar.util.PropertiesManager.getProperty(key);
+            return v == null || v.isEmpty() ? fallback : Double.parseDouble(v.trim());
+        } catch (Throwable bad) {
+            return fallback;
+        }
+    }
+
     static double[] ladderFor(int widthPx, int heightPx, int mapW, int mapH) {
         if (widthPx <= 0 || heightPx <= 0 || mapW <= 0 || mapH <= 0) {
             // nothing known about the map yet; one middling rung so marks are drawn somewhere
             return new double[]{clampScale(widthPx > 0 ? widthPx / 96.0 : 1)};
         }
-        double fit = Math.max(widthPx / (double) mapW, heightPx / (double) mapH);
+        double fit = fitFor(widthPx, heightPx, mapW, mapH);
         // the game draws its minimap at 192px; anything larger scales the whole ladder with it
         double grown = widthPx / (double) NATIVE_MINIMAP;
         java.util.List<Double> rungs = new java.util.ArrayList<>();
@@ -1185,9 +1232,8 @@ class ShattersOverlayWindow extends JWindow {
     private double fitScale() {
         int mw = ShattersRadar.mapWidth(), mh = ShattersRadar.mapHeight();
         if (mw <= 0 || mh <= 0) return 0.05;
-        // the game's rule, and the ladder's: the larger ratio, so the map just covers the
-        // frame. The smaller one left the bottom step two percent wider than the game's.
-        return Math.max(0.05, Math.max(getWidth() / (double) mw, getHeight() / (double) mh));
+        // the ladder's own bottom rung, so stepping down by key lands exactly where the game does
+        return Math.max(0.05, fitFor(getWidth(), getHeight(), mw, mh));
     }
 
     /**
@@ -1569,6 +1615,25 @@ class ShattersOverlayWindow extends JWindow {
      */
     private static final String GAME_WINDOW = "RotMGExalt";
 
+    /**
+     * Whether the game itself - not one of Sonar's own windows - has the foreground.
+     * <p>
+     * {@link #gameIsInFront()} counts Sonar's windows as the game being in front, so that
+     * clicking a Sonar button does not make the overlay vanish; that is right for showing
+     * the overlay and wrong for changing its zoom. The game does not zoom when it is not the
+     * active window, and the overlay was: a scroll with Sonar's own window active stepped
+     * the overlay's zoom and left the two out of register.
+     */
+    private boolean gameItselfInFront() {
+        try {
+            com.sun.jna.Pointer front = User32.INSTANCE.GetForegroundWindow();
+            com.sun.jna.Pointer game = front == null ? null : User32.INSTANCE.FindWindowW(null, GAME_WINDOW);
+            return game != null && com.sun.jna.Pointer.nativeValue(front) == com.sun.jna.Pointer.nativeValue(game);
+        } catch (Throwable notWindows) {
+            return false;
+        }
+    }
+
     private boolean gameIsInFront() {
         try {
             com.sun.jna.Pointer front = User32.INSTANCE.GetForegroundWindow();
@@ -1643,6 +1708,10 @@ class ShattersOverlayWindow extends JWindow {
      * chat steps the overlay as well. Stepping back costs one press.
      */
     private void pollZoomKeys() {
+        if (!gameItselfInFront()) {
+            plusWasDown = minusWasDown = false;
+            return;
+        }
         int[] mirror = GameKeys.minimapZoom();
         boolean mods = down(VK_CONTROL) && down(VK_SHIFT);
         boolean plus = down(mirror[0]) || (mods && (down(VK_OEM_PLUS) || down(VK_ADD)));
@@ -1697,6 +1766,7 @@ class ShattersOverlayWindow extends JWindow {
         // began and ended between two ticks
         boolean clicked = (nowDown && !clickWasDown) || (!nowDown && pressedSinceLastLook(VK_LBUTTON));
         clickWasDown = nowDown;
+        if (!gameItselfInFront()) return;   // the game's buttons cannot be clicked when it is not in front
         // while calibrating the window takes its own clicks, and those mean something else
         if (!clicked || calibrating || !isVisible()) return;
         Point at;
@@ -1777,7 +1847,7 @@ class ShattersOverlayWindow extends JWindow {
     }
 
     private void wheeled(int screenX, int screenY, int notches) {
-        if (calibrating || !isVisible()) return;
+        if (calibrating || !isVisible() || !gameItselfInFront()) return;
         if (!wheelIsForUs(gameBox(), getBounds(), screenX, screenY)) return;
         // away from you is a lower rung, the same direction the plus button goes
         int by = notches > 0 ? -1 : 1;

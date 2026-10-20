@@ -2614,7 +2614,9 @@ class LiveView {
         // MiniMapImp.makeViewModel, transcribed, to check the real thing against rather than
         // against numbers worked back out of it
         java.util.function.BiFunction<int[], int[], double[]> theGame = (frame, map) -> {
-            double fit = Math.max(frame[0] / (double) map[0], frame[1] / (double) map[1]);
+            // the frame here is the game's drawable area, which is the frame Sonar sizes the
+            // overlay to less its border - measured as 0.87 of it at the bottom step
+            double fit = Math.max(frame[0] / (double) map[0], frame[1] / (double) map[1]) * ShattersOverlayWindow.MAP_AREA;
             java.util.List<Double> out = new java.util.ArrayList<>();
             for (double s = 4 * (frame[0] / 192.0); s > fit; s /= 2) out.add(s);
             out.add(fit);
@@ -2633,8 +2635,8 @@ class LiveView {
 
         // the last rung is always the one that fits the whole map in the frame
         double[] small = ShattersOverlayWindow.ladderFor(192, 192, 120, 120);
-        report.accept("the last rung is the one that fits the whole map",
-                small.length > 0 && Math.abs(small[small.length - 1] - 192 / 120.0) < 1e-9);
+        report.accept("the last rung is the one that fits the whole map into the game's drawable area",
+                small.length > 0 && Math.abs(small[small.length - 1] - 192 / 120.0 * ShattersOverlayWindow.MAP_AREA) < 1e-9);
 
         // a smaller map offers fewer rungs, which is why a fixed six was never right
         report.accept("a small map has fewer rungs than a large one",
@@ -3154,15 +3156,16 @@ class LiveView {
      * that was legible over forty tiles is lost over two thousand.
      */
     private static void checkMarksGrowWithTheView(java.util.function.BiConsumer<String, Boolean> report) {
-        // a big sprite is something worth finding; a small one is a rat
-        int bigClose = ShattersOverlayWindow.faceSizeFor(48, 64);
-        int bigWide = ShattersOverlayWindow.faceSizeFor(2304, 64);
-        int smallClose = ShattersOverlayWindow.faceSizeFor(48, 8);
-        int smallWide = ShattersOverlayWindow.faceSizeFor(2304, 8);
-        report.accept("something worth finding grows as the view widens", bigWide > bigClose);
-        report.accept("and never past twice its own size", bigWide <= bigClose * 2);
-        report.accept("a lesser enemy is not emphasised by zooming out", smallWide == smallClose);
-        report.accept("and is drawn smaller than something worth finding", smallWide < bigWide);
+        // Sprites are drawn to scale: a footprint in tiles, so they follow the game's zoom.
+        // A big sprite is something worth finding; a small one is a rat.
+        int bigIn = ShattersOverlayWindow.faceSizeFor(9.79, 64, true);
+        int bigHalf = ShattersOverlayWindow.faceSizeFor(4.9, 64, true);
+        int bigOut = ShattersOverlayWindow.faceSizeFor(1.88, 64, true);
+        int smallIn = ShattersOverlayWindow.faceSizeFor(9.79, 8, true);
+        report.accept("a sprite is half the size at half the zoom", Math.abs(bigHalf * 2 - bigIn) <= 2);
+        report.accept("and never below eight pixels, where nothing is left to recognise", bigOut >= 8);
+        report.accept("something worth finding is drawn twice the size of a lesser enemy", Math.abs(bigIn - smallIn * 2) <= 2);
+        report.accept("and never past twice the configured mark size", bigIn <= 96);
 
         // and past a point it is not drawn at all: a mark too small to read is still a mark in
         // the way of the cursor, and lining the cursor up is the whole point of drawing them
