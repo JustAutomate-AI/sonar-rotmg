@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.55.0
+
+**Ring colours read off the game itself**
+
+- **The ring around each marked enemy is now the colour the game draws that enemy's icon in, read off the game's own minimap.** The colours in 2.54.8 were guessed from the kind of icon, and the game colours by more than the kind: its demon heads come in purple, green and red, and its skulls are pink. Each time the overlay checks the game's zoom it photographs the minimap with itself out of the picture; it now also looks at what colour the game has drawn under each marked enemy and remembers it for that kind of enemy. Until an enemy has been seen, its ring uses the old guess.
+- Also in this release (2.54.9): turning the overlay off and on in the same instance keeps the zoom it had, instead of jumping back to the most zoomed-in step while the game stayed where it was.
+
 ## 2.54.9
 
 **Off and on again keeps the zoom**
