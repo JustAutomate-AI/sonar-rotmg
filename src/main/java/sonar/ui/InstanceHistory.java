@@ -153,7 +153,7 @@ final class InstanceHistory {
     }
 
     /** Appends one finished instance to today's file. Called once per finished dungeon run. */
-    static void record(LiveModel.Past past) {
+    static synchronized void record(LiveModel.Past past) {
         LiveModel m = past.frozen;
         if (m == null) return; // nothing to save without the full picture
         try {
@@ -195,7 +195,9 @@ final class InstanceHistory {
             }
             e.targets = m.targets;
             e.whole = m.whole;
-            List<Entry> day = readDay(LocalDate.now());
+            // never "the day is empty" because it could not be read: that would write one
+            // instance over all of them
+            List<Entry> day = readDayOrThrow(LocalDate.now());
             day.add(e);
             writeDay(LocalDate.now(), day);
         } catch (Exception ex) {
@@ -247,22 +249,83 @@ final class InstanceHistory {
      * history on the way past and left a twenty-byte gzip holding nothing. Serialising first
      * costs one string and makes a failure leave yesterday's file exactly as it was.
      */
-    private static void writeDay(LocalDate date, List<Entry> day) throws java.io.IOException {
+    private static synchronized void writeDay(LocalDate date, List<Entry> day) throws java.io.IOException {
         byte[] text = GSON.toJson(day).getBytes(StandardCharsets.UTF_8);
         File target = fileFor(date);
+        // Written beside the real file and only then moved over it.
+        //
+        // Writing straight into the day's file meant a Sonar closed partway through a save -
+        // which is what an update does, moments after the window closes and saves - left a
+        // file cut short. The next save could not read it, took the day to be empty, and wrote
+        // back the one new instance over everything else: reported as every update losing all
+        // past instance data. A move either happens whole or not at all, so the day's file is
+        // always one complete version or the next.
+        File temp = new File(target.getParentFile(), target.getName() + ".writing");
         try (java.io.OutputStream out = new java.util.zip.GZIPOutputStream(
-                new java.io.FileOutputStream(target))) {
+                new java.io.FileOutputStream(temp))) {
             out.write(text);
+        }
+        // the version being replaced is kept, one step back, in case this one is ever unreadable
+        if (target.isFile()) {
+            java.nio.file.Files.copy(target.toPath(), backupFor(date).toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        try {
+            java.nio.file.Files.move(temp.toPath(), target.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException noAtomic) {
+            java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
         File plain = plainFileFor(date);
         if (plain.isFile()) plain.delete();
+        System.out.println("[history] saved " + day.size() + " instance" + (day.size() == 1 ? "" : "s") + " for " + date);
+    }
+
+    private static File backupFor(LocalDate date) {
+        File f = fileFor(date);
+        return new File(f.getParentFile(), f.getName() + ".bak");
+    }
+
+    /** Thrown when a day's file exists but cannot be read, so nothing is written over it. */
+    static final class Unreadable extends java.io.IOException {
+        Unreadable(String what, Throwable why) {
+            super(what, why);
+        }
     }
 
     private static List<Entry> readDay(LocalDate date) {
+        try {
+            return readDayOrThrow(date);
+        } catch (Unreadable e) {
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * The day's instances, from its file or, if that will not read, from the copy kept one save
+     * back. Throws rather than answering "nothing" when neither reads, because "nothing" is
+     * what a save then writes over the file - and that is how whole days were lost.
+     */
+    static List<Entry> readDayOrThrow(LocalDate date) throws Unreadable {
         File f = fileFor(date);
-        boolean compressed = f.isFile();
-        if (!compressed) f = plainFileFor(date);
-        if (!f.isFile()) return new ArrayList<>();
+        if (!f.isFile() && !plainFileFor(date).isFile()) return new ArrayList<>();
+        List<Entry> got = readFile(f.isFile() ? f : plainFileFor(date), f.isFile());
+        if (got != null) return got;
+        File bak = backupFor(date);
+        List<Entry> fromBackup = bak.isFile() ? readFile(bak, true) : null;
+        // the file that would not read is set aside under its own name, never written over
+        File aside = new File(f.getParentFile(), f.getName() + ".unreadable-" + System.currentTimeMillis());
+        boolean moved = f.isFile() && f.renameTo(aside);
+        System.out.println("[history] " + f.getName() + " would not read; set aside as " + aside.getName()
+                + (moved ? "" : " (could not be moved)") + (fromBackup != null ? ", using the backup with "
+                + fromBackup.size() + " instances" : ", and there is no readable backup"));
+        if (fromBackup != null) return fromBackup;
+        if (!moved) throw new Unreadable(f.getName(), null);
+        return new ArrayList<>();
+    }
+
+    /** One file's instances, or null if it exists and cannot be read. */
+    private static List<Entry> readFile(File f, boolean compressed) {
         try {
             String json;
             if (compressed) {
@@ -282,7 +345,9 @@ final class InstanceHistory {
             list.removeIf(e -> e == null); // a crash mid-write or hand-edited file can leave null entries
             return list;
         } catch (Exception ex) {
-            return new ArrayList<>();
+            lastTrouble = "reading " + f.getName() + ": " + ex.getClass().getSimpleName() + ": " + ex.getMessage();
+            System.out.println("[history] " + lastTrouble);
+            return null;
         }
     }
 
