@@ -152,6 +152,7 @@ class LiveView {
     private boolean shattersCalibrating;
     private final SonarButton shattersRecentre = new SonarButton("Find minimap", false, this::recentreShatters);
     private final SonarButton shattersMap = new SonarButton("Minimap: off", false, this::toggleShattersMap);
+    private final SonarButton shattersEnemies = new SonarButton("Enemies only: off", false, this::toggleShattersEnemies);
     /** Marks portals anywhere, so calibration can be checked without waiting for a Shatters. */
     private final SonarButton shattersPortals = new SonarButton("Portals: off", false, this::togglePortalTest);
     private ShattersOverlayWindow shattersOverlay;
@@ -1032,6 +1033,10 @@ class LiveView {
         nav.add(shattersMap);
         shattersMap.setToolTipText("Replaces your minimap with Sonar's own: the ground it has seen and remembers, "
                 + "the people, what can be fought, the ways out and you, at a zoom you set with the wheel");
+        nav.add(javax.swing.Box.createHorizontalStrut(6));
+        nav.add(shattersEnemies);
+        shattersEnemies.setToolTipText("Only the enemies, as their sprites, over the game's own minimap - "
+                + "nothing else is drawn, every click goes to the game, and the overlay never steps aside");
         syncShattersButtons();
         return nav;
     }
@@ -1059,6 +1064,10 @@ class LiveView {
         shattersMap.setText(on ? "Minimap: on" : "Minimap: off");
         shattersMap.setPrimary(on);
         shattersMap.setVisible(shattersEnabled);
+        boolean foes = shattersOverlay != null && shattersOverlay.enemiesOnly();
+        shattersEnemies.setText(foes ? "Enemies only: on" : "Enemies only: off");
+        shattersEnemies.setPrimary(foes);
+        shattersEnemies.setVisible(shattersEnabled);
         shattersCalibrate.setVisible(false);
         shattersRecentre.setVisible(false);
         shattersPortals.setVisible(false);
@@ -1129,6 +1138,14 @@ class LiveView {
         alignedAutomatically = what.startsWith("Lined up");
         if (!alignedAutomatically) SonarNote.setPlain(what + " Line it up by hand instead.");
         syncShattersButtons();
+    }
+
+    /** Enemies only: their sprites and nothing else, with the game's minimap showing through. */
+    private void toggleShattersEnemies() {
+        if (shattersOverlay == null) return;
+        shattersOverlay.setEnemiesOnly(!shattersOverlay.enemiesOnly());
+        syncShattersButtons();
+        refresh();
     }
 
     /** Turns Sonar's own ground on or off over the game's minimap. */
@@ -1516,9 +1533,9 @@ class LiveView {
             buttons++;
             if (c.isVisible()) showing++;
         }
-        report.accept("the Shatters panel offers two buttons, not five", buttons == 2);
+        report.accept("the Shatters panel offers three buttons: Overlay, Minimap, Enemies only", buttons == 3);
         report.accept("and with the overlay off, only the one that turns it on",
-                shattersEnabled ? showing == 2 : showing == 1);
+                shattersEnabled ? showing == 3 : showing == 1);
 
         // the windows keep their places: a drag on the title bar or the corner does nothing at all
         Rectangle home = damageWindow.getBounds();

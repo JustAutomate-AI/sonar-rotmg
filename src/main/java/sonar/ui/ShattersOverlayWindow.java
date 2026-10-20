@@ -177,7 +177,7 @@ class ShattersOverlayWindow extends JWindow {
      * back, and only when it is worth believing.
      */
     private void syncToGame() {
-        if (!drawMap || syncing || calibrating) return;
+        if (!wantsLive() || syncing || calibrating) return;
         // Whoever last set the zoom by hand keeps it.
         //
         // Measuring the game's zoom is for starting in step with it, not for overruling
@@ -257,6 +257,7 @@ class ShattersOverlayWindow extends JWindow {
         super.setVisible(show);
         if (show) {
             applyWindowStyles();
+            ShattersRadar.setDrawingMap(wantsLive());
             attachTimer.start();
         } else {
             attachTimer.stop();
@@ -287,6 +288,10 @@ class ShattersOverlayWindow extends JWindow {
         double radius = Math.min(w, h) / 2.0 - 4;
         // what the minimap is showing, in tiles, so the clamp at the map's edge can be worked out
         double tilesWide = w / pixelsPerTile, tilesHigh = h / pixelsPerTile;
+        if (enemiesOnly && !calibrating) {
+            paintEnemiesOnly(g, w, h, tilesWide, tilesHigh);
+            return;
+        }
         double[] me = ShattersRadar.playerFromView(tilesWide, tilesHigh);
         boolean drewMap = paintMap(g, w, h, tilesWide, tilesHigh);
         paintLayoutNotice(g, w, h);
@@ -525,13 +530,55 @@ class ShattersOverlayWindow extends JWindow {
 
     void setDrawMap(boolean on) {
         drawMap = on;
-        ShattersRadar.setDrawingMap(on);
+        ShattersRadar.setDrawingMap(wantsLive());
         sonar.util.PropertiesManager.setProperties("sonar.shatters.drawmap", String.valueOf(on));
         repaint();
     }
 
     boolean drawMap() {
         return drawMap;
+    }
+
+    /**
+     * Enemies only: their sprites over the game's own minimap, and nothing else at all.
+     * <p>
+     * The third picture, asked for once the other two worked. No ground, no people, no ways
+     * out, no panel, no status line, no reticle - the frame is left clear wherever there is
+     * no enemy, so the game's minimap shows through and every click lands on it. The overlay
+     * never steps aside in this mode either: stepping aside is for the menu the game opens
+     * over a player, and no players are drawn here to be clicked on.
+     */
+    private boolean enemiesOnly = "true".equals(sonar.util.PropertiesManager.getProperty("sonar.shatters.enemiesonly"));
+
+    void setEnemiesOnly(boolean on) {
+        enemiesOnly = on;
+        ShattersRadar.setDrawingMap(wantsLive());
+        sonar.util.PropertiesManager.setProperties("sonar.shatters.enemiesonly", String.valueOf(on));
+        repaint();
+    }
+
+    boolean enemiesOnly() {
+        return enemiesOnly;
+    }
+
+    /** Whether the radar needs to keep the live census at all: for the map, or for the enemies alone. */
+    private boolean wantsLive() {
+        return drawMap || enemiesOnly;
+    }
+
+    /** Only what can be fought, as sprites, with the frame left clear around them. */
+    private void paintEnemiesOnly(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
+        double cx = w / 2.0, cy = h / 2.0;
+        for (ShattersRadar.Mark m : ShattersRadar.live()) {
+            if (m.type != ShattersRadar.FOE) continue;
+            double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
+            if (off == null) continue;
+            int x = (int) Math.round(cx + off[0] * pixelsPerTile);
+            int y = (int) Math.round(cy + off[1] * pixelsPerTile);
+            if (x < -8 || y < -8 || x > w + 8 || y > h + 8) continue;
+            if (!worthDrawing(m, tilesWide)) continue;
+            paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+        }
     }
 
     /** Ground nobody has walked on, near enough to black to read as the game's own unexplored map. */
@@ -1676,7 +1723,7 @@ class ShattersOverlayWindow extends JWindow {
      * is away starts the wait over, so reading a long list is not interrupted halfway.
      */
     private void clickedAt(int screenX, int screenY) {
-        if (calibrating || !isVisible()) return;
+        if (calibrating || !isVisible() || enemiesOnly) return;
         Rectangle box = getBounds();
         if (!box.contains(screenX, screenY)) return;
         // Only for a click that could open a menu, which means a click on somebody.
