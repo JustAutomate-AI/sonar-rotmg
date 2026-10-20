@@ -201,6 +201,9 @@ final class ShattersRadar {
          */
         boolean important;
 
+        /** The icon the game's own minimap gives this object, from its XML; null for none. */
+        String piece;
+
         /**
          * What object this is, where the mark stands for a real one.
          * <p>
@@ -393,8 +396,14 @@ final class ShattersRadar {
                 // an id the assets do not name; the class alone still decides
             }
             int kind = kindOf(clazz, name, data.playerListUpdated.containsKey(e.id));
+            // whatever the game's own minimap marks, the overlay marks too - including things
+            // that are not characters at all, like the alien invasion's reactor indicators
+            String piece = MinimapIcons.pieceOf(e.objectType);
+            if (piece != null && piece.equals("Beacon")) piece = null;   // drawn already, as a waystone
+            if (kind == 0 && piece != null) kind = FOE;
             if (kind == 0) continue;
             Mark m = new Mark(kind, e.objectType, e.pos.x, e.pos.y);
+            m.piece = piece;
             if (kind == FOE) {
                 int hp = 0;
                 try {
@@ -402,11 +411,12 @@ final class ShattersRadar {
                 } catch (RuntimeException noStat) {
                     // not sent yet; the quest list still decides
                 }
-                m.important = e.id == GameData.questId || GameData.questList.contains(e.id) || hp >= BOSS_HP;
+                m.important = e.id == GameData.questId || GameData.questList.contains(e.id) || hp >= BOSS_HP
+                        || "Boss".equals(piece) || "Miniboss".equals(piece);
             }
             found.add(m);
         }
-        found.sort((a, b) -> Boolean.compare(a.important, b.important));
+        found.sort((a, b) -> Boolean.compare(a.important || a.piece != null, b.important || b.piece != null));
         if (!Float.isNaN(playerX)) found.add(new Mark(SELF, playerX, playerY));
         live = found;
     }

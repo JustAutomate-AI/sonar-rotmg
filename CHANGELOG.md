@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.7
+
+**The overlay marks what the game marks**
+
+- **UFOs, skulls and every other enemy the game's own minimap shows now have a mark on the overlay.** The game decides which objects get a minimap icon in their XML (`<MinimapIcon piece="...">`: Boss, Miniboss, UFO, DangerSmall, DangerLarge, Present and a few more), and Sonar now reads that list instead of guessing from health. UFOs draw as a magenta saucer, Danger enemies as a purple skull, presents as a gift, each at a fixed size so they read at every zoom; Boss and Miniboss draw as their sprite, large, with the red ring. None of them are thinned out when zoomed out.
+
 ## 2.54.6
 
 **The last zoom step lines up**
