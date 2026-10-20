@@ -2531,6 +2531,7 @@ class LiveView {
         checkZoomSteps(report);
         checkSlides(report);
         checkPrediction(report);
+        checkHoverCard(report);
         checkLookAcrossClasses(report);
         checkSegmentWidths(report);
         checkRealmClose(report);
@@ -2690,6 +2691,18 @@ class LiveView {
             report.accept("the slide test could reach the radar (" + e + ")", false);
         }
         placeForTest(Float.NaN, Float.NaN, 0, 0);
+    }
+
+    /** The overlay gets out of the way of the game's hover card quickly, and comes back gently. */
+    private static void checkHoverCard(java.util.function.BiConsumer<String, Boolean> report) {
+        float f = ShattersOverlayWindow.fadeToward(1f, 0.1f, 0.04);
+        report.accept("the overlay is half faded 40 ms after the pointer rests on a player", Math.abs(f - 0.5f) < 0.01);
+        f = ShattersOverlayWindow.fadeToward(f, 0.1f, 0.05);
+        report.accept("and all the way down to a tenth by 90 ms, so the game's card reads", Math.abs(f - 0.1f) < 1e-6);
+        f = ShattersOverlayWindow.fadeToward(f, 1f, 0.09);
+        boolean partway = f > 0.55f && f < 0.65f;
+        f = ShattersOverlayWindow.fadeToward(f, 1f, 0.2);
+        report.accept("once the pointer leaves, it comes back over 180 ms, never past full", partway && f == 1f);
     }
 
     /** A Move with these record times and eastward positions, all at y = 20. */
