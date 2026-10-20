@@ -167,9 +167,39 @@ class FloatWindow extends JPanel {
 
     @Override
     protected void paintComponent(Graphics g) {
+        // The frame - shadow, card and edge - is drawn once into a picture and reused.
+        //
+        // It is a stack of soft rounded outlines and a gradient, which is some of the slowest
+        // drawing there is, and Swing redraws a window's frame under every repaint of anything
+        // inside it: each animated number on the Live page was paying for the whole frame again,
+        // up to a hundred times a second. Measured, this was the largest single cost of a frame.
+        // It only changes with the window's size, how lifted or focused it is, and the theme.
+        int fw = getWidth(), fh = getHeight();
+        if (fw <= 0 || fh <= 0) return;
+        int focusStep = (int) Math.round(focus.get() * 24), liftStep = (int) Math.round(lift.get() * 24);
+        String key = fw + "x" + fh + ":" + focusStep + ":" + liftStep + ":" + SonarTheme.themeIndex()
+                + ":" + SonarTheme.accent().getRGB() + ":" + SonarTheme.SURFACE.getRGB();
+        if (frameImage == null || !key.equals(frameKey)) {
+            java.awt.GraphicsConfiguration gc = getGraphicsConfiguration();
+            java.awt.image.BufferedImage img = gc != null
+                    ? gc.createCompatibleImage(fw, fh, java.awt.Transparency.TRANSLUCENT)
+                    : new java.awt.image.BufferedImage(fw, fh, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            Graphics2D ig = img.createGraphics();
+            paintFrame(ig, focusStep / 24.0, liftStep / 24.0);
+            ig.dispose();
+            frameImage = img;
+            frameKey = key;
+        }
+        g.drawImage(frameImage, 0, 0, null);
+    }
+
+    private java.awt.image.BufferedImage frameImage;
+    private String frameKey;
+
+    private void paintFrame(Graphics g, double focusNow, double liftNow) {
         Graphics2D g2 = SonarTheme.quality(g.create());
         int w = getWidth() - SHADOW * 2, h = getHeight() - SHADOW * 2;
-        double depth = 0.5 + focus.get() * 0.3 + lift.get() * 0.5;
+        double depth = 0.5 + focusNow * 0.3 + liftNow * 0.5;
         // soft shadow: stacked translucent outlines that fade outward
         for (int i = SHADOW; i >= 1; i--) {
             g2.setColor(new Color(0, 0, 0, (int) Math.min(255, (SHADOW - i + 1) * 3.2 * depth)));
@@ -180,7 +210,7 @@ class FloatWindow extends JPanel {
         // top used to be a fixed plum that tinted every panel whatever was chosen
         g2.setPaint(new GradientPaint(0, SHADOW, SonarTheme.lift(0.02), 0, SHADOW + h, SonarTheme.SURFACE));
         g2.fill(card);
-        g2.setColor(SonarTheme.mix(SonarTheme.LINE, SonarTheme.alpha(SonarTheme.accent(), 0.45), focus.get()));
+        g2.setColor(SonarTheme.mix(SonarTheme.LINE, SonarTheme.alpha(SonarTheme.accent(), 0.45), focusNow));
         g2.draw(SonarTheme.round(SHADOW + 0.5, SHADOW + 0.5, w - 1, h - 1, RADIUS));
         // no resize grip either: there is nothing to take hold of
         g2.dispose();
