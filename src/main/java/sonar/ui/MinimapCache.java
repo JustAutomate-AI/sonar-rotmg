@@ -389,6 +389,29 @@ final class MinimapCache {
 
     private static volatile boolean looking;
     private static volatile int lastTryTiles, attempts;
+
+    /** Which of the layouts Sonar ships for this map by name is down; zero for none. */
+    private static volatile int namedMatched;
+
+    static int namedMatch() {
+        return namedMatched;
+    }
+
+    /**
+     * Lays down one of the layouts Sonar ships for this map, chosen by something other than the
+     * ground - its landmarks. Under everything already known, like every shipped map.
+     */
+    static synchronized boolean layDownNamed(String mapName, int w, int h, int n, String why) {
+        if (namedMatched > 0 || matchedLayout != 0 || !mapName.equals(openName)) return false;
+        BufferedImage layout = shippedNamed(mapName, w, h, n);
+        if (layout == null) return false;
+        namedMatched = n;
+        triedShipped = true;
+        MinimapView.primeUnder(layout);
+        lastRecalled = "layout " + n + " of this map, recognised because " + why;
+        trouble = "";
+        return true;
+    }
     private static volatile boolean triedShipped;
     private static volatile int matchedLayout;
 
@@ -472,6 +495,7 @@ final class MinimapCache {
                         BufferedImage layout = shippedNamed(mapName, w, h, named);
                         if (layout != null) {
                             triedShipped = true;
+                            namedMatched = named;
                             int put = MinimapView.primeUnder(layout);
                             System.out.println("[map] recognised " + mapName + " layout " + named + " ("
                                     + namedAgreed + " of " + namedCompared + " squares agree), " + put + " laid");
@@ -576,6 +600,7 @@ final class MinimapCache {
         triedShipped = false;
         lastTryTiles = 0;
         attempts = 0;
+        namedMatched = 0;
         shippedScore = "";
         MinimapView.setRecalledIsApproximate(false);
         keptAt = System.currentTimeMillis();

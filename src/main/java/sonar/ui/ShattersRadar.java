@@ -562,7 +562,17 @@ final class ShattersRadar {
         // once enough ground has been walked, work out which recorded layout this is and lay
         // the rest of it down. Cheap to ask: it does nothing at all until there is enough, and
         // nothing again once it has an answer.
-        if (drawingMap) MinimapCache.lookForLayout(name, mapWidth, mapHeight);
+        if (drawingMap) {
+            // the landmarks first: they are seen from much further away than the ground, so they
+            // can say which layout this is before the ground can (and are learned once it has)
+            java.util.List<float[]> landmarks = new java.util.ArrayList<>();
+            for (Entity e : data.entityList.values()) {
+                if (e != null && e.pos != null && e.objectType == DERELICT_MONUMENT)
+                    landmarks.add(new float[]{e.pos.x, e.pos.y});
+            }
+            MonumentLayouts.observe(name, mapWidth, mapHeight, landmarks);
+            MinimapCache.lookForLayout(name, mapWidth, mapHeight);
+        }
         // kept as it is learned, not only on the way out: a map you have not left yet is a map
         // you have recorded nothing of
         MinimapCache.keepUpToDate();

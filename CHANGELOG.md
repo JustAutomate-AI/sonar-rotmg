@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.55.5
+
+**The Shatters layout from its monuments**
+
+- **The Derelict Monuments say which Shatters layout this is.** They stand in different places in the two layouts and are seen from much further off than the ground is. Sonar learns where they stand: each time the ground recognises a layout, the monuments in view are remembered against it (`maps/landmarks.json`). From then on two monuments where one layout has them, and none where the other does, lays that layout down straight away - before the ground has had to say anything. The tip came from play.
+
 ## 2.55.4
 
 **The Shatters layout appears, and monuments show as themselves**
