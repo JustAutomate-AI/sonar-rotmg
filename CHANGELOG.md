@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.58.0
+
+**The overlay keeps up with you**
+
+- **You are placed the moment your client says where you are.** Your position comes from the Move your client sends once a server tick, just after the tick arrives. The overlay updated on the tick itself, a few milliseconds before the Move went out, so it always placed you where you were a tick earlier, and then slid there over another tick. Now the Move is used as it goes out. Measured in a replay at running speed, how far behind you are drawn fell from 1.3 tiles on average (about a fifth of a second) to 0.7, and the worst moment from 2.1 tiles to 1.2.
+- **Between Moves, you are carried on at your own speed and heading,** when your client's Move shows them. Walking straight, the overlay then sits where the game draws you: 0.02 tiles out on average in the replay, where 2.57.2 was 1.6 behind. It backs off while you dodge, because a turn is only seen at the next Move, and any correction is eased in over a tenth of a second instead of jumping. If your client sends one position per Move, which cannot show a quick turn, this stays off. The log says which it is on arrival: `[move] ... predicting`. `sonar.shatters.predict=0` in the settings file turns it off.
+- **Enemies move on the same tick the game's icons do.** Their new positions were picked up by Sonar's full update, which runs at most every 120 ms and also on other packets, so a server tick could wait up to 150 ms. They are now picked up on every tick as it lands, and slid over the tick length the server states, which is what the game slides its own icons over.
+- **Zoom presses are seen within 10 ms,** down from 40, so the overlay's zoom changes on the same frame as the game's.
+
 ## 2.57.2
 
 **Overlay marks stay locked on what they mark**
