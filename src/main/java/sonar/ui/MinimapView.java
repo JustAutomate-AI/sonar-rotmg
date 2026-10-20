@@ -163,6 +163,42 @@ final class MinimapView {
      * picture came off the wire or out of their own runs, and both are better evidence than
      * somebody's render - so the render fills the gaps and touches nothing else.
      */
+    /**
+     * Swaps what the shipped map laid for a new version of it, square for square: the squares it
+     * had laid take the new value (or clear, where the new one is clear), squares nobody knew get
+     * the new value, and every square walked or recorded is left exactly as it is.
+     */
+    static synchronized void replaceLaid(BufferedImage next) {
+        BufferedImage img = image;
+        if (img == null || next == null) return;
+        java.util.BitSet put = laid == null ? new java.util.BitSet(width * height) : laid;
+        int w = Math.min(width, next.getWidth()), h = Math.min(height, next.getHeight());
+        int count = painted;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int bit = x + y * width;
+                int argb = next.getRGB(x, y);
+                boolean ours = put.get(bit);
+                if (ours) {
+                    if ((argb >>> 24) == 0) {
+                        img.setRGB(x, y, 0);
+                        put.clear(bit);
+                        count--;
+                    } else {
+                        img.setRGB(x, y, argb);
+                    }
+                } else if ((argb >>> 24) != 0 && (img.getRGB(x, y) >>> 24) == 0) {
+                    img.setRGB(x, y, argb);
+                    put.set(bit);
+                    count++;
+                }
+            }
+        }
+        laid = put;
+        recalled = next;
+        painted = count;
+    }
+
     static synchronized int primeUnder(BufferedImage recording) {
         BufferedImage img = image;
         if (img == null || recording == null) return 0;

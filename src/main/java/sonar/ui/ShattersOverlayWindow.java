@@ -440,7 +440,10 @@ class ShattersOverlayWindow extends JWindow {
         // So when this is on, it is the minimap. The frame is filled, and everything the
         // game's own minimap would have shown is drawn below by paintLive: other people, what
         // can be fought, the ways out, and you. Nothing is lost by covering it.
-        g.setColor(UNSEEN);
+        // the unexplored dark goes down at the same opacity as the map, so the whole picture is
+        // see-through together rather than a solid sheet with a faint map on it
+        float alpha = mapAlpha();
+        g.setColor(new Color(UNSEEN.getRed(), UNSEEN.getGreen(), UNSEEN.getBlue(), Math.round(255 * alpha)));
         g.fillRect(0, 0, w, h);
 
         double x0 = centre[0] - tilesWide / 2, y0 = centre[1] - tilesHigh / 2;
@@ -1023,8 +1026,13 @@ class ShattersOverlayWindow extends JWindow {
      * each showing through the other. The setting is kept for anyone who wants that anyway.
      */
     private float mapAlpha() {
-        int pct = getInt("sonar.shatters.mapalpha", 100);
-        return Math.max(0.05f, Math.min(1f, pct / 100f));
+        // the Map layers menu's opacity, or the older hand-set percentage where that is all there is
+        if (sonar.util.PropertiesManager.getProperty("sonar.map.opacity") == null
+                && sonar.util.PropertiesManager.getProperty("sonar.shatters.mapalpha") != null) {
+            int pct = getInt("sonar.shatters.mapalpha", 100);
+            return Math.max(0.05f, Math.min(1f, pct / 100f));
+        }
+        return MapLayers.opacity();
     }
 
     /**

@@ -2,6 +2,18 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.57.0
+
+**Map layers, and a see-through minimap**
+
+- **A Map layers button beside the Minimap switch** chooses what the minimap shows:
+  - **Opacity** - 100, 85, 70, 55 or 40 percent. The whole minimap goes see-through together, the unexplored dark included, so the game's own minimap shows through it. Marks are always drawn solid. 85% by default, a little more transparent than before.
+  - **Roads** on or off.
+  - **Pylons and landmarks** on or off.
+  - **Biomes**, each by its colour on the realm map, on or off; a hidden biome is left clear.
+  - **Show everything** puts it all back.
+- The realm map ships in layers to make this possible: the ground with the roads and pylon icons lifted out and painted over from the ground around them, and a mask of each. With everything on it is the map exactly as before. Changes apply at once, without leaving the realm, and never touch ground you have walked - that is the game's own and is always drawn as it is.
+
 ## 2.56.0
 
 **Smooth: the overlay at up to 120 fps, and every animation with it**
