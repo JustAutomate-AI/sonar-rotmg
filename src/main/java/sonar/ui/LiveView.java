@@ -2537,12 +2537,12 @@ class LiveView {
         placeForTest(30, 95, 100, 100);
         c = ShattersRadar.viewCentre(view, view);
         me = ShattersRadar.playerFromView(view, view);
-        report.accept("a map smaller than the view is pinned to the frame's edge, as the game pins it",
-                c != null && Math.abs(c[0] - 60) < 0.01 && Math.abs(c[1] - 60) < 0.01
-                        && me != null && Math.abs(me[0] - (-30)) < 0.01 && Math.abs(me[1] - 35) < 0.01);
+        report.accept("a map smaller than the view is centred in the frame, as Exalt centres it",
+                c != null && Math.abs(c[0] - 50) < 0.01 && Math.abs(c[1] - 50) < 0.01
+                        && me != null && Math.abs(me[0] - (-20)) < 0.01 && Math.abs(me[1] - 45) < 0.01);
 
         // and a mark is placed against the view, not against you
-        ShattersRadar.Mark m = ShattersRadar.markForTest(ShattersRadar.PORTAL, 60, 60);
+        ShattersRadar.Mark m = ShattersRadar.markForTest(ShattersRadar.PORTAL, 50, 50);
         double[] off = ShattersRadar.offsetFromView(m, view, view);
         report.accept("a mark at the middle of the view draws at the middle of the frame",
                 off != null && Math.abs(off[0]) < 0.01 && Math.abs(off[1]) < 0.01);
