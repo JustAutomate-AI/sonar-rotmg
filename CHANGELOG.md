@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.2
+
+**Sprites to scale, and the zoom only moves when the game's does**
+
+- **Enemy sprites are drawn to scale.** A sprite covers a set number of tiles - a tile and a half for a lesser enemy, three for anything the game draws big - so it is twice the size at twice the zoom, like everything else on the map, rather than one fixed size that was too big zoomed out and too small zoomed in. Never below eight pixels, never past twice the configured mark size.
+- **The bottom zoom step lines up.** The halving steps were exact; the last one, where the whole map fits, was not - the overlay fitted the map to its frame and the game fits it to the area inside its frame's border, which is about 13% smaller. In a realm zoomed right out every enemy sprite sat about a fifth further from the middle than the game's own icon for it. Measured on the Nexus and corrected (`sonar.shatters.fitarea`, 0.87).
+- **The overlay's zoom changes only while the game itself is the active window.** Sonar's own windows counted as the game being in front - right for keeping the overlay on screen while you click a Sonar button, wrong for the zoom - so a scroll with Sonar's window active stepped the overlay and not the game. The wheel, the zoom keys and the minimap's own buttons are all now read only while the game is in front.
+
 ## 2.54.1
 
 **One on/off, one switch**
