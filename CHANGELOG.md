@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.55.4
+
+**The Shatters layout appears, and monuments show as themselves**
+
+- **Recognising which layout you are on is tried again as you walk, not once.** It made a single attempt when twelve hundred tiles had come in, and at that point it had about two hundred squares to compare - under the four hundred it needs - so it always came up short and never looked again. The Shatters, and any map with more than one recorded layout, stayed blank however far you went. It now looks again every five hundred tiles until it recognises the layout, and for the layouts Sonar ships - both Shatters layouts - it can decide from the first view alone, because nearly every square agrees with one and none with the other. Tested against every Shatters recording: the right layout, on arrival, every time.
+- **The Derelict Monument draws as its own sprite.** Objects the game gives a random choice of textures to had no texture at all in Sonar's asset list, so their sprite was empty and only the ring was drawn. The first texture now stands in for all of them. The game's assets are re-read once on the first start of this version to pick this up.
+
 ## 2.55.3
 
 **Past instances survive updates, and the Shatters puzzle solver keeps up**

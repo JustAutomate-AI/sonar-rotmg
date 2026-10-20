@@ -583,6 +583,22 @@ public class AssetExtractor {
                 case "AnimatedTexture":
                     addTexture(n, ao);
                     break;
+                case "RandomTexture":
+                    // The game picks one of several at random. The first stands in for all of
+                    // them: without it an object like the Shatters' Derelict Monument had no
+                    // texture at all, and every picture of it - the overlay's sprite included -
+                    // came out empty.
+                    if (ao.textures == null || ao.textures.isEmpty()) {
+                        org.w3c.dom.NodeList kids = n.getChildNodes();
+                        for (int k = 0; k < kids.getLength(); k++) {
+                            Node kid = kids.item(k);
+                            if ("Texture".equals(kid.getNodeName())) {
+                                addTexture(kid, ao);
+                                break;
+                            }
+                        }
+                    }
+                    break;
             }
         });
     }

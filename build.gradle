@@ -31,7 +31,7 @@ project.version = {
 // TileID.list and will not otherwise notice that something new is missing.
 // The value is historical: it is the app version from the days the two were one thing,
 // and it is kept verbatim so that renaming them re-extracts nobody's assets.
-ext.assetFormat = 'v1.9.2'
+ext.assetFormat = 'v1.9.3'
 
 repositories {
     mavenCentral()

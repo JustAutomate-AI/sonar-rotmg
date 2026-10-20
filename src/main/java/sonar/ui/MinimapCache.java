@@ -373,7 +373,22 @@ final class MinimapCache {
         return compared >= ENOUGH_TO_RECOGNISE && agreed >= compared * MUST_AGREE;
     }
 
+    /**
+     * Recognising one of the few layouts Sonar ships for a map, which can be decided on less.
+     * <p>
+     * These are exact recordings and there are only a handful of them, so the question is not
+     * "is this map like that one" but "which of these two is it" - and two layouts disagree
+     * almost everywhere. On arriving in the Shatters the first view holds about two hundred
+     * comparable squares: all of them agree with one layout and none with the other. Asking for
+     * four hundred meant walking a good way before the map appeared; nearly every one agreeing
+     * over a hundred and twenty is as certain and needs no walking at all.
+     */
+    static boolean recognisesShipped(int agreed, int compared) {
+        return compared >= 120 && agreed >= compared * 0.97;
+    }
+
     private static volatile boolean looking;
+    private static volatile int lastTryTiles, attempts;
     private static volatile boolean triedShipped;
     private static volatile int matchedLayout;
 
@@ -403,9 +418,19 @@ final class MinimapCache {
         // unreachable for anybody who had ever walked the map before: a recording of your own
         // covers only where you have been, which is exactly the gap the library exists to
         // fill. So a recording no longer blocks the search - it is filled in under.
-        if (MinimapView.fromWire() < ENOUGH_TO_RECOGNISE * 3) return;
+        if (MinimapView.fromWire() < 1200) return;
+        // Tried again as more ground comes in, not once.
+        //
+        // It used to make a single attempt the moment twelve hundred tiles had arrived and then
+        // never look again. Comparing every third square, twelve hundred tiles is about two
+        // hundred votes - under the four hundred it needs to decide - so the answer was always
+        // "not enough" and a map with recorded or shipped layouts, the Shatters among them,
+        // stayed blank however far you walked. Now it looks again each time another five hundred
+        // tiles have arrived, until something is recognised.
+        if (MinimapView.fromWire() < lastTryTiles + 500) return;
+        if (++attempts > 40) return;
+        lastTryTiles = MinimapView.fromWire();
         looking = true;
-        triedShipped = true;
         Thread t = new Thread(() -> {
             try {
                 // only what came off the wire or out of this person's own runs: a shipped map
@@ -436,7 +461,7 @@ final class MinimapCache {
                         BufferedImage candidate = shippedNamed(mapName, w, h, i);
                         if (candidate == null) break;
                         int[] score = agreement(live, candidate);
-                        if (!recognises(score[0], score[1])) continue;
+                        if (!recognisesShipped(score[0], score[1])) continue;
                         if (score[0] > namedAgreed) {
                             namedAgreed = score[0];
                             namedCompared = score[1];
@@ -446,6 +471,7 @@ final class MinimapCache {
                     if (named > 0) {
                         BufferedImage layout = shippedNamed(mapName, w, h, named);
                         if (layout != null) {
+                            triedShipped = true;
                             int put = MinimapView.primeUnder(layout);
                             System.out.println("[map] recognised " + mapName + " layout " + named + " ("
                                     + namedAgreed + " of " + namedCompared + " squares agree), " + put + " laid");
@@ -495,6 +521,7 @@ final class MinimapCache {
                             + worldCompared + " coast squares agree)");
                     BufferedImage world = shippedLayout(w, h, worldNo);
                     if (world == null) return;
+                    triedShipped = true;
                     matchedShipped = worldNo;
                     shippedScore = worldAgreed + " of " + worldCompared;
                     MinimapView.setRecalledIsApproximate(true);
@@ -509,6 +536,7 @@ final class MinimapCache {
                 }
                 BufferedImage winner = read(best);
                 if (winner == null) return;
+                triedShipped = true;
                 matchedLayout = numberOf(best, mapName, w, h);
                 int laid = MinimapView.prime(winner);
                 lastRecalled = "a layout you have walked before (" + bestAgreed + " of "
@@ -546,6 +574,8 @@ final class MinimapCache {
         matchedLayout = 0;
         matchedShipped = 0;
         triedShipped = false;
+        lastTryTiles = 0;
+        attempts = 0;
         shippedScore = "";
         MinimapView.setRecalledIsApproximate(false);
         keptAt = System.currentTimeMillis();
