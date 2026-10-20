@@ -2,6 +2,20 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.55.3
+
+**Past instances survive updates, and the Shatters puzzle solver keeps up**
+
+- **Updating no longer loses your past instances.** Each save read the day's file, added the new instance and wrote the whole day back - straight into the file. An update closes Sonar moments after the window's own save, and a save cut off partway left a file that would not read. The next save then took the day to be empty and wrote the single new instance over everything. Now:
+  - a save is written beside the day's file and moved over it only once complete, so the file is always one whole version or the next;
+  - the previous version is kept as a backup, and used if the day's file will not read;
+  - a day that will not read is set aside under its own name rather than written over, and the problem is logged;
+  - two saves can no longer run at once.
+- Days already emptied before this release cannot be brought back; nothing on disk still holds them.
+
+
+- **The Shatters puzzle solution updates every time a pillar changes, instead of going blank.** A pillar that flips is not changed in place: the game removes it and puts a new one of the other kind where it stood. Sonar keeps every object it has ever seen, so after the first shot the solver counted ten towers instead of nine and gave up. It now counts only the towers still standing, one per spot, and re-solves from the grid as it is after each shot.
+
 ## 2.55.2
 
 **The Shatters minimap is whole the moment you are recognised**

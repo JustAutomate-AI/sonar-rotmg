@@ -80,13 +80,29 @@ final class ShattersPuzzle {
             current = NOTHING;
             return;
         }
-        ArrayList<Tower> found = new ArrayList<>();
+        // One tower per spot, the newest one there.
+        //
+        // A pillar that flips is not changed in place: the game removes it and puts a new object
+        // of the other kind where it stood. Sonar's entity list keeps everything it has ever seen,
+        // so the first shot left ten towers in it - the old one and its replacement - and a grid
+        // that was not nine was thrown away. The solver went blank the moment the puzzle moved,
+        // which is exactly when it is wanted. So towers that have left the world are skipped, and
+        // where two still claim one spot the later one - the higher id - is the one standing.
+        java.util.Map<Long, Entity> bySpot = new java.util.HashMap<>();
         for (Entity e : data.entityList.values()) {
             if (e == null || e.pos == null) continue;
             int t = e.objectType;
+            if (t != TOWER_ON && t != OFF_TO_ON && t != TOWER_OFF && t != ON_TO_OFF) continue;
+            if (!data.stillInWorld(e.id)) continue;
+            long spot = ((long) Math.round(e.pos.x * 2) << 32) ^ (Math.round(e.pos.y * 2) & 0xffffffffL);
+            Entity there = bySpot.get(spot);
+            if (there == null || e.id > there.id) bySpot.put(spot, e);
+        }
+        ArrayList<Tower> found = new ArrayList<>();
+        for (Entity e : bySpot.values()) {
+            int t = e.objectType;
             // a tower caught mid-flip is counted as the state it is heading for
-            if (t == TOWER_ON || t == OFF_TO_ON) found.add(new Tower(e.pos.x, e.pos.y, true));
-            else if (t == TOWER_OFF || t == ON_TO_OFF) found.add(new Tower(e.pos.x, e.pos.y, false));
+            found.add(new Tower(e.pos.x, e.pos.y, t == TOWER_ON || t == OFF_TO_ON));
         }
         if (found.size() != 9) {
             current = NOTHING;
