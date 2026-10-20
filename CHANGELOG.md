@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.0
+
+**Enemies only**
+
+- **A third button beside Overlay and Minimap: Enemies only.** Switched on, the overlay draws the enemies as their sprites over the game's own minimap and nothing else - no ground, no people, no ways out, no panel, no status line, no reticle. Everywhere there is no enemy the frame is clear, so the game's minimap shows through and every click lands on it. The overlay never steps aside in this mode: stepping aside is for the menu the game opens over a player, and no players are drawn here to click on. Lesser enemies still thin out as you zoom out, and the game's zoom is still followed.
+- The setting is remembered between runs (`sonar.shatters.enemiesonly`).
+
 ## 2.53.2
 
 **The overlay stays in step with the game's zoom, all the way out**
