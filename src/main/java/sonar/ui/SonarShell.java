@@ -945,8 +945,12 @@ public class SonarShell extends JPanel {
         private boolean liveNow;
         private double phase;
         private String onText = "Sniffer live", offText = "Sniffer off";
+        // read off the clock rather than counted in steps, so a tick that lands late is a
+        // slightly bigger step and not a hitch; kept on its own slow timer, since it runs for as
+        // long as the sniffer does and the fast clock would hold fine timing all session
+        private final long pulseStart = System.nanoTime();
         private final Timer pulse = new Timer(33, e -> {
-            phase = (phase + 0.033 / 1.8) % 1;
+            phase = ((System.nanoTime() - pulseStart) / 1e9 / 1.8) % 1;
             repaint();
         });
 

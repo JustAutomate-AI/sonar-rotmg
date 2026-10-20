@@ -53,7 +53,36 @@ class ShattersOverlayWindow extends JWindow {
     private void attach() {
         boolean want = wanted && gameIsInFront();
         if (want != isVisible()) super.setVisible(want);
-        if (want) followGameWindow();
+        if (want) {
+            followGameWindow();
+            startFrames();
+        }
+    }
+
+    /**
+     * Redrawn on the shared animation clock while it is on screen - up to the display's rate,
+     * 120 a second - instead of five times a second.
+     * <p>
+     * The game sends positions about five times a second; at five redraws a second the overlay
+     * could only ever show that. Now every frame slides each mark and the map under you between
+     * ticks (see ShattersRadar), so what was a step every fifth of a second is continuous. The
+     * clock only runs while the overlay is visible, which is only while the game is in front,
+     * and stops the moment it is not. {@code -Dsonar.fps=60} caps it lower.
+     */
+    private boolean framesRunning;
+    private final AnimationClock.Animated frames = dt -> {
+        if (!wanted || !isVisible() || !isDisplayable()) {
+            framesRunning = false;
+            return false;
+        }
+        repaint();
+        return true;
+    };
+
+    private void startFrames() {
+        if (framesRunning) return;
+        framesRunning = true;
+        AnimationClock.start(frames);
     }
 
     ShattersOverlayWindow() {

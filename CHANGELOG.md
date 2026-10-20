@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.56.0
+
+**Smooth: the overlay at up to 120 fps, and every animation with it**
+
+- **The minimap overlay redraws at your display's rate, up to 120 frames a second, instead of five.** The game only says where things are about five times a second, and nothing can make it say so faster, so every enemy, every ring and the map under you now slide from where the last tick put them to where this one does, finishing as the next tick lands. Motion is continuous instead of stepping five times a second, at the cost of running one tick (about a fifth of a second) behind. Something that moves further than a short dash in one tick has teleported and is put straight there. The overlay only redraws this often while it is on screen, which is only while the game is in front.
+- **Animations across Sonar run on one clock paced to the display, up to 120 fps.** Each animation had a timer of its own set to fifteen milliseconds, and on Windows a timer cannot fire more often than the system tick of fifteen and a half - so fifteen milliseconds landed every second tick, about thirty frames a second, with stalls of sixty-four. Measured before: about 30 frames a second while each frame took four milliseconds to draw. Measured after, switching pages: 80 to 101. The clock borrows one-millisecond timing from Windows only while something is moving and hands it back when nothing is, so a still screen costs what it did.
+- The sniffer badge's pulse is read off the clock, so a late tick no longer shows as a hitch.
+- `-Dsonar.perf=true` writes paint and frame timings to the log, for finding what is slow; `-Dsonar.fps=60` caps the frame rate; `sonar.shatters.smooth=false` turns the sliding off.
+
 ## 2.55.5
 
 **The Shatters layout from its monuments**

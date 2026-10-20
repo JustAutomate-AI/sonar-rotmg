@@ -43,6 +43,7 @@ public class Sonar {
         // before anything reads a setting: PropertiesManager caches the file as its class loads
         sonar.ui.Settings.migrate();
         sonar.ui.WindowsShell.identify();
+        sonar.ui.PerfHooks.install();
         System.out.println(
             "Java Version: " +
                 System.getProperty("java.version") +
