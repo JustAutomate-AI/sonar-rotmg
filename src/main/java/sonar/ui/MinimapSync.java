@@ -47,7 +47,7 @@ final class MinimapSync {
      * that is nearly all one colour scores about the same at every scale, and so does a
      * capture that is secretly a photograph of ourselves.
      */
-    private static final double SURE_ENOUGH = 1.25;
+    private static final double SURE_ENOUGH = 1.5;
 
     /** Below this there is not enough drawn ground to recognise anything by. */
     private static final int ENOUGH_GROUND = 400;
@@ -86,8 +86,16 @@ final class MinimapSync {
         lastAt = System.currentTimeMillis();
         lastScale = 0;
         lastConfidence = 0;
-        BufferedImage mine = MinimapView.image();
-        if (mine == null || MinimapView.painted() < ENOUGH_GROUND) {
+        // Only the ground that came off the wire, and this person's own recordings of it -
+        // never a shipped render. The render is drawn in somebody else's palette, and the
+        // measurement is a colour comparison: with a whole render under the walked ground,
+        // every sample off the walked ground disagreed a little at every scale, which was
+        // enough to let a wrong scale that happened to line up some large shapes beat the
+        // right one. In the Vault it settled on exactly half the game's zoom. The wire tiles
+        // are in the game's colours, and they cover precisely the disc the game has drawn,
+        // so the two pictures are of the same ground in the same paint.
+        BufferedImage mine = MinimapView.copyOwn();
+        if (mine == null || MinimapView.fromWire() < ENOUGH_GROUND) {
             state = "too little ground drawn to match yet";
             return 0;
         }
@@ -105,7 +113,15 @@ final class MinimapSync {
             state = "could not photograph the minimap";
             return 0;
         }
-        double scale = MinimapMatch.bestScaleLive(shot, mine, shot.getWidth(), shot.getHeight(), candidates);
+        dumpForDebugging(shot, mine, where);
+        // The ladder says where the game's zoom ought to be; the sweep finds where it is.
+        // Measuring only at the rungs meant a ladder worked out wrongly for this window - and
+        // it has been, more than once - could never be contradicted by the screen it was
+        // meant to be read from. Two percent steps from half the lowest rung to half again
+        // above the highest is two hundred-odd scales, a few milliseconds off the interface
+        // thread.
+        double[] sweep = sweepAround(candidates);
+        double scale = MinimapMatch.bestScaleLive(shot, mine, shot.getWidth(), shot.getHeight(), sweep);
         if (scale <= 0) {
             state = "nothing matched";
             return 0;
@@ -115,15 +131,86 @@ final class MinimapSync {
             state = "not placed on the map yet";
             return 0;
         }
-        double sure = MinimapMatch.confidence(shot, mine, centre[0], centre[1], candidates, scale);
+        double sure = MinimapMatch.confidence(shot, mine, centre[0], centre[1], sweep, scale);
         lastScale = scale;
         lastConfidence = sure;
         if (sure < SURE_ENOUGH) {
             state = String.format("no clear match (%.2fx)", sure);
             return 0;
         }
-        state = String.format("locked, %.2fx clearer than the next", sure);
-        return scale;
+        // The game's zoom is only ever one of its rungs. A measurement that is sure but lands
+        // between them is wrong about something, and is not acted on; one near a rung is
+        // taken as that rung exactly, so a few percent of photographic error never leaves
+        // the overlay a few percent out of step. Measured over four zoom levels in the Nexus:
+        // the photograph is never more than weakly sure, and the overlay stepping the ladder
+        // alongside the game's own key is what keeps the two in register. The measurement is
+        // for the case the ladder cannot cover - an overlay opened partway through, at a
+        // zoom nobody saw being set.
+        double rung = 0, off = Double.MAX_VALUE;
+        for (double c : candidates) {
+            double d = Math.abs(c - scale) / c;
+            if (d < off) {
+                off = d;
+                rung = c;
+            }
+        }
+        if (rung <= 0 || off > 0.15) {
+            state = String.format("%.2f is not a zoom the game has (%.2fx sure)", scale, sure);
+            return 0;
+        }
+        state = String.format("locked on %.2f, %.2fx clearer than the next", rung, sure);
+        return rung;
+    }
+
+    private static int dumped;
+
+    /**
+     * Writes the photograph and Sonar's own map side by side, when {@code sonar.zoomdump} in
+     * the properties names a folder. Off unless asked for; at most forty pairs a run.
+     */
+    private static void dumpForDebugging(BufferedImage shot, BufferedImage mine, Rectangle where) {
+        String dir;
+        try {
+            dir = sonar.util.PropertiesManager.getProperty("sonar.zoomdump");
+        } catch (Throwable t) {
+            return;
+        }
+        if (dir == null || dir.isEmpty() || dumped >= 40) return;
+        try {
+            java.io.File d = new java.io.File(dir);
+            if (!d.isDirectory()) return;
+            int n = ++dumped;
+            javax.imageio.ImageIO.write(shot, "png", new java.io.File(d, String.format("shot-%02d.png", n)));
+            javax.imageio.ImageIO.write(mine, "png", new java.io.File(d, String.format("mine-%02d.png", n)));
+            double[] c = ShattersRadar.viewCentre(10, 10);
+            System.out.println("[zoom] dumped pair " + n + ": minimap at " + where + ", player at "
+                    + (c == null ? "?" : String.format(java.util.Locale.ROOT, "%.1f,%.1f", c[0], c[1])));
+        } catch (Throwable t) {
+            // a diagnostic that fails is not worth a word
+        }
+    }
+
+    /** Every scale from half the lowest candidate to half again above the highest, two percent apart. */
+    static double[] sweepAround(double[] candidates) {
+        double lo = Double.MAX_VALUE, hi = 0;
+        for (double c : candidates) {
+            if (c <= 0) continue;
+            lo = Math.min(lo, c);
+            hi = Math.max(hi, c);
+        }
+        if (hi <= 0) return candidates;
+        // The floor is not tied to the ladder. The ladder's bottom rung is the scale at which
+        // the whole map just fills the frame, and this client zooms out past that - the Nexus
+        // at its last step is a disc a third of the frame wide, about 0.6 pixels a tile. With
+        // the floor at half the bottom rung that scale was never tried, and the measurement
+        // answered with the least wrong of the ones that were, which was the top.
+        lo = Math.min(lo / 2, 0.3);
+        hi *= 1.5;
+        java.util.List<Double> out = new java.util.ArrayList<>();
+        for (double s = lo; s <= hi * 1.0001; s *= 1.02) out.add(s);
+        double[] a = new double[out.size()];
+        for (int i = 0; i < a.length; i++) a[i] = out.get(i);
+        return a;
     }
 
     /**

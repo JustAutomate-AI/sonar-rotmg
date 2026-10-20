@@ -98,7 +98,15 @@ public class CrucibleBonusManager {
         String crucible = stringStat(e, 128), ritual = stringStat(e, 155);
         if (crucible == null && ritual == null) return;
         String[] was = seenPlayers.get(name);
-        if (was != null && java.util.Objects.equals(was[0], crucible) && java.util.Objects.equals(was[1], ritual)) return;
+        if (was != null) {
+            // An update carries only the stats that changed, so one of the pair is often
+            // missing from it. Missing is not off: treating it as off made every player
+            // flip between "on" and "unknown" with each tick, and each flip was a line in
+            // the log - seven thousand of them in a few minutes of standing in the Nexus.
+            if (crucible == null) crucible = was[0];
+            if (ritual == null) ritual = was[1];
+            if (java.util.Objects.equals(was[0], crucible) && java.util.Objects.equals(was[1], ritual)) return;
+        }
         seenPlayers.put(name, new String[]{crucible, ritual});
         System.out.println("[Crucible] " + name + " crucible=" + crucible + " bloodRitual=" + ritual);
     }
