@@ -596,11 +596,26 @@ public class GameData {
     }
 
     /**
+     * When the last server tick arrived, and the usual time between two, on
+     * {@link System#nanoTime()}. The overlay slides things between ticks over this long.
+     */
+    public volatile long newTickNanos;
+    public volatile double newTickGapNanos;
+
+    /**
      * Entity updates and server time from new tick packet.
      *
      * @param p New tick packet.
      */
     public void updateNewTick(NewTickPacket p) {
+        long now = System.nanoTime();
+        if (newTickNanos != 0) {
+            double gap = now - newTickNanos;
+            // a pause longer than a second is a map change or a stall, not the tick rate
+            if (gap > 40_000_000 && gap < 1_000_000_000)
+                newTickGapNanos = newTickGapNanos <= 0 ? gap : newTickGapNanos * 0.8 + gap * 0.2;
+        }
+        newTickNanos = now;
         setTime(p.serverRealTimeMS);
         for (int i = 0; i < p.status.length; i++) {
             int id = p.status[i].objectId;

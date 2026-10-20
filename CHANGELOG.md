@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.57.2
+
+**Overlay marks stay locked on what they mark**
+
+- **Marks no longer bounce.** Since 2.56.0 the overlay slides everything between server ticks, and every slide began from where you were when you arrived, not from where you were being drawn. Once you had walked a few tiles, every mark on the overlay was thrown back by that distance and slid forward again, five times a second - in the Vault, about five tiles. Each thing now slides from exactly where it is on screen, and only when it has actually moved. Measured in a replay of a Vault arrival: a mark that swung up to 40 pixels now sits still, and a moving enemy that used to jump backwards twenty-five times in four seconds never does.
+- **The overlay's zoom stops where the game's does.** Each press of the zoom doubles or halves, as the game's does, but the overlay never stopped at the game's closest zoom. Zooming in while the game was already fully in kept doubling the overlay - up to 64 pixels a tile - and every step after that was out by the same amount, which is how your sprites ended up far off the Vault at the whole-map zoom. It now stops at the game's closest zoom and at the whole map.
+- **The zoom check knows the in-between zooms.** Coming back in from the whole map, the game doubles from the whole-map zoom, which lands between the usual steps - 6.46 in the Vault, where the usual steps are 9.79, 4.9 and 3.23. The check that reads the game's zoom off the screen saw 6.46 clearly and threw it away as a zoom the game does not have. It is now offered every zoom the game can actually reach.
+
 ## 2.57.1
 
 **Drawing a frame costs a third of what it did**

@@ -2528,6 +2528,8 @@ class LiveView {
         checkOverlayScale(report);
         checkThemeWash(report);
         checkViewClamp(report);
+        checkZoomSteps(report);
+        checkSlides(report);
         checkLookAcrossClasses(report);
         checkSegmentWidths(report);
         checkRealmClose(report);
@@ -2612,6 +2614,80 @@ class LiveView {
         double[] off = ShattersRadar.offsetFromView(m, view, view);
         report.accept("a mark at the middle of the view draws at the middle of the frame",
                 off != null && Math.abs(off[0]) < 0.01 && Math.abs(off[1]) < 0.01);
+        placeForTest(Float.NaN, Float.NaN, 0, 0);
+    }
+
+    /**
+     * The overlay's zoom steps the way the game's does: doubling and halving, stopping at the
+     * game's closest zoom and at the whole map. Seen in the Vault on 2026-10-20 - the game at
+     * 3.23, then 6.46 one step in - while the overlay, with no stop at the top, had climbed to
+     * 64 and come back down through 32, 16 and 8.
+     */
+    private static void checkZoomSteps(java.util.function.BiConsumer<String, Boolean> report) {
+        double top = 4 * 470 / 192.0, fit = ShattersOverlayWindow.fitFor(470, 481, 128, 128);
+        double z = top;
+        for (int i = 0; i < 5; i++) z = ShattersOverlayWindow.nextZoom(z, -1, fit, top);
+        report.accept("zooming in at the game's closest zoom goes nowhere, as in the game", Math.abs(z - top) < 1e-9);
+        z = ShattersOverlayWindow.nextZoom(z, 1, fit, top);
+        report.accept("one step out from the closest is half of it", Math.abs(z - top / 2) < 1e-9);
+        z = ShattersOverlayWindow.nextZoom(z, 1, fit, top);
+        z = ShattersOverlayWindow.nextZoom(z, 1, fit, top);
+        report.accept("stepping out stops at the whole map", Math.abs(z - fit) < 1e-9);
+        z = ShattersOverlayWindow.nextZoom(z, -1, fit, top);
+        report.accept("one step in from the whole map is twice the whole-map zoom, the Vault's 6.46",
+                Math.abs(z - fit * 2) < 1e-9 && Math.abs(z - 6.46) < 0.02);
+        z = ShattersOverlayWindow.nextZoom(z, -1, fit, top);
+        report.accept("and the next step in stops at the closest zoom", Math.abs(z - top) < 1e-9);
+        double[] zooms = ShattersOverlayWindow.zoomsFor(470, 481, 128, 128);
+        boolean has646 = false, hasTop = false, hasFit = false, has49 = false;
+        for (double s : zooms) {
+            has646 |= Math.abs(s - 6.46) < 0.02;
+            hasTop |= Math.abs(s - top) < 0.01;
+            hasFit |= Math.abs(s - fit) < 0.01;
+            has49 |= Math.abs(s - top / 2) < 0.01;
+        }
+        report.accept("the measurement is offered every zoom the Vault can be at: 9.79, 6.46, 4.9, 3.23",
+                zooms.length == 4 && has646 && hasTop && hasFit && has49);
+        double tiny = ShattersOverlayWindow.fitFor(470, 481, 20, 20);
+        report.accept("a map smaller than the closest zoom has the one zoom",
+                ShattersOverlayWindow.nextZoom(tiny, -1, tiny, top) == tiny
+                        && ShattersOverlayWindow.nextZoom(tiny, 1, tiny, top) == tiny);
+    }
+
+    /**
+     * Things slide between server ticks from where they are being drawn, never from where they
+     * were first seen. In 2.56.0 to 2.57.1 every slide began back at your arrival spot, so after
+     * walking a few tiles every mark on the overlay bounced between two places five times a
+     * second.
+     */
+    private static void checkSlides(java.util.function.BiConsumer<String, Boolean> report) {
+        // with sliding switched off in the settings everything is drawn where it is, and there is
+        // nothing here to test
+        if (ShattersRadar.progress(System.nanoTime()) >= 1) return;
+        try {
+            java.lang.reflect.Method place = ShattersRadar.class.getDeclaredMethod("placePlayer", float.class, float.class);
+            place.setAccessible(true);
+            place.invoke(null, Float.NaN, Float.NaN);
+            place.invoke(null, 10f, 10f);
+            place.invoke(null, 10f, 11f);       // one step south: a slide begins at 10
+            report.accept("a move starts sliding from where you were drawn",
+                    Math.abs(ShattersRadar.drawPlayerY() - 10) < 0.2);
+            Thread.sleep(60);
+            double before = ShattersRadar.drawPlayerY();
+            place.invoke(null, 10f, 11f);       // a radar tick with nothing moved
+            double after = ShattersRadar.drawPlayerY();
+            report.accept("a tick where you have not moved leaves the slide alone",
+                    after >= before - 1e-6 && after < 11.0001);
+            Thread.sleep(60);
+            before = ShattersRadar.drawPlayerY();
+            place.invoke(null, 10f, 12f);       // a second step: the new slide begins where the picture is
+            after = ShattersRadar.drawPlayerY();
+            report.accept("the next move carries on from where the picture is, not from where you arrived",
+                    before > 10.05 && Math.abs(after - before) < 0.05);
+            place.invoke(null, Float.NaN, Float.NaN);
+        } catch (Exception e) {
+            report.accept("the slide test could reach the radar (" + e + ")", false);
+        }
         placeForTest(Float.NaN, Float.NaN, 0, 0);
     }
 
