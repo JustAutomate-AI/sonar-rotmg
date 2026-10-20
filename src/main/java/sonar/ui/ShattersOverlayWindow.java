@@ -203,6 +203,10 @@ class ShattersOverlayWindow extends JWindow {
             }
             final double scale = got;
             syncing = false;
+            System.out.println(String.format(java.util.Locale.ROOT,
+                    "[zoom] measured %.2f px/tile (%.2fx sure) - %s; overlay at %.2f; ladder %s; frame %dx%d; best [%s]",
+                    MinimapSync.lastScale(), MinimapSync.lastConfidence(), MinimapSync.state(),
+                    pixelsPerTile, java.util.Arrays.toString(round2(candidates)), w, h, MinimapMatch.lastCurve));
             if (scale <= 0) return;
             javax.swing.SwingUtilities.invokeLater(() -> {
                 boolean same = Math.abs(scale - pixelsPerTile) / Math.max(scale, pixelsPerTile) < 0.005;
@@ -1039,6 +1043,12 @@ class ShattersOverlayWindow extends JWindow {
         return out;
     }
 
+    private static double[] round2(double[] a) {
+        double[] out = new double[a.length];
+        for (int i = 0; i < a.length; i++) out[i] = Math.round(a[i] * 100) / 100.0;
+        return out;
+    }
+
     /** The ladder for the overlay as it currently sits, over the map currently loaded. */
     private static double[] ladderNow() {
         Rectangle at = savedHome();
@@ -1094,8 +1104,20 @@ class ShattersOverlayWindow extends JWindow {
     private volatile long zoomSetByHandAt;
 
     void stepZoom(int by) {
+        stepZoom(by, true);
+    }
+
+    /**
+     * @param byHand whether a person did this to the overlay itself. Mirroring the game's own
+     *               zoom key is not that: it is a guess at what the game just did, made so the
+     *               overlay moves at once rather than five seconds later, and the measurement
+     *               must stay free to correct it. Treating the mirror as a hand on the zoom
+     *               silenced the measurement for twenty seconds after every press, and the
+     *               guess - a doubling - is not what the game's steps are.
+     */
+    void stepZoom(int by, boolean byHand) {
         if (by == 0) return;
-        zoomSetByHandAt = System.currentTimeMillis();
+        if (byHand) zoomSetByHandAt = System.currentTimeMillis();
         double next = by < 0 ? pixelsPerTile * 2 : pixelsPerTile / 2;
         double floor = fitScale(), ceiling = MAX_SCALE;
         // never past the whole map, and never so far in that one tile fills the frame
@@ -1116,7 +1138,9 @@ class ShattersOverlayWindow extends JWindow {
     private double fitScale() {
         int mw = ShattersRadar.mapWidth(), mh = ShattersRadar.mapHeight();
         if (mw <= 0 || mh <= 0) return 0.05;
-        return Math.max(0.05, Math.min(getWidth() / (double) mw, getHeight() / (double) mh));
+        // the game's rule, and the ladder's: the larger ratio, so the map just covers the
+        // frame. The smaller one left the bottom step two percent wider than the game's.
+        return Math.max(0.05, Math.max(getWidth() / (double) mw, getHeight() / (double) mh));
     }
 
     /**
@@ -1564,8 +1588,8 @@ class ShattersOverlayWindow extends JWindow {
         boolean plus = down(mirror[0]) || (mods && (down(VK_OEM_PLUS) || down(VK_ADD)));
         boolean minus = down(mirror[1]) || (mods && (down(VK_OEM_MINUS) || down(VK_SUBTRACT)));
         // only on the press, not for every tick the key is held down
-        if (plus && !plusWasDown) stepZoom(-1);   // zooming in fits fewer tiles: a lower step
-        if (minus && !minusWasDown) stepZoom(1);
+        if (plus && !plusWasDown) stepZoom(-1, mods);   // zooming in fits fewer tiles: a lower step
+        if (minus && !minusWasDown) stepZoom(1, mods);
         plusWasDown = plus;
         minusWasDown = minus;
     }

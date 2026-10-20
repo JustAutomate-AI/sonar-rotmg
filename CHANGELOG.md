@@ -2,6 +2,19 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.53.2
+
+**The overlay stays in step with the game's zoom, all the way out**
+
+Measured on screen against the game's own minimap at every zoom step of the Nexus and the Vault.
+
+- **Zooming the game's minimap out no longer throws the overlay to the whole-map step and leaves it there.** The overlay reads the game's zoom in two ways: it steps its own ladder when the game's zoom key or button is used, and it photographs the game's minimap and measures it. The photograph was being trusted and the step was not, and once Sonar held a whole map the photograph went wrong in a particular way - the game's black outside its sight disc was scored as disagreement at every honest scale, and the one scale that escaped was the smallest. Now the step is what moves the overlay, the moment the key goes down, and a measurement is acted on only when it is clearly sure and lands on a zoom the game actually has.
+- **The measurement itself is sounder:** it leaves out ground the game has not drawn as well as ground Sonar has not seen, lays its samples over the ground that is there rather than the whole frame, compares by correlation rather than by exact colour (the game lights and dims its minimap), reads the scale off a dense sweep rather than the ladder's rungs alone, and snaps to the nearest rung.
+- The overlay's bottom zoom step uses the game's own fit rule, so the last step is the same width as the game's rather than two percent wider.
+- Mirroring the game's zoom key no longer counts as setting the zoom by hand, so it no longer silences the measurement for twenty seconds. Only the wheel and ctrl-shift-plus/minus do that.
+- Every measurement is written to the log: what was read, how sure, what the overlay had, the ladder it expected, and the five best-scoring scales. Setting `sonar.zoomdump` in the properties to a folder also writes each photograph and Sonar's own map beside it.
+- A player's crucible stats no longer flip between on and unknown with every partial update; one player was writing seven thousand lines a minute to the log.
+
 ## 2.53.1
 
 **The realm lines up, and stays up**
