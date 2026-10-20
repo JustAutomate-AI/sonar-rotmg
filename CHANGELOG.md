@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.3
+
+**The realm chart is in the right place**
+
+- **The shipped realm chart is moved 135 tiles west and 56 north.** Spotted from play: the chart's pylons sat beside the real ones and the roads ran parallel to the real roads. Measured against the waystones Sonar sees in the realm, both crystal pylons near the spawn beach were off by the same amount, and with the chart moved all six waystones in view sit on the chart's pylon icons where none did before; the walked road from the spawn runs onto the beach pylon, and the waypoints walked in the north and east sit on their pylons too.
+- Why the earlier fits missed it: they were made by matching coastlines, and this offset runs exactly along the coast, where one stretch of beach looks like the next. Landmarks fix it; coastlines cannot.
+- The easternmost 135 columns of the chart are left empty by the move, out at the map's edge.
+
 ## 2.54.2
 
 **Sprites to scale, and the zoom only moves when the game's does**
