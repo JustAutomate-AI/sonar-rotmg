@@ -247,17 +247,25 @@ class DamagePane extends Pane {
             Color dark = SonarTheme.classColor(b.row.cls, false), light = SonarTheme.classColor(b.row.cls, true);
             g.setPaint(new GradientPaint((float) barStart, 0, dark, (float) Math.max(barStart + 60, barEnd), 0, light));
             Shape oldClip = g.getClip();
-            g.clip(track);
-            Shape bar = SonarTheme.round(barStart, y, barLength, ROW, 11);
+            // Rectangles for clipping, never rounded shapes: a rounded clip sends every fill
+            // after it down Java's slowest path, and this ran for every row on every frame of
+            // an animation. The bar is already rounded and starts inside its track, so all the
+            // track's own clip ever did was stop a full bar at the track's end - which a
+            // rectangle does just as well.
+            g.clipRect(0, (int) Math.floor(y), (int) Math.ceil(width), ROW + 1);
+            double shown = Math.min(barLength, width - barStart);
+            Shape bar = SonarTheme.round(barStart, y, shown, ROW, 11);
             g.fill(bar);
             if (b.row.pet > 0 && b.row.damage > 0) {
-                // the end of the bar, as wide as the pet's part of the damage
-                double petWidth = barLength * Math.min(1.0, (double) b.row.pet / b.row.damage);
-                g.clip(bar);
+                // the end of the bar, as wide as the pet's part of the damage: the bar's own
+                // shape again, in gold, seen through a rectangle over just that part
+                double petWidth = shown * Math.min(1.0, (double) b.row.pet / b.row.damage);
+                double petStart = barStart + shown - petWidth;
+                g.clipRect((int) Math.floor(petStart), (int) Math.floor(y), (int) Math.ceil(petWidth) + 1, ROW + 1);
                 g.setColor(SonarTheme.GOLD);
-                g.fill(new java.awt.geom.Rectangle2D.Double(barEnd - petWidth, y, petWidth, ROW));
+                g.fill(bar);
                 g.setColor(new Color(0, 0, 0, 70));
-                g.fill(new java.awt.geom.Rectangle2D.Double(barEnd - petWidth, y, 1.2, ROW));
+                g.fill(new java.awt.geom.Rectangle2D.Double(petStart, y, 1.2, ROW));
             }
             g.setClip(oldClip);
             if (b.row.me) {

@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.57.1
+
+**Drawing a frame costs a third of what it did**
+
+- **Window frames are drawn once and reused.** Each window's frame - its soft shadow, card and edge - is some of the slowest drawing there is, and it was redrawn under every repaint of anything inside the window, so each animated number on the Live page paid for the whole frame again. It is now drawn once into a picture and reused until the window's size, focus or theme changes. Measured with a profiler, this was the largest single cost of a frame.
+- **The damage bars use rectangular clips instead of rounded ones.** A rounded clip sends every fill after it down Java's slowest path, and it ran for every row on every frame. The bars look exactly as they did.
+- Measured on the demo Live page: a repaint now takes 1.8 milliseconds on average, down from about 5, and busy moments that took around 20 now take about 2 - well inside a 120 fps frame.
+
 ## 2.57.0
 
 **Map layers, and a see-through minimap**
