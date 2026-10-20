@@ -630,6 +630,7 @@ class ShattersOverlayWindow extends JWindow {
     static final int IMPORTANT_SIZE = Math.max(24, Math.min(64, getInt("sonar.shatters.bosssize", 36)));
 
     private void paintMark(Graphics2D g, ShattersRadar.Mark m, int x, int y, double tilesWide) {
+        if (m.piece != null && !m.important && paintPiece(g, m.piece, x, y)) return;
         if (m.important && m.type == ShattersRadar.FOE) {
             java.awt.image.BufferedImage face = faceOf(m.kindId());
             int size = Math.max(IMPORTANT_SIZE, face == null ? 0 : faceSizeFor(pixelsPerTile, face.getWidth(), true));
@@ -648,6 +649,58 @@ class ShattersOverlayWindow extends JWindow {
             return;
         }
         paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+    }
+
+    private static final Color UFO = new Color(200, 24, 110), DANGER = new Color(150, 60, 220), PRESENT = new Color(228, 75, 141);
+
+    /**
+     * The game's own minimap glyph for the pieces it draws as glyphs rather than portraits,
+     * at a fixed size so they read at every zoom. False for a piece with no glyph here, which
+     * then falls back to the object's sprite.
+     */
+    private boolean paintPiece(Graphics2D g, String piece, int x, int y) {
+        Color edge = new Color(0, 0, 0, 190);
+        switch (piece) {
+            case "UFO": {
+                // a saucer and its dome
+                g.setColor(edge);
+                g.fillOval(x - 12, y - 4, 24, 12);
+                g.setColor(UFO);
+                g.fillOval(x - 11, y - 3, 22, 10);
+                g.setColor(edge);
+                g.fillOval(x - 7, y - 10, 14, 12);
+                g.setColor(UFO.brighter());
+                g.fillOval(x - 6, y - 9, 12, 10);
+                return true;
+            }
+            case "DangerSmall":
+            case "DangerLarge": {
+                // a skull: a dome, a jaw, two eyes
+                int r = piece.equals("DangerLarge") ? 11 : 8;
+                g.setColor(edge);
+                g.fillOval(x - r - 1, y - r - 1, 2 * r + 2, 2 * r + 2);
+                g.setColor(DANGER);
+                g.fillOval(x - r, y - r, 2 * r, 2 * r);
+                g.fillRect(x - r / 2, y + r / 2, r, r / 2 + 2);
+                g.setColor(Color.BLACK);
+                int eye = Math.max(3, r / 2);
+                g.fillOval(x - r / 2 - eye / 2, y - eye / 2, eye, eye);
+                g.fillOval(x + r / 2 - eye / 2, y - eye / 2, eye, eye);
+                return true;
+            }
+            case "Present": {
+                g.setColor(edge);
+                g.fillRect(x - 8, y - 8, 16, 16);
+                g.setColor(PRESENT);
+                g.fillRect(x - 7, y - 7, 14, 14);
+                g.setColor(Color.WHITE);
+                g.fillRect(x - 1, y - 7, 2, 14);
+                g.fillRect(x - 7, y - 1, 14, 2);
+                return true;
+            }
+            default:
+                return false;
+        }
     }
 
     private void paintMark(Graphics2D g, int kind, int id, int x, int y, double tilesWide) {
@@ -793,7 +846,7 @@ class ShattersOverlayWindow extends JWindow {
      * People, ways through and events are never dropped. They are what the map is for.
      */
     static boolean worthDrawing(ShattersRadar.Mark m, double tilesWide) {
-        if (m.type != ShattersRadar.FOE || m.important) return true;
+        if (m.type != ShattersRadar.FOE || m.important || m.piece != null) return true;
         if (tilesWide <= LESSER_UNTIL) return true;
         java.awt.image.BufferedImage face = faceOf(m.kindId());
         return face != null && face.getWidth() >= FACE_SIZE * 2;
