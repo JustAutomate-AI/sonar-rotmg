@@ -666,6 +666,14 @@ class SettingsPane extends Pane {
         }
     }
 
+    /** The volume sliders follow the pointer from the moment they are pressed. */
+    @Override
+    boolean grabs(int x, int y) {
+        if (volumeTrack.contains(x, y)) return true;
+        for (Toggle t : all()) if (t.track.contains(x, y)) return true;
+        return false;
+    }
+
     /** The ping whose own slider is being dragged, or null. */
     private Toggle dragging;
 

@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.59.0
+
+**Drag to scroll, and a click is a click, with a mouse or a pen**
+
+- **Press and drag any list to scroll it,** the way a tablet scrolls: the list follows the pointer, and a quick flick carries it on and slows to a stop. Pressing a list that is still moving stops it where it is. Scrolling used to need a mouse wheel; the scrollbar was only drawn, and could not be held.
+- **A drag never selects anything, and a click always does.** A press used to select the moment it went down, so a pen that slid as it touched the screen still picked whatever it started on. Now a press waits: if it moves more than 8 pixels before it is let go, it was a drag; if not, it was a click, and it selects what was under the press, however long it was held and however much the pen wobbled. `sonar.dragslop` in the settings file changes the 8.
+- **The volume sliders in Settings work as before:** pressed, they follow the pointer at once.
+- **The title bar no longer nudges the window on a tap.** It moved with the first pixel of a press; it now waits for the same 8 pixels. Double-tapping it to maximise counts two taps up to 8 pixels apart, where it used to need both on the same pixel.
+
 ## 2.58.1
 
 **The game's hover card shows over the overlay**

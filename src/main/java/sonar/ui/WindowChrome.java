@@ -43,12 +43,30 @@ final class WindowChrome extends JComponent {
                 repaint();
             }
 
-            @Override
-            public void mouseClicked(MouseEvent e) {
+            // pressed and let go on the same button, wherever on it: Java's own click is lost if
+            // the pointer moves a pixel in between, which a pen nearly always does
+            private int pressedOn = -1;
+
+            private int buttonAt(MouseEvent e) {
+                if (e.getY() < 0 || e.getY() >= getHeight() || e.getX() < 0) return -1;
                 int which = e.getX() / BTN_W;
+                return which > 2 ? -1 : which;
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                pressedOn = SwingUtilities.isLeftMouseButton(e) ? buttonAt(e) : -1;
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                int which = buttonAt(e);
+                boolean same = which >= 0 && which == pressedOn;
+                pressedOn = -1;
+                if (!same) return;
                 if (which == 0) frame.setExtendedState(Frame.ICONIFIED);
                 else if (which == 1) toggleMaximised(frame);
-                else if (which == 2) frame.dispatchEvent(new java.awt.event.WindowEvent(frame, java.awt.event.WindowEvent.WINDOW_CLOSING));
+                else frame.dispatchEvent(new java.awt.event.WindowEvent(frame, java.awt.event.WindowEvent.WINDOW_CLOSING));
             }
         };
         addMouseListener(m);
@@ -138,14 +156,36 @@ final class WindowChrome extends JComponent {
         return new Point(pointerOnScreen.x - heldAt.x, pointerOnScreen.y - heldAt.y);
     }
 
+    /** The system's double-click time, or half a second if it will not say. */
+    private static int doubleTapMs() {
+        try {
+            Object v = Toolkit.getDefaultToolkit().getDesktopProperty("awt.multiClickInterval");
+            if (v instanceof Integer && (Integer) v > 0) return (Integer) v;
+        } catch (Throwable ignored) {
+            // headless or unsupported: fall back
+        }
+        return 500;
+    }
+
     /** Makes a header component drag the window, and double-clicking it maximise. */
     static void dragWindowBy(JComponent header, JFrame frame) {
         // where in the window the pointer took hold, not where the pointer was last seen
         final Point[] heldAt = {null};
+        // A pen wobbles as it touches down, and the window used to follow the first pixel of it,
+        // so a tap on the title bar nudged the whole window. It now waits until the pointer has
+        // moved as far as a drag in a list has to (Pane.DRAG_SLOP). Double-tapping to maximise is
+        // timed here as well, for the same reason: Java only counts a double click when both
+        // land on the same pixel, which a pen rarely manages.
+        final Point[] pressedAt = {null};
+        final boolean[] moving = {false};
+        final long[] lastTapAt = {0};
+        final Point[] lastTap = {null};
         MouseAdapter m = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 heldAt[0] = grip(e);
+                pressedAt[0] = e.getLocationOnScreen();
+                moving[0] = false;
             }
 
             private Point grip(MouseEvent e) {
@@ -156,18 +196,33 @@ final class WindowChrome extends JComponent {
 
             @Override
             public void mouseReleased(MouseEvent e) {
+                if (heldAt[0] != null && !moving[0] && SwingUtilities.isLeftMouseButton(e)) {
+                    Point here = e.getLocationOnScreen();
+                    long now = System.currentTimeMillis();
+                    if (lastTap[0] != null && now - lastTapAt[0] <= doubleTapMs()
+                            && Math.abs(here.x - lastTap[0].x) <= Pane.DRAG_SLOP && Math.abs(here.y - lastTap[0].y) <= Pane.DRAG_SLOP) {
+                        lastTap[0] = null;
+                        toggleMaximised(frame);
+                    } else {
+                        lastTap[0] = here;
+                        lastTapAt[0] = now;
+                    }
+                }
                 heldAt[0] = null;
-            }
-
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) toggleMaximised(frame);
+                pressedAt[0] = null;
+                moving[0] = false;
             }
 
             @Override
             public void mouseDragged(MouseEvent e) {
                 if (heldAt[0] == null) return;
                 Point now = e.getLocationOnScreen();
+                if (!moving[0]) {
+                    if (pressedAt[0] == null || (Math.abs(now.x - pressedAt[0].x) <= Pane.DRAG_SLOP
+                            && Math.abs(now.y - pressedAt[0].y) <= Pane.DRAG_SLOP)) return;
+                    moving[0] = true;
+                    lastTap[0] = null;
+                }
                 // dragging a maximised window restores it first, under the pointer, as Windows does
                 if (isMaximised(frame)) {
                     double across = heldAt[0].x / (double) Math.max(1, frame.getWidth());
