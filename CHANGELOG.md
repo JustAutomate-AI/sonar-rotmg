@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.55.2
+
+**The Shatters minimap is whole the moment you are recognised**
+
+- **Sonar ships both Shatters layouts.** There are only two, and between them Jordan's own runs had walked most of each: 28,120 squares of one and 22,851 of the other, recorded tile for tile off the wire. With Minimap on, the first burst of ground the game sends is compared against both, square for square, and the one it matches is laid down under everything at once - no walking needed for the rest.
+
 ## 2.55.1
 
 **The Shatters finder, fixed**

@@ -329,6 +329,16 @@ final class MinimapCache {
         return readResource("/maps/realm-" + w + "x" + h + "-" + n + ".png");
     }
 
+    /**
+     * A layout Sonar ships for a map by its name - {@code /maps/the-shatters-512x512-1.png} and
+     * so on - for maps with a few fixed layouts that are recordings rather than renders.
+     */
+    static BufferedImage shippedNamed(String mapName, int w, int h, int n) {
+        String file = fileName(mapName, w, h);
+        if (file == null || !file.endsWith(".png")) return null;
+        return readResource("/maps/" + file.substring(0, file.length() - 4) + "-" + n + ".png");
+    }
+
     /** How many layouts Sonar ships for a map this size, without decoding any of them. */
     static int shippedCount(int w, int h) {
         if (w != 2048 || h != 2048) return 0;
@@ -419,6 +429,32 @@ final class MinimapCache {
                     }
                 }
                 if (best == null) {
+                    // Layouts Sonar ships for this map by name - real recordings, not renders,
+                    // so compared tile for tile like this person's own. The Shatters has two.
+                    int named = 0, namedAgreed = 0, namedCompared = 0;
+                    for (int i = 1; i <= MOST_LAYOUTS; i++) {
+                        BufferedImage candidate = shippedNamed(mapName, w, h, i);
+                        if (candidate == null) break;
+                        int[] score = agreement(live, candidate);
+                        if (!recognises(score[0], score[1])) continue;
+                        if (score[0] > namedAgreed) {
+                            namedAgreed = score[0];
+                            namedCompared = score[1];
+                            named = i;
+                        }
+                    }
+                    if (named > 0) {
+                        BufferedImage layout = shippedNamed(mapName, w, h, named);
+                        if (layout != null) {
+                            int put = MinimapView.primeUnder(layout);
+                            System.out.println("[map] recognised " + mapName + " layout " + named + " ("
+                                    + namedAgreed + " of " + namedCompared + " squares agree), " + put + " laid");
+                            lastRecalled = "layout " + named + " of this map, recognised from the ground you walked ("
+                                    + namedAgreed + " of " + namedCompared + " squares agreed)";
+                            trouble = "";
+                            return;
+                        }
+                    }
                     // Nothing of this person's own matched, so try the ones Sonar ships.
                     //
                     // These are renders of the realm, not recordings of it, so they are
