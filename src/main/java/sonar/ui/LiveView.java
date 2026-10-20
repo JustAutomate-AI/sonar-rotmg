@@ -154,6 +154,7 @@ class LiveView {
     /** Which picture the overlay draws while it is on: Sonar's minimap, or the enemies alone. */
     private static final int PICTURE_MINIMAP = 0, PICTURE_ENEMIES = 1;
     private final Segmented shattersPicture = new Segmented(new String[]{"Minimap", "Enemies only"}, PICTURE_MINIMAP, this::pickShattersPicture);
+    private final SonarButton shattersLayers = new SonarButton("Map layers", false, this::showMapLayers);
     /** Marks portals anywhere, so calibration can be checked without waiting for a Shatters. */
     private final SonarButton shattersPortals = new SonarButton("Portals: off", false, this::togglePortalTest);
     private ShattersOverlayWindow shattersOverlay;
@@ -1032,6 +1033,9 @@ class LiveView {
                 + "the Stone Idol, the Derelict Monument and the void cracks - and covers nothing else");
         nav.add(javax.swing.Box.createHorizontalStrut(6));
         nav.add(shattersPicture);
+        nav.add(javax.swing.Box.createHorizontalStrut(6));
+        nav.add(shattersLayers);
+        shattersLayers.setToolTipText("What the minimap shows: how see-through it is, the realm's roads and pylons, and which biomes");
         shattersPicture.setToolTipText("What the overlay draws. Minimap: Sonar's own, replacing the game's - the ground "
                 + "it has seen and remembers, the people, what can be fought, the ways out and you. Enemies only: just "
                 + "the enemies as their sprites over the game's own minimap, nothing else drawn, every click to the game");
@@ -1071,6 +1075,7 @@ class LiveView {
             shattersPicture.select(foes ? PICTURE_ENEMIES : PICTURE_MINIMAP, false);
         }
         shattersPicture.setVisible(shattersEnabled);
+        shattersLayers.setVisible(shattersEnabled && shattersOverlay != null && !shattersOverlay.enemiesOnly());
         shattersCalibrate.setVisible(false);
         shattersRecentre.setVisible(false);
         shattersPortals.setVisible(false);
@@ -1141,6 +1146,67 @@ class LiveView {
         alignedAutomatically = what.startsWith("Lined up");
         if (!alignedAutomatically) SonarNote.setPlain(what + " Line it up by hand instead.");
         syncShattersButtons();
+    }
+
+    /**
+     * The minimap's layers: how see-through it is, and what of the realm map it shows - roads,
+     * pylons, and each biome by its colour.
+     */
+    private void showMapLayers() {
+        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+        javax.swing.JMenu opacity = new javax.swing.JMenu("Opacity");
+        javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();
+        float now = MapLayers.opacity();
+        for (int pct : new int[]{100, 85, 70, 55, 40}) {
+            javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(pct + "%", Math.abs(now * 100 - pct) < 3);
+            item.addActionListener(e -> {
+                MapLayers.setOpacity(pct / 100f);
+                if (shattersOverlay != null) shattersOverlay.repaint();
+            });
+            group.add(item);
+            opacity.add(item);
+        }
+        menu.add(opacity);
+        menu.addSeparator();
+        javax.swing.JCheckBoxMenuItem roads = new javax.swing.JCheckBoxMenuItem("Roads", MapLayers.roads());
+        roads.addActionListener(e -> MapLayers.setRoads(roads.isSelected()));
+        menu.add(roads);
+        javax.swing.JCheckBoxMenuItem pylons = new javax.swing.JCheckBoxMenuItem("Pylons and landmarks", MapLayers.pylons());
+        pylons.addActionListener(e -> MapLayers.setPylons(pylons.isSelected()));
+        menu.add(pylons);
+        javax.swing.JMenu biomes = new javax.swing.JMenu("Biomes");
+        for (Object[] b : MapLayers.BIOMES) {
+            java.awt.Color c = (java.awt.Color) b[0];
+            javax.swing.JCheckBoxMenuItem item = new javax.swing.JCheckBoxMenuItem((String) b[1], !MapLayers.isHidden(c));
+            item.setIcon(new javax.swing.Icon() {
+                public void paintIcon(java.awt.Component comp, java.awt.Graphics g, int x, int y) {
+                    g.setColor(c);
+                    g.fillRect(x, y + 1, 14, 12);
+                    g.setColor(java.awt.Color.DARK_GRAY);
+                    g.drawRect(x, y + 1, 14, 12);
+                }
+
+                public int getIconWidth() {
+                    return 16;
+                }
+
+                public int getIconHeight() {
+                    return 14;
+                }
+            });
+            item.addActionListener(e -> MapLayers.setHidden(c, !item.isSelected()));
+            biomes.add(item);
+        }
+        menu.add(biomes);
+        menu.addSeparator();
+        javax.swing.JMenuItem all = new javax.swing.JMenuItem("Show everything");
+        all.addActionListener(e -> {
+            for (Object[] b : MapLayers.BIOMES) if (MapLayers.isHidden((java.awt.Color) b[0])) MapLayers.setHidden((java.awt.Color) b[0], false);
+            MapLayers.setRoads(true);
+            MapLayers.setPylons(true);
+        });
+        menu.add(all);
+        menu.show(shattersLayers, 0, shattersLayers.getHeight() + 4);
     }
 
     /** The switch: Sonar's minimap, or the enemies alone over the game's. Always one of the two. */
@@ -1535,8 +1601,8 @@ class LiveView {
                 if (c.isVisible()) switchesShowing++;
             }
         }
-        report.accept("the Shatters panel has one on/off, Overlay, and one picture switch, Minimap | Enemies only",
-                buttons == 1 && switches == 1);
+        report.accept("the Shatters panel has one on/off, Overlay, one picture switch, Minimap | Enemies only, and Map layers",
+                buttons == 2 && switches == 1);
         report.accept("and the switch is only offered while the overlay is on",
                 shattersEnabled ? switchesShowing == 1 : switchesShowing == 0);
 

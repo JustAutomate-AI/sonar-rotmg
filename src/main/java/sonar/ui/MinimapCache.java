@@ -326,7 +326,19 @@ final class MinimapCache {
      */
     static BufferedImage shippedLayout(int w, int h, int n) {
         if (w != 2048 || h != 2048 || n < 1 || n > MOST_LAYOUTS) return null;
-        return readResource("/maps/realm-" + w + "x" + h + "-" + n + ".png");
+        BufferedImage full = readResource("/maps/realm-" + w + "x" + h + "-" + n + ".png");
+        // the roads, pylons and biomes chosen in the Map layers menu
+        return n == 1 ? MapLayers.apply(full) : full;
+    }
+
+    /**
+     * Puts the realm map back down with the Map layers just chosen, in place: what the chart
+     * had laid is replaced, nothing walked is touched.
+     */
+    static void reapplyRealmLayers() {
+        if (openW != 2048 || openH != 2048 || matchedShipped != 1) return;
+        BufferedImage now = shippedLayout(2048, 2048, 1);
+        if (now != null) MinimapView.replaceLaid(now);
     }
 
     /**
@@ -858,7 +870,7 @@ final class MinimapCache {
         }
     }
 
-    private static BufferedImage readResource(String path) {
+    static BufferedImage readResource(String path) {
         try (InputStream in = MinimapCache.class.getResourceAsStream(path)) {
             return in == null ? null : javax.imageio.ImageIO.read(in);
         } catch (Exception e) {
