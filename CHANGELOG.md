@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.5
+
+**Bosses and quests stand out**
+
+- **Anything worth finding is drawn large, at every zoom.** The game's quest target, everything on its quest list, and any enemy with a boss's health (15,000 or more) is drawn at least 36 pixels across with a red ring, on top of everything else, and is never thinned out when zoomed out. Before this a boss was drawn to scale like a rat and became a speck exactly when you zoomed out to look for it. Size settable as `sonar.shatters.bosssize`.
+- Sonar now reads the game's quest packet - which enemy the quest arrow points at - so the overlay marks the same target the game does.
+
 ## 2.54.4
 
 **Clicks land on the player again near the map's edge**
