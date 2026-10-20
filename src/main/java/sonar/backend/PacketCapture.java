@@ -30,9 +30,11 @@ public class PacketCapture implements Controller {
         if (packet instanceof MovePacket) {
             MovePacket p = (MovePacket) packet;
             data.updatePlayersPos(p);
+            sonar.ui.SonarShell.moved(data, p);
         } else if (packet instanceof NewTickPacket) {
             NewTickPacket p = (NewTickPacket) packet;
             data.updateNewTick(p);
+            sonar.ui.SonarShell.serverTicked(data, p);
             sonar.ui.SonarShell.tick(data);
             data.logPacket(packet);
 

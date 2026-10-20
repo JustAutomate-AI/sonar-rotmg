@@ -33,7 +33,9 @@ class ShattersOverlayWindow extends JWindow {
      * at, so sharing that timer dropped most of them. Watching the keys and the mouse costs
      * three calls into user32 and allocates nothing, so it can afford a timer of its own.
      */
-    private final Timer inputTimer = new Timer(40, e -> {
+    // every 10 ms: a zoom key or button press reaches the overlay within a frame at 120 fps, where
+    // 40 ms could leave it up to five frames behind the game
+    private final Timer inputTimer = new Timer(10, e -> {
         pollZoomKeys();
         pollZoomButtons();
         followMapChange();

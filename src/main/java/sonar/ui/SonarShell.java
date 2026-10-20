@@ -566,6 +566,42 @@ public class SonarShell extends JPanel {
         });
     }
 
+    private static volatile boolean overlayHookFailed;
+
+    /**
+     * Every server tick, as it lands and never throttled, so the overlay's enemies start moving
+     * on the same tick the game's own icons do. Cheap: it rebuilds the overlay's list of marks
+     * and nothing else, and only while the overlay is drawing.
+     */
+    public static void serverTicked(GameData data, sonar.packets.incoming.NewTickPacket p) {
+        SonarShell s = instance;
+        if (s == null || s.demo) return;
+        try {
+            ShattersRadar.serverTicked(data, p);
+        } catch (Throwable t) {
+            overlayHookFailed(t);
+        }
+    }
+
+    /** Your client's Move, the moment it goes out: where the overlay puts you, and how fast you are going. */
+    public static void moved(GameData data, sonar.packets.outgoing.MovePacket p) {
+        SonarShell s = instance;
+        if (s == null || s.demo) return;
+        try {
+            ShattersRadar.moved(data, p);
+        } catch (Throwable t) {
+            overlayHookFailed(t);
+        }
+    }
+
+    /** These run on the packet thread; anything they throw must never reach the capture loop. */
+    private static void overlayHookFailed(Throwable t) {
+        if (overlayHookFailed) return;
+        overlayHookFailed = true;
+        System.out.println("[overlay] a packet hook failed and was skipped: " + t);
+        t.printStackTrace(System.out);
+    }
+
     /**
      * Called on the packet thread whenever the world has changed. Takes a snapshot of
      * the instance there, where the data is consistent, and hands it to the event thread.

@@ -2530,6 +2530,7 @@ class LiveView {
         checkViewClamp(report);
         checkZoomSteps(report);
         checkSlides(report);
+        checkPrediction(report);
         checkLookAcrossClasses(report);
         checkSegmentWidths(report);
         checkRealmClose(report);
@@ -2687,6 +2688,59 @@ class LiveView {
             place.invoke(null, Float.NaN, Float.NaN);
         } catch (Exception e) {
             report.accept("the slide test could reach the radar (" + e + ")", false);
+        }
+        placeForTest(Float.NaN, Float.NaN, 0, 0);
+    }
+
+    /** A Move with these record times and eastward positions, all at y = 20. */
+    private static sonar.packets.outgoing.MovePacket moveForTest(int[] times, float[] xs) {
+        sonar.packets.outgoing.MovePacket p = new sonar.packets.outgoing.MovePacket();
+        p.records = new sonar.packets.data.MoveRecord[times.length];
+        for (int i = 0; i < times.length; i++) {
+            sonar.packets.data.MoveRecord r = new sonar.packets.data.MoveRecord();
+            r.time = times[i];
+            r.pos = new sonar.packets.data.WorldPosData();
+            r.pos.x = xs[i];
+            r.pos.y = 20;
+            p.records[i] = r;
+        }
+        return p;
+    }
+
+    /**
+     * Between Moves you are carried on at the speed and heading your Move shows, so the overlay
+     * keeps up with you instead of trailing a tick or two behind; a stop is eased back out; and a
+     * Move with one position, which cannot show a quick turn, is drawn as it is.
+     */
+    private static void checkPrediction(java.util.function.BiConsumer<String, Boolean> report) {
+        if (ShattersRadar.progress(System.nanoTime()) >= 1) return;
+        try {
+            java.lang.reflect.Method place = ShattersRadar.class.getDeclaredMethod("placePlayer", float.class, float.class);
+            place.setAccessible(true);
+            sonar.backend.data.GameData data = new sonar.backend.data.GameData();
+            data.player = new sonar.backend.data.Entity(data, 1, 0);
+            place.invoke(null, Float.NaN, Float.NaN);
+            // six tiles a second east, as two Moves of three positions each
+            ShattersRadar.moved(data, moveForTest(new int[]{0, 100, 200}, new float[]{10f, 10.6f, 11.2f}));
+            ShattersRadar.moved(data, moveForTest(new int[]{200, 300, 400}, new float[]{11.2f, 11.8f, 12.4f}));
+            Thread.sleep(150);
+            double x = ShattersRadar.drawPlayerX();
+            report.accept("walking straight, you are carried on past the last Move to where you are now",
+                    x > 12.6 && x < 13.8);
+            ShattersRadar.moved(data, moveForTest(new int[]{400, 500, 600}, new float[]{12.4f, 12.4f, 12.4f}));
+            Thread.sleep(200);
+            x = ShattersRadar.drawPlayerX();
+            report.accept("after you stop, the overshoot is eased back to where you stand", Math.abs(x - 12.4) < 0.02);
+            place.invoke(null, Float.NaN, Float.NaN);
+            ShattersRadar.moved(data, moveForTest(new int[]{0}, new float[]{10f}));
+            ShattersRadar.moved(data, moveForTest(new int[]{200}, new float[]{11.2f}));
+            Thread.sleep(150);
+            x = ShattersRadar.drawPlayerX();
+            report.accept("from Moves of one position each, you are drawn where the last one said",
+                    Math.abs(x - 11.2) < 0.02);
+            place.invoke(null, Float.NaN, Float.NaN);
+        } catch (Exception e) {
+            report.accept("the prediction test could reach the radar (" + e + ")", false);
         }
         placeForTest(Float.NaN, Float.NaN, 0, 0);
     }

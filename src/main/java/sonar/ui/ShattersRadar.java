@@ -2,6 +2,7 @@ package sonar.ui;
 
 import sonar.backend.data.Entity;
 import sonar.backend.data.GameData;
+import sonar.packets.incoming.NewTickPacket;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -213,12 +214,14 @@ final class ShattersRadar {
         /** The object's instance id, so the same thing can be followed from one tick to the next. */
         int eid = -1;
 
-        /** Where to draw it now: slid from where it was being drawn toward where it is. */
+        /** Where to draw it now: slid from where it was being drawn toward where it is. You are drawn where the overlay thinks you are now. */
         double drawX() {
+            if (type == SELF) return drawPlayerX();
             return Float.isNaN(fromX) ? x : fromX + (x - fromX) * progress(slideStart);
         }
 
         double drawY() {
+            if (type == SELF) return drawPlayerY();
             return Float.isNaN(fromY) ? y : fromY + (y - fromY) * progress(slideStart);
         }
 
@@ -454,15 +457,13 @@ final class ShattersRadar {
         java.util.Map<Integer, Mark> byId = new java.util.HashMap<>();
         for (Mark m : found) if (m.eid >= 0) byId.put(m.eid, m);
         lastById = byId;
-        if (!Float.isNaN(playerX)) {
-            Mark me = new Mark(SELF, playerX, playerY);
-            me.fromX = playerFromX;
-            me.fromY = playerFromY;
-            me.slideStart = playerSlideStart;
-            found.add(me);
-        }
+        if (!Float.isNaN(playerX)) found.add(new Mark(SELF, playerX, playerY));
         live = found;
+        lastTrackNanos = System.nanoTime();
     }
+
+    /** When the marks were last rebuilt, so a radar tick right behind a server tick can skip it. */
+    private static volatile long lastTrackNanos;
     /** Where the player was when the marks were last taken; NaN until known. */
     private static volatile float playerX = Float.NaN, playerY = Float.NaN;
 
@@ -486,8 +487,6 @@ final class ShattersRadar {
      * walking a few tiles from where you arrived, every mark on the overlay bounced between two
      * spots that far apart, five times a second.
      */
-    private static volatile float playerFromX = Float.NaN, playerFromY = Float.NaN;
-    private static volatile long playerSlideStart;
     private static volatile double tickNanos = 200_000_000.0;
     private static final float TELEPORT = 12f;
     private static final boolean SMOOTH = !"false".equals(System.getProperty("sonar.smooth",
@@ -502,38 +501,229 @@ final class ShattersRadar {
     }
 
     /**
-     * How long a slide lasts: the time between server ticks, as the packet thread measured it.
-     * <p>
-     * It was the time between radar ticks, which run on Update packets as well as on server
-     * ticks and are spaced by a throttle rather than by the server, so it came out short.
+     * How long a slide lasts: the tick length the server states, which is what the game itself
+     * slides its own objects over, so a mark and the game's icon for it move as one. Falls back to
+     * the measured time between server ticks.
      */
-    private static void timeTicks(GameData data) {
+    private static void timeTicks(GameData data, NewTickPacket p) {
+        if (p != null && p.tickTime >= 40 && p.tickTime <= 1000) {
+            tickNanos = p.tickTime * 1_000_000.0;
+            return;
+        }
         double gap = data.newTickGapNanos;
         if (gap > 40_000_000 && gap < 1_000_000_000) tickNanos = gap;
     }
 
-    /** Sets the player's position, sliding from wherever it is being drawn if it has moved. */
-    private static void placePlayer(float x, float y) {
-        if (Float.isNaN(x) || Float.isNaN(playerX) || Math.abs(x - playerX) > TELEPORT || Math.abs(y - playerY) > TELEPORT) {
-            playerFromX = Float.NaN;
-            playerFromY = Float.NaN;
-        } else if (x == playerX && y == playerY) {
-            return;     // not moved: the slide under way carries on as it is
-        } else {
-            playerFromX = (float) drawPlayerX();
-            playerFromY = (float) drawPlayerY();
-            playerSlideStart = System.nanoTime();
+    /**
+     * Every server tick, as it arrives: the enemies' new places.
+     * <p>
+     * They used to be picked up by the radar's full tick, which is throttled to one every 120 ms
+     * and also runs on Update packets - so a server tick landing just after an Update was skipped,
+     * and its positions waited for the next packet, up to 150 ms late. The game starts sliding its
+     * own icons the moment the tick lands; so does this now.
+     */
+    static void serverTicked(GameData data, NewTickPacket p) {
+        timeTicks(data, p);
+        if (drawingMap) trackLive(data);
+    }
+
+    /*
+     * Where you are.
+     *
+     * The game draws you where you are this instant. Sonar learns it from your client's Move
+     * packet, sent once a server tick, right after the tick arrives. Two things kept the overlay
+     * behind you. The radar ran on the tick, a few milliseconds before the Move went out, so it
+     * always placed you where you were a tick earlier; and it then slid toward that spot over a
+     * whole tick. Measured at running speed: about 1.3 tiles behind on average, up to 2.1.
+     *
+     * Now the Move is used the moment it is seen, and between Moves you are carried on at the
+     * speed and heading the Move shows. Walking straight, that puts you where the game does.
+     * When you stop or turn, the overlay runs on for part of a tick before the next Move says so,
+     * and the difference is eased out over about a tenth of a second rather than jumped.
+     * sonar.shatters.predict sets how far ahead to carry you, as a share of a tick: 1 by
+     * default, 0 to draw only what the last Move said.
+     */
+    private static volatile double playerVX, playerVY;          // tiles a second
+    private static volatile long playerAt;                      // when playerX/Y was true
+    private static volatile double corrX, corrY;                // eased out from corrAt
+    private static volatile long corrAt;
+    private static volatile long lastMoveNanos;
+    private static volatile int lastRecordTime = Integer.MIN_VALUE;
+    private static volatile float lastRecordX = Float.NaN, lastRecordY = Float.NaN;
+    private static final long CORRECT_NANOS = 90_000_000L;
+    private static final double FASTEST = 20;                   // tiles a second; anything quicker was a blink
+    private static final double PREDICT = predictShare();
+    private static Object loggedMovesFor;
+    private static int loggedMoves;
+
+    private static double predictShare() {
+        try {
+            String v = System.getProperty("sonar.predict", sonar.util.PropertiesManager.getProperty("sonar.shatters.predict"));
+            return v == null || v.trim().isEmpty() ? 1.0 : Math.max(0, Math.min(1.5, Double.parseDouble(v.trim())));
+        } catch (Throwable bad) {
+            return 1.0;
         }
+    }
+
+    /** Your client's Move: where you are, and from its records or the last one, how fast you are going. */
+    static void moved(GameData data, sonar.packets.outgoing.MovePacket p) {
+        if (data == null || data.player == null || p == null || p.records == null || p.records.length == 0) return;
+        sonar.packets.data.MoveRecord last = p.records[p.records.length - 1];
+        if (last == null || last.pos == null) return;
+        double vx = 0, vy = 0;
+        int dt = 0;
+        boolean inside = false;
+        float fromX = Float.NaN, fromY = Float.NaN;
+        // the nearest earlier record at least 30 ms back, inside this packet if it has one
+        for (int i = p.records.length - 2; i >= 0; i--) {
+            sonar.packets.data.MoveRecord r = p.records[i];
+            if (r == null || r.pos == null) continue;
+            if (last.time - r.time >= 30) {
+                dt = last.time - r.time;
+                fromX = r.pos.x;
+                fromY = r.pos.y;
+                inside = true;
+                break;
+            }
+        }
+        if (dt == 0 && lastRecordTime != Integer.MIN_VALUE && last.time - lastRecordTime >= 30) {
+            dt = last.time - lastRecordTime;
+            fromX = lastRecordX;
+            fromY = lastRecordY;
+        }
+        if (dt > 0 && dt < 1000) {
+            vx = (last.pos.x - fromX) / (dt / 1000.0);
+            vy = (last.pos.y - fromY) / (dt / 1000.0);
+            if (Double.isNaN(vx) || Double.isNaN(vy) || Math.hypot(vx, vy) > FASTEST) vx = vy = 0;
+        }
+        lastRecordTime = last.time;
+        lastRecordX = last.pos.x;
+        lastRecordY = last.pos.y;
+        lastMoveNanos = System.nanoTime();
+        // A Move with one position gives a speed averaged over a whole tick, which cannot see a
+        // dodge shorter than about two ticks: in the replay, carrying you on from it overshot every
+        // other dodge by up to 2.4 tiles, where not predicting stayed under 1.25. So you are only
+        // carried on from a Move whose own records show the heading.
+        double s = steadiness(vx, vy);
+        steadiness = inside ? s : 0;
+        setPlayer(last.pos.x, last.pos.y, vx, vy);
+        if (loggedMovesFor != data.map) {
+            loggedMovesFor = data.map;
+            loggedMoves = 0;
+        }
+        if (loggedMoves < 3) {
+            loggedMoves++;
+            System.out.println(String.format(java.util.Locale.ROOT, "[move] %d record%s over %d ms, %.1f tiles/s, %s",
+                    p.records.length, p.records.length == 1 ? "" : "s",
+                    p.records.length > 1 ? last.time - p.records[0].time : 0, Math.hypot(vx, vy),
+                    inside ? "heading from the Move itself: predicting" : "one position per Move: not predicting"));
+        }
+    }
+
+    /**
+     * The radar's full tick placing you from the game data. Only needed when no Move has been
+     * seen lately: otherwise the Move is fresher, and the position a server tick writes into the
+     * same record is the server's echo of you, a little behind.
+     */
+    private static void placeFromData(GameData data) {
+        if (data.player == null || data.player.pos == null) {
+            placePlayer(Float.NaN, Float.NaN);
+            return;
+        }
+        if (System.nanoTime() - lastMoveNanos < 1_500_000_000L) return;
+        placePlayer(data.player.pos.x, data.player.pos.y);
+    }
+
+    /** Sets your position with no known speed, easing from wherever you are drawn if it changed. */
+    private static void placePlayer(float x, float y) {
+        if (!Float.isNaN(x) && x == playerX && y == playerY) return;   // not moved: leave the picture alone
+        setPlayer(x, y, 0, 0);
+    }
+
+    private static void setPlayer(float x, float y, double vx, double vy) {
+        long now = System.nanoTime();
+        if (Float.isNaN(x) || Float.isNaN(y)) {
+            playerX = playerY = Float.NaN;
+            playerVX = playerVY = corrX = corrY = 0;
+            lastRecordTime = Integer.MIN_VALUE;
+            recentCount = 0;
+            steadiness = 1;
+            return;
+        }
+        boolean jump = Float.isNaN(playerX) || Math.abs(x - playerX) > TELEPORT || Math.abs(y - playerY) > TELEPORT;
+        double wasX = jump ? x : drawPlayerX(), wasY = jump ? y : drawPlayerY();
         playerX = x;
         playerY = y;
+        playerVX = jump ? 0 : vx;
+        playerVY = jump ? 0 : vy;
+        playerAt = now;
+        // whatever separates where you were drawn from where you now are is eased out, never jumped
+        corrX = SMOOTH ? wasX - x : 0;
+        corrY = SMOOTH ? wasY - y : 0;
+        corrAt = now;
+    }
+
+    /*
+     * How much to trust the heading.
+     *
+     * Carrying you on is exact while you walk straight and wrong for a tick each time you turn,
+     * because nothing says you turned until the next Move. Measured in a replay at running speed:
+     * full prediction took walking straight from 1.6 tiles behind to 0.06, but dodging - a turn
+     * every 0.3 s - came out no better than not predicting at all, with a worse worst moment.
+     * So the last two headings are compared: while they agree, you are carried on in full; the
+     * more they disagree, the less, down to none for a reversal. Walking straight gets the whole
+     * benefit, and a run of dodges is drawn where the Moves say rather than overshooting each one.
+     */
+    private static final double[] recentVX = new double[3], recentVY = new double[3];
+    private static int recentCount;
+    private static volatile double steadiness = 1;
+
+    private static double steadiness(double vx, double vy) {
+        recentVX[0] = recentVX[1];
+        recentVY[0] = recentVY[1];
+        recentVX[1] = recentVX[2];
+        recentVY[1] = recentVY[2];
+        recentVX[2] = vx;
+        recentVY[2] = vy;
+        recentCount = Math.min(3, recentCount + 1);
+        double least = 1;
+        for (int i = 3 - recentCount; i < 2; i++) {
+            double a = Math.hypot(recentVX[i], recentVY[i]), b = Math.hypot(recentVX[i + 1], recentVY[i + 1]);
+            if (a < 1 || b < 1) continue;           // standing still, or starting off: no heading to compare
+            double cos = (recentVX[i] * recentVX[i + 1] + recentVY[i] * recentVY[i + 1]) / (a * b);
+            // a heading that held but a speed that did not is a turn the Move averaged away: a
+            // Move carrying one position measures speed over a whole tick, so a quick dodge shows
+            // up as a slower step in the same direction rather than as a reversal
+            double held = Math.min(a, b) / Math.max(a, b);
+            least = Math.min(least, Math.max(0, cos) * held);
+        }
+        return least;
+    }
+
+    /** How far ahead of the last Move you are carried, in seconds, at this moment. */
+    private static double ahead(long now) {
+        if (!SMOOTH || PREDICT <= 0) return 0;
+        return Math.min(now - playerAt, PREDICT * steadiness * tickNanos * 1.25) / 1e9;
+    }
+
+    /** How much of the last correction is still to be eased out, 1 to 0. */
+    private static double easing(long now) {
+        double u = (now - corrAt) / (double) CORRECT_NANOS;
+        if (u >= 1) return 0;
+        double left = 1 - Math.max(0, u);
+        return left * left;
     }
 
     static double drawPlayerX() {
-        return Float.isNaN(playerFromX) ? playerX : playerFromX + (playerX - playerFromX) * progress(playerSlideStart);
+        if (Float.isNaN(playerX)) return playerX;
+        long now = System.nanoTime();
+        return playerX + playerVX * ahead(now) + corrX * easing(now);
     }
 
     static double drawPlayerY() {
-        return Float.isNaN(playerFromY) ? playerY : playerFromY + (playerY - playerFromY) * progress(playerSlideStart);
+        if (Float.isNaN(playerY)) return playerY;
+        long now = System.nanoTime();
+        return playerY + playerVY * ahead(now) + corrY * easing(now);
     }
 
     /** How far a mark is from the player, in tiles, as {east, south}; null until the player is placed. */
@@ -669,9 +859,7 @@ final class ShattersRadar {
         // to know where you are standing in the Nexus and the realm too, or the map has no
         // centre and never appears - so the overlay could only be tried in the one dungeon it
         // is hardest to get into.
-        timeTicks(data);
-        placePlayer(data.player != null && data.player.pos != null ? data.player.pos.x : Float.NaN,
-                data.player != null && data.player.pos != null ? data.player.pos.y : Float.NaN);
+        placeFromData(data);
         // once enough ground has been walked, work out which recorded layout this is and lay
         // the rest of it down. Cheap to ask: it does nothing at all until there is enough, and
         // nothing again once it has an answer.
@@ -689,7 +877,9 @@ final class ShattersRadar {
         // kept as it is learned, not only on the way out: a map you have not left yet is a map
         // you have recorded nothing of
         MinimapCache.keepUpToDate();
-        trackLive(data);
+        // a server tick has just rebuilt them if this tick is riding right behind it; otherwise
+        // this picks up what an Update brought (arrivals, departures)
+        if (System.nanoTime() - lastTrackNanos > 50_000_000L) trackLive(data);
         if (portalTest) {
             trackTestMarks(data);
             return;
