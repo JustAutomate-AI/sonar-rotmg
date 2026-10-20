@@ -56,6 +56,35 @@ final class MinimapIcons {
             java.util.regex.Pattern.compile("type=\"0x([0-9a-fA-F]+)\"");
     private static final java.util.regex.Pattern ICON =
             java.util.regex.Pattern.compile("<MinimapIcon[^>]*piece=\"([A-Za-z]+)\"");
+    private static final java.util.regex.Pattern COLOR =
+            java.util.regex.Pattern.compile("<MinimapIcon[^>]*color=\"0x([0-9a-fA-F]{6})\"");
+
+    private static volatile java.util.Map<Integer, Integer> colors = new java.util.HashMap<>();
+
+    /**
+     * The colour the game draws this object's icon in: the XML's own colour where it gives one,
+     * otherwise the colour that piece is drawn in on the game's minimap. Null for no icon.
+     */
+    static java.awt.Color colorOf(int objectType) {
+        String piece = pieceOf(objectType);
+        if (piece == null) return null;
+        Integer c = colors.get(objectType);
+        if (c != null) return new java.awt.Color(c);
+        switch (piece) {
+            case "DangerSmall":
+            case "DangerLarge":
+            case "GhostSmall":
+            case "GhostMedium":
+            case "GhostLarge":
+                return new java.awt.Color(143, 4, 168);      // the purple skull
+            case "UFO":
+                return new java.awt.Color(200, 24, 110);     // the magenta saucer
+            case "Present":
+                return new java.awt.Color(0xE44B8D);
+            default:
+                return new java.awt.Color(230, 63, 63);      // bosses: the game's red
+        }
+    }
 
     static void read(java.io.File dir, java.util.Map<Integer, String> into) throws java.io.IOException {
         java.io.File[] files = dir.listFiles((d, n) -> n.endsWith(".xml"));
@@ -70,7 +99,10 @@ final class MinimapIcons {
                 java.util.regex.Matcher type = TYPE.matcher(m.group(1));
                 if (!type.find()) continue;
                 try {
-                    into.put(Integer.parseInt(type.group(1), 16), icon.group(1));
+                    int id = Integer.parseInt(type.group(1), 16);
+                    into.put(id, icon.group(1));
+                    java.util.regex.Matcher col = COLOR.matcher(m.group(2));
+                    if (col.find()) colors.put(id, Integer.parseInt(col.group(1), 16));
                 } catch (NumberFormatException odd) {
                     // not a type worth keeping
                 }

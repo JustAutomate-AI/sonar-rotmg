@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.54.8
+
+**Rings in the game's colours**
+
+- **Every enemy the game marks is drawn as its own sprite inside a ring the colour of the game's icon for it**: purple where the game draws a purple skull, magenta for a UFO, red for a boss, and the XML's own colour wherever it gives one. The two minimaps can be read together at a glance. Only something with no sprite falls back to a glyph.
+
 ## 2.54.7
 
 **The overlay marks what the game marks**

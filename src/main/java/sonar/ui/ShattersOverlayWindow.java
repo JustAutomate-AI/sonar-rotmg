@@ -630,15 +630,22 @@ class ShattersOverlayWindow extends JWindow {
     static final int IMPORTANT_SIZE = Math.max(24, Math.min(64, getInt("sonar.shatters.bosssize", 36)));
 
     private void paintMark(Graphics2D g, ShattersRadar.Mark m, int x, int y, double tilesWide) {
-        if (m.piece != null && !m.important && paintPiece(g, m.piece, x, y)) return;
-        if (m.important && m.type == ShattersRadar.FOE) {
-            java.awt.image.BufferedImage face = faceOf(m.kindId());
+        // Anything the game gives an icon is drawn as its own sprite, large, inside a ring in
+        // the colour of the game's icon for it - a purple ring where the game draws a purple
+        // skull, magenta for a UFO, red for a boss - so the two minimaps can be read together.
+        // Only a piece with no sprite falls back to a glyph of the game's icon.
+        java.awt.image.BufferedImage pieceFace = m.piece != null ? faceOf(m.kindId()) : null;
+        if (m.piece != null && pieceFace == null && paintPiece(g, m.piece, x, y)) return;
+        if ((m.important || m.piece != null) && m.type == ShattersRadar.FOE) {
+            java.awt.image.BufferedImage face = pieceFace != null ? pieceFace : faceOf(m.kindId());
+            Color tint = m.piece != null ? MinimapIcons.colorOf(m.kindId()) : null;
+            if (tint == null) tint = new Color(255, 70, 70);
             int size = Math.max(IMPORTANT_SIZE, face == null ? 0 : faceSizeFor(pixelsPerTile, face.getWidth(), true));
             int ring = size + 8;
             g.setStroke(new BasicStroke(2.5f));
             g.setColor(new Color(0, 0, 0, 170));
             g.drawOval(x - ring / 2 - 1, y - ring / 2 - 1, ring + 2, ring + 2);
-            g.setColor(new Color(255, 70, 70, 230));
+            g.setColor(new Color(tint.getRed(), tint.getGreen(), tint.getBlue(), 235));
             g.drawOval(x - ring / 2, y - ring / 2, ring, ring);
             if (face != null) {
                 g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
