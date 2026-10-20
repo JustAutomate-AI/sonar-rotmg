@@ -196,6 +196,12 @@ final class ShattersRadar {
         final float x, y;
 
         /**
+         * Worth finding: the game's quest target, anything on its quest list, or an enemy with
+         * the health of a boss. Drawn large at every zoom and never thinned out.
+         */
+        boolean important;
+
+        /**
          * What object this is, where the mark stands for a real one.
          * <p>
          * {@link #type} says what kind of thing it is and that is all the drawing needed while
@@ -364,6 +370,10 @@ final class ShattersRadar {
         return 0;
     }
 
+    /** Health at which an enemy counts as a boss-sized thing worth finding, whatever it is called. */
+    static final int BOSS_HP = 15000;
+
+
     /** Builds the list of things to draw. Called while the map is being drawn, and not otherwise. */
     private static void trackLive(GameData data) {
         if (!drawingMap) {
@@ -383,8 +393,20 @@ final class ShattersRadar {
                 // an id the assets do not name; the class alone still decides
             }
             int kind = kindOf(clazz, name, data.playerListUpdated.containsKey(e.id));
-            if (kind != 0) found.add(new Mark(kind, e.objectType, e.pos.x, e.pos.y));
+            if (kind == 0) continue;
+            Mark m = new Mark(kind, e.objectType, e.pos.x, e.pos.y);
+            if (kind == FOE) {
+                int hp = 0;
+                try {
+                    hp = e.maxHp();
+                } catch (RuntimeException noStat) {
+                    // not sent yet; the quest list still decides
+                }
+                m.important = e.id == GameData.questId || GameData.questList.contains(e.id) || hp >= BOSS_HP;
+            }
+            found.add(m);
         }
+        found.sort((a, b) -> Boolean.compare(a.important, b.important));
         if (!Float.isNaN(playerX)) found.add(new Mark(SELF, playerX, playerY));
         live = found;
     }

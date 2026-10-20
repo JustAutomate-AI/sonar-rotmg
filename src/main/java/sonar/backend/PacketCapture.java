@@ -114,6 +114,10 @@ public class PacketCapture implements Controller {
             data.setNewRealm(p);
             data.logPacket(packet);
             // Notify fame table panel about map change
+        } else if (packet instanceof sonar.packets.incoming.QuestObjectIdPacket) {
+            // the game's own quest arrow: which enemy it points at, and the others it counts
+            sonar.packets.incoming.QuestObjectIdPacket p = (sonar.packets.incoming.QuestObjectIdPacket) packet;
+            sonar.backend.data.GameData.setQuest(p.objectId, p.list);
         } else if (packet instanceof CreateSuccessPacket) {
             CreateSuccessPacket p = (CreateSuccessPacket) packet;
             data.setUserId(p.objectId, p.charId, p.str);

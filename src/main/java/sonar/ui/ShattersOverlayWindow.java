@@ -577,7 +577,7 @@ class ShattersOverlayWindow extends JWindow {
             int y = (int) Math.round(cy + off[1] * pixelsPerTile);
             if (x < -8 || y < -8 || x > w + 8 || y > h + 8) continue;
             if (!worthDrawing(m, tilesWide)) continue;
-            paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+            paintMark(g, m, x, y, tilesWide);
         }
     }
 
@@ -606,7 +606,7 @@ class ShattersOverlayWindow extends JWindow {
                 paintReticle(g, x, y, w, h);
                 continue;
             }
-            paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+            paintMark(g, m, x, y, tilesWide);
         }
     }
 
@@ -619,6 +619,37 @@ class ShattersOverlayWindow extends JWindow {
      * diamonds, and those two shapes are most of what is on a realm minimap. Matching them
      * costs nothing and means the picture can be read by somebody who has never been told how.
      */
+    /**
+     * How big something worth finding is drawn: never smaller than this, at any zoom.
+     * <p>
+     * Drawn to scale a boss is a speck once the view is zoomed out, which is exactly when it
+     * is being looked for - reported as a boss too small to see. So a quest target, anything on
+     * the game's quest list and anything with a boss's health is drawn at least this big, with
+     * a ring so it stands apart from the rest.
+     */
+    static final int IMPORTANT_SIZE = Math.max(24, Math.min(64, getInt("sonar.shatters.bosssize", 36)));
+
+    private void paintMark(Graphics2D g, ShattersRadar.Mark m, int x, int y, double tilesWide) {
+        if (m.important && m.type == ShattersRadar.FOE) {
+            java.awt.image.BufferedImage face = faceOf(m.kindId());
+            int size = Math.max(IMPORTANT_SIZE, face == null ? 0 : faceSizeFor(pixelsPerTile, face.getWidth(), true));
+            int ring = size + 8;
+            g.setStroke(new BasicStroke(2.5f));
+            g.setColor(new Color(0, 0, 0, 170));
+            g.drawOval(x - ring / 2 - 1, y - ring / 2 - 1, ring + 2, ring + 2);
+            g.setColor(new Color(255, 70, 70, 230));
+            g.drawOval(x - ring / 2, y - ring / 2, ring, ring);
+            if (face != null) {
+                g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
+            } else {
+                g.setColor(FOE_RED);
+                g.fillOval(x - size / 4, y - size / 4, size / 2, size / 2);
+            }
+            return;
+        }
+        paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+    }
+
     private void paintMark(Graphics2D g, int kind, int id, int x, int y, double tilesWide) {
         if (kind == ShattersRadar.ALLY) {
             g.setColor(new Color(0, 0, 0, 170));
@@ -762,7 +793,7 @@ class ShattersOverlayWindow extends JWindow {
      * People, ways through and events are never dropped. They are what the map is for.
      */
     static boolean worthDrawing(ShattersRadar.Mark m, double tilesWide) {
-        if (m.type != ShattersRadar.FOE) return true;
+        if (m.type != ShattersRadar.FOE || m.important) return true;
         if (tilesWide <= LESSER_UNTIL) return true;
         java.awt.image.BufferedImage face = faceOf(m.kindId());
         return face != null && face.getWidth() >= FACE_SIZE * 2;

@@ -167,6 +167,17 @@ public class GameData {
 
     public static volatile MapSink mapSink;
 
+    /** The enemy the game's quest arrow points at (instance id, -1 for none), and the rest of its quest list. */
+    public static volatile int questId = -1;
+    public static volatile java.util.Set<Integer> questList = java.util.Collections.emptySet();
+
+    public static void setQuest(int objectId, int[] list) {
+        java.util.Set<Integer> s = new java.util.HashSet<>();
+        if (list != null) for (int i : list) s.add(i);
+        questList = s;
+        questId = objectId;
+    }
+
     /**
      * Whether an entity is still in the world, as opposed to still in the records.
      * <p>
