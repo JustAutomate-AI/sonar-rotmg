@@ -185,7 +185,7 @@ public final class ArcaneArt {
             return true;
         }
         // The colour families carry no art. On the game's own model they recolour the
-        // whole silhouette, and the user reports the pulse ones changing only in
+        // whole silhouette, and in play the pulse ones are seen changing only in
         // brightness while keeping their colour, which is what the shader's
         // _PulseSpeed does. Both are a wash over the character's own pixels.
         if (e.colour < 0) return false;

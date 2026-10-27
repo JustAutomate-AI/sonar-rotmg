@@ -33,7 +33,7 @@ import java.util.Map;
  * this run is treated as representative of their uptime on any one boss
  * within it. That is a real simplification, not full accuracy; narrowing it
  * to an exact per-boss window is future work once there is real play data to
- * calibrate against, per the user.
+ * calibrate against.
  */
 final class ConditionTracker {
 

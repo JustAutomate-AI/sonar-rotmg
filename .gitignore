@@ -63,3 +63,8 @@ sonar.properties
 
 # runtime data written by a local run, never part of a build
 characters.json
+
+# Local working notes and scratch probes: kept on this PC, never published.
+# They name real players and local paths.
+/CLAUDE.md
+/probe/

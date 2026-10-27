@@ -1,10 +1,10 @@
 # Builds Sonar from the current source and puts it in the test install, leaving
-# the copy the user actually plays with untouched.
+# the copy you actually play with untouched.
 #
 # The test install lives apart on purpose: its own settings, saved characters and
 # window layout, so trying an unfinished build can never disturb a real session.
 param(
-    [string]$Test = "E:\user\Documents\Sonar Test",
+    [string]$Test = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) "Sonar Test"),
     [switch]$SkipBuild
 )
 

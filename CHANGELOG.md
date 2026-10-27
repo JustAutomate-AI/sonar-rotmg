@@ -94,7 +94,7 @@ Every release of Sonar, newest first. The version number is also shown at the bo
 
 **The Shatters minimap is whole the moment you are recognised**
 
-- **Sonar ships both Shatters layouts.** There are only two, and between them the user's own runs had walked most of each: 28,120 squares of one and 22,851 of the other, recorded tile for tile off the wire. With Minimap on, the first burst of ground the game sends is compared against both, square for square, and the one it matches is laid down under everything at once - no walking needed for the rest.
+- **Sonar ships both Shatters layouts.** There are only two, and between them real runs had walked most of each: 28,120 squares of one and 22,851 of the other, recorded tile for tile off the wire. With Minimap on, the first burst of ground the game sends is compared against both, square for square, and the one it matches is laid down under everything at once - no walking needed for the rest.
 
 ## 2.55.1
 
@@ -1890,7 +1890,7 @@ Tomato or RealmShark. That is what the 2 is for.
 **Every stat was being shown as maxed**
 - The Gear panel painted all eight totals gold whether they were at their ceiling or not, so a Rogue six short on speed and one short on vitality read as finished in all eight. Nothing was being compared to anything: the colour was simply always gold.
 - A stat is gold now only when what it is worth on its own - the total with the equipment taken back off - has reached the class ceiling, raised by whatever that character has exalted. Everything else is plain, and carries the shortfall the way the game writes it: "72|6" is six points short.
-- Checked against Username0's own panel: speed 72 with 13 from gear is 59 against a ceiling of 65, so six short; vitality 56 with 17 from gear is 39 against 40, so one short; the other six really are at their ceilings.
+- Checked against a real Rogue's own Attributes panel: speed 72 with 13 from gear is 59 against a ceiling of 65, so six short; vitality 56 with 17 from gear is 39 against 40, so one short; the other six really are at their ceilings.
 
 ## 1.53.0
 
@@ -2441,7 +2441,7 @@ Tomato or RealmShark. That is what the 2 is for.
 
 **Named checkpoint bosses (per-dungeon stages)**
 - The Shatters' three major bosses - Bridge Sentinel, Twilight Archmage and The Forgotten King (the final boss) - are now recognized by name and order. Each already gets its own isolated fight window (time and dps from your first hit on it to your last), the same as every enemy always has; this makes that per-fight breakdown visible and labeled instead of being buried in the general Enemies list sorted by recency. The Enemies window now shows "Stage 1 of 3", "Stage 2 of 3" or "Final boss" next to each one as you reach it.
-- Confirmed against the game's own object data and the dungeon's public wiki page rather than assumed, after the user asked specifically for the Shatters boss order to be checked rather than guessed.
+- Confirmed against the game's own object data and the dungeon's public wiki page rather than assumed, after a specific request for the Shatters boss order to be checked rather than guessed.
 
 ## 1.10.2
 

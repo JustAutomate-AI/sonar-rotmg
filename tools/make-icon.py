@@ -13,7 +13,9 @@ at an integer factor, which keeps edges hard instead of ringing them soft.
   <= 20 px  dot + one arc - at that size a second arc is noise, not detail
 """
 from PIL import Image, ImageDraw
+import os
 import pathlib
+import tempfile
 
 # the repository root, found from this file rather than written down,
 # so the script works wherever the checkout happens to live
@@ -114,5 +116,5 @@ for s in (16, 24, 32, 48):
     big = im.resize((s * 6, s * 6), Image.NEAREST)
     sheet.alpha_composite(big, (x, 70))
     x += max(s * 6, 60) + 18
-sheet.save(r"C:/Users/user/AppData/Local/Temp/claude/C--Users-user/e84f26bb-659d-47d1-9f0d-933d610049f7/scratchpad/icon_sheet.png")
+sheet.save(os.path.join(tempfile.gettempdir(), "icon_sheet.png"))
 print("wrote contact sheet")

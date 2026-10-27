@@ -1848,7 +1848,7 @@ class LiveView {
         report.accept("reset layout restores the default position", damageWindow.getBounds().equals(home));
         report.accept("Damage is the largest window on the Live page", damageWindow.getWidth() * damageWindow.getHeight() > 2 * Math.max(youWindow.getWidth() * youWindow.getHeight(), fightWindow.getWidth() * fightWindow.getHeight()));
 
-        // The user's own Rogue, which read "8/8 maxed" at Life 959/750 and Attack 57/55: what the
+        // A real Rogue, which read "8/8 maxed" at Life 959/750 and Attack 57/55: what the
         // game sends carries the gear, and exaltation lifts the ceiling as well as the stat
         LiveModel.CharSummary rogue = new LiveModel.CharSummary();
         int[] sent = {959, 340, 57, 30, 71, 79, 55, 55};
@@ -1872,7 +1872,7 @@ class LiveView {
         for (int i = 0; i < 8; i++) if (rogue.maxed(i)) maxedCount++;
         report.accept("the Rogue reads 5 of 8 maxed rather than 8 of 8", maxedCount == 5);
 
-        // Username0, from the game's own Attributes panel: speed six short and vitality one short,
+        // Another real Rogue, from the game's own Attributes panel: speed six short and vitality one short,
         // everything else at its ceiling. The Gear panel painted all eight gold regardless.
         LiveModel.CharSummary username0 = new LiveModel.CharSummary();
         int[] shown = {959, 340, 57, 30, 72, 79, 56, 55};   // what the panel shows
@@ -2197,7 +2197,7 @@ class LiveView {
         report.accept("the fights are numbered in the order they were fought",
                 first != null && last != null && first.stageIndex < last.stageIndex);
 
-        // The user's own Oryx's Sanctuary: the boss never reported a maximum, but was seen to lose
+        // A real Oryx's Sanctuary: the boss never reported a maximum, but was seen to lose
         // two million health. Judging size on the reported maximum alone read it as ordinary.
         LiveModel o3 = new LiveModel();
         o3.instance = "Oryx's Sanctuary";
@@ -2323,7 +2323,7 @@ class LiveView {
         report.accept("but a page is never left blank at startup",
                 only.isVisible() && "F".equals(sonar.util.PropertiesManager.getProperty("sonar.window.exaltation.closed")));
 
-        // The user's own Rogue read "7/40" with life at "L5 max" when the game showed level two.
+        // A real Rogue read "7/40" with life at "L5 max" when the game showed level two.
         // What a character carries is the bonus, not the level, and life goes up five a level.
         report.accept("an exalt bonus of +10 life is read as level two, not level five",
                 LiveModel.exaltLevelFromBonus(0, 10) == 2 && LiveModel.exaltLevelFromBonus(1, 10) == 2);
@@ -2994,7 +2994,7 @@ class LiveView {
                 ShattersOverlayWindow.ladderFor(475, 478, 2048, 2048).length == 7);
 
         // the old model said 480 tiles across at the first step; the real base is 192, so on a
-        // frame the size of the user's minimap the two differ by about the factor measured off a
+        // frame the size of a real minimap the two differ by about the factor measured off a
         // screenshot of the Nexus - roughly 2.4
         double real = ShattersOverlayWindow.defaultScaleForTest(0, 448, 2048, 2048);
         double oldModel = 448 / 480.0;
