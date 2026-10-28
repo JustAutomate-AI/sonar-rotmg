@@ -68,3 +68,4 @@ characters.json
 # They name real players and local paths.
 /CLAUDE.md
 /probe/
+/tools/deploy-test.ps1

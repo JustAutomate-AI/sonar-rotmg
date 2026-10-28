@@ -33,7 +33,7 @@ import java.util.zip.ZipInputStream;
  */
 final class Updater {
 
-    /** Version of this build. Raise it for each release; tools/make-release.ps1 reads it for the zip name. */
+    /** Version of this build. Raise it for each release; the build, the setup and the release workflow read it. */
     static final String CURRENT = "2.59.0";
 
     private static final String REPOSITORY = "https://github.com/JustAutomate-AI/sonar-rotmg";

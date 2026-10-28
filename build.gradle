@@ -14,9 +14,10 @@ applicationName = 'Sonar'
 // mistake: reading the frozen asset key below as a stale app version. They are now
 // named for what they are.
 
-// The app's version. It lives in Updater.CURRENT because five scripts in tools/ read it
-// from there, and the release routine raises it. Gradle's own project.version follows it
-// so the build's metadata is not stale; nothing is stamped into the source from here.
+// The app's version. It lives in Updater.CURRENT because tools/setup.ps1, tools/make-package.ps1
+// and the release workflow read it from there, and the release routine raises it. Gradle's own
+// project.version follows it so the build's metadata is not stale; nothing is stamped into the
+// source from here.
 project.version = {
     def src = file('src/main/java/sonar/ui/Updater.java')
     def m = src.getText('UTF-8') =~ /CURRENT\s*=\s*"([0-9.]+)"/
