@@ -154,8 +154,8 @@ class LiveView {
     /** Marks portals anywhere, so calibration can be checked without waiting for a Shatters. */
     private final SonarButton shattersPortals = new SonarButton("Portals: off", false, this::togglePortalTest);
     private ShattersOverlayWindow shattersOverlay;
-    /** The overlay's one switch: the enemies on the game's minimap, on or off. Under the damage breakdown. */
-    private final OverlayPane overlayPane = new OverlayPane(() -> shattersEnabled, this::toggleShatters);
+    /** The overlay's one switch: the enemies on the game's minimap, on or off. It sits in the top bar. */
+    private final OverlaySwitch overlaySwitch = new OverlaySwitch(() -> shattersEnabled, this::toggleShatters);
     private final SonarButton shattersCalibrate = new SonarButton("Calibrate", false, this::toggleShattersCalibrate);
     private static final int OVERALL = 0, ENEMY = 1, BOSSES = 2;
     // three separate damage views: the whole instance over elapsed time, one enemy at a time, and bosses only
@@ -199,9 +199,6 @@ class LiveView {
     private final GearPane gear = new GearPane();
     private final FloatWindow gearWindow;
     private final FloatWindow damageWindow, fightWindow, youWindow, instanceWindow, enemiesWindow, historyWindow, statsWindow, shattersWindow;
-    private final FloatWindow overlayWindow;
-    /** Where the overlay's switch begins on the Instance page, as a share of its height; the breakdown ends above it. */
-    private static final double OVERLAY_TOP = 0.874;
     private final BossSegmentsPane bossSegments = new BossSegmentsPane();
     private final LeaderboardPane leaderboard = new LeaderboardPane();
     private final Segmented leaderboardTab = new Segmented(new String[]{"Leaderboard", "Classification"}, 0, i -> refresh());
@@ -259,7 +256,7 @@ class LiveView {
         // rows in a dungeon with three bosses, and the Shatters panel is empty everywhere except
         // the Shatters - giving either of them a full-height window left most of the page blank.
         bossSegmentsWindow = window(analysisPage, "bosssegments", "Boss segments", bossSegments, null, 0.006, 0.006, 0.46, 0.60, 240, 220);
-        // the overlay's switch moved to the Instance page; this window is the list of what was found
+        // the overlay's switch is in the top bar; this window is the list of what was found
         shattersWindow = window(analysisPage, "shatters", "Shatters (beta)", shatters, null, 0.006, 0.614, 0.46, 0.380, 220, 110);
         leaderboardWindow = window(analysisPage, "leaderboard", "Leaderboard", leaderboard, leaderboardTab, 0.534, 0.006, 0.46, 0.988, 240, 180);
         // the puzzle gets its own page: it is wanted at a glance, in a hurry, with nothing else in the way
@@ -275,20 +272,8 @@ class LiveView {
         fameNextWindow = window(famePage, "famenext", "Worth running next", fameNext, null, 0.718, 0.006, 0.276, 0.988, 230, 200);
         // the breakdown sits under the enemies as a card, and opens over the page when it is wanted
         breakdownWindow = window(instancePage, "breakdown", "Damage breakdown", breakdownBody(), breakdownAccessory(),
-                0.642, 0.006, 0.352, OVERLAY_TOP - 0.018, 240, 150);
-        // the minimap overlay: one small switch, right under the breakdown
-        overlayWindow = window(instancePage, "overlay", "Minimap overlay", overlayPane, null,
-                // 104 pixels is the least that shows the switch whole: the shadow, the title bar,
-                // the row and the padding under it
-                0.642, OVERLAY_TOP, 0.352, 0.994 - OVERLAY_TOP, 220, 104);
-        // A breakdown saved at full height by an earlier version would reach down under the new
-        // switch. Only its height is brought up to make room, and only the first time; every other
-        // window stays where it was put, rather than resetting the whole layout for one switch.
-        if (sonar.util.PropertiesManager.getProperty("sonar.window.overlay") == null
-                && breakdownWindow.fy + breakdownWindow.fh > OVERLAY_TOP - 0.006
-                && breakdownWindow.fx + breakdownWindow.fw > 0.642) {
-            breakdownWindow.fh = Math.max(0.2, OVERLAY_TOP - 0.012 - breakdownWindow.fy);
-        }
+                0.642, 0.006, 0.352, 0.988, 240, 150);
+        growBreakdownIntoOldSwitch();
         // under the enemies, where the breakdown is: it belongs to the same fight
         guardedWindow = window(instancePage, "guarded", "Guarded hits", guarded, guardedAccessory(),
                 0.272, 0.768, 0.36, 0.226, 220, 140);
@@ -1030,13 +1015,42 @@ class LiveView {
      * <p>
      * It used to offer a choice of two pictures - Sonar's own minimap in place of the game's, or
      * the enemies alone over it - and a menu of map layers for the first. Only the enemies are
-     * kept, and the switch for them sits small under the damage breakdown (see {@link OverlayPane}).
+     * kept, and the switch for them sits in the top bar (see {@link OverlaySwitch}).
      */
     private void syncShattersButtons() {
         shattersCalibrate.setVisible(false);
         shattersRecentre.setVisible(false);
         shattersPortals.setVisible(false);
-        overlayPane.repaint();
+        overlaySwitch.repaint();
+    }
+
+    /** The overlay's switch, for the top bar to show on every page. */
+    OverlaySwitch overlaySwitch() {
+        return overlaySwitch;
+    }
+
+    /**
+     * Gives the breakdown back the room 2.60 took for the overlay's switch.
+     * <p>
+     * 2.60 put the switch in a small window under the breakdown and trimmed the breakdown to make
+     * room for it. The switch is in the top bar now, so a breakdown that still ends where that
+     * window began grows down over the space it left - once, and nothing else is moved, rather
+     * than resetting the whole layout for one switch.
+     */
+    private void growBreakdownIntoOldSwitch() {
+        String saved = sonar.util.PropertiesManager.getProperty("sonar.window.overlay");
+        if (saved == null || "moved".equals(saved)) return;
+        sonar.util.PropertiesManager.setProperties("sonar.window.overlay", "moved");
+        try {
+            String[] p = saved.split(",");
+            double left = Double.parseDouble(p[0]), top = Double.parseDouble(p[1]), bottom = top + Double.parseDouble(p[3]);
+            double end = breakdownWindow.fy + breakdownWindow.fh;
+            if (Math.abs(breakdownWindow.fx - left) < 0.02 && end <= top + 0.004 && end >= top - 0.05) {
+                breakdownWindow.fh = Math.min(0.994, bottom) - breakdownWindow.fy;
+            }
+        } catch (RuntimeException ignored) {
+            // a damaged entry leaves the breakdown as it was saved
+        }
     }
 
     /** True once the minimap has been found on its own, which is the ordinary case. */
@@ -1472,22 +1486,34 @@ class LiveView {
             return;
         }
 
-        // The minimap overlay is one switch, small, under the damage breakdown on the Instance page.
-        // It used to be a row of buttons on the Analysis page with a choice of pictures and a map
-        // layers menu; asserted so that row does not creep back.
-        report.accept("the minimap overlay's switch is on the Instance page",
-                instancePage.windows().contains(overlayWindow) && !analysisPage.windows().contains(overlayWindow));
-        report.accept("and it sits under the damage breakdown, not over it",
-                overlayWindow.fy >= breakdownWindow.fy + breakdownWindow.fh - 0.001
-                        && Math.abs(overlayWindow.fx - breakdownWindow.fx) < 0.001);
+        // The minimap overlay is one switch, in the top bar so it is there on every page. It was a
+        // row of buttons on the Analysis page, then a small window under the damage breakdown that
+        // was easy to miss; asserted so neither creeps back.
+        report.accept("the minimap overlay's switch is in the top bar, not in a window on a page",
+                overlaySwitch.getParent() != null
+                        && javax.swing.SwingUtilities.getAncestorOfClass(FloatWindow.class, overlaySwitch) == null
+                        && instancePage.windows().stream().noneMatch(w -> "overlay".equals(w.id))
+                        && analysisPage.windows().stream().noneMatch(w -> "overlay".equals(w.id)));
+        report.accept("and the breakdown has the full height again",
+                breakdownWindow.fy + breakdownWindow.fh > 0.95);
+        OverlaySwitch probe = new OverlaySwitch(() -> false, () -> { });
+        int wide = probe.getPreferredSize().width;
+        probe.setFit(1);
+        int shorter = probe.getPreferredSize().width;
+        report.accept("a short bar gets \"Overlay\", so the page title keeps its room",
+                "Overlay".equals(probe.label()) && shorter < wide - 40);
+        probe.setFit(2);
+        report.accept("and the smallest gets the switch and its \"?\" alone",
+                probe.label().isEmpty() && probe.getPreferredSize().width < shorter - 40
+                        && probe.getPreferredSize().width >= 38 + 16);
         report.accept("the overlay is the enemies alone whenever it is open",
                 shattersOverlay == null || shattersOverlay.enemiesOnly());
         report.accept("and its \"?\" says what it draws",
-                OverlayPane.HELP_TEXT.contains("enemies") && OverlayPane.HELP_TEXT.contains("minimap"));
+                OverlaySwitch.HELP_TEXT.contains("enemies") && OverlaySwitch.HELP_TEXT.contains("minimap"));
         // A long note used to be measured and drawn as one line, so the "?" above opened a strip
         // the width of the screen. Plain notes now wrap at the width every other note uses.
         NotePanel note = new NotePanel();
-        note.setPlain(OverlayPane.HELP_TEXT);
+        note.setPlain(OverlaySwitch.HELP_TEXT);
         Dimension longNote = note.getPreferredSize();
         note.setPlain("Click to turn the overlay off");
         Dimension shortNote = note.getPreferredSize();

@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.60.2
+
+**The minimap overlay's switch moves to the top bar**
+
+- **The overlay's switch now sits in the top bar, next to "Sniffer live", on every page.** In 2.60 it was a small window at the bottom right of the Instance page, which is not the page open while you play, and was easy to miss. It is the same switch with the same small **?**, and it does the same thing: it draws the enemies on the game's own minimap.
+- **In a small window the bar makes room before the page title is cut.** First the gaps between the buttons on the right close up a little, then the switch's label shortens from "Minimap overlay" to "Overlay", and in the smallest windows only the switch and its **?** are left. At 1440×900 and up it shows the full label; at 1366×768 it says "Overlay"; at 1280×720 it is the switch alone, and the title stays whole at every size.
+- **The damage breakdown has its full height back.** If 2.60 shortened it to make room for the switch's window, it grows back down into that space once, the first time you open this version. Nothing else on the page moves.
+
 ## 2.60.1
 
 **Hover notes that wrap, and the join ping in the guild hall**

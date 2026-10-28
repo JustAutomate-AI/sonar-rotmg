@@ -328,8 +328,59 @@ public class SonarShell extends JPanel {
         rail.add(foot, BorderLayout.SOUTH);
     }
 
+    /**
+     * How the top bar makes room in a small window, one step at a time, before the page title
+     * is cut: the gaps between its buttons close up, then the overlay's switch says "Overlay"
+     * instead of "Minimap overlay", then it is the switch and its "?" alone. Only after all of
+     * that does the title give way - the subtitle under it may still be shortened at any step.
+     */
+    private static final int BAR_FITS = 4;
+
+    /** The gaps between the bar's buttons, with the width each has when there is room. */
+    private final java.util.Map<Box.Filler, Integer> barGaps = new java.util.LinkedHashMap<>();
+
+    private Component barGap(int width) {
+        Box.Filler gap = (Box.Filler) Box.createHorizontalStrut(width);
+        barGaps.put(gap, width);
+        return gap;
+    }
+
+    /** Sets the bar to one of its {@link #BAR_FITS} steps, 0 being the roomiest. */
+    private void fitTopBar(int step) {
+        for (java.util.Map.Entry<Box.Filler, Integer> e : barGaps.entrySet()) {
+            int w = step >= 1 ? Math.min(2, e.getValue()) : e.getValue();
+            if (e.getKey().getPreferredSize().width == w) continue;
+            e.getKey().changeShape(new Dimension(w, 0), new Dimension(w, 0), new Dimension(w, Short.MAX_VALUE));
+        }
+        live.overlaySwitch().setFit(Math.max(0, step - 1));
+    }
+
+    /** Whether the bar, at the step it is set to, has room for the whole page title. */
+    private boolean titleFits(JComponent bar, JComponent names) {
+        Insets in = bar.getInsets();
+        int need = in.left + in.right;
+        for (Component c : bar.getComponents()) {
+            if (!c.isVisible()) continue;
+            need += c == names ? title.getPreferredSize().width : c.getPreferredSize().width;
+        }
+        return need <= bar.getWidth();
+    }
+
     private JComponent buildTopBar() {
-        JPanel bar = new JPanel();
+        OverlaySwitch overlay = live.overlaySwitch();
+        JPanel[] namesRef = new JPanel[1];
+        JPanel bar = new JPanel() {
+            @Override
+            public void doLayout() {
+                BoxLayout layout = (BoxLayout) getLayout();
+                for (int step = 0; step < BAR_FITS; step++) {
+                    fitTopBar(step);
+                    layout.invalidateLayout(this);
+                    if (titleFits(this, namesRef[0])) break;
+                }
+                super.doLayout();
+            }
+        };
         bar.setOpaque(false);
         bar.setLayout(new BoxLayout(bar, BoxLayout.X_AXIS));
         bar.setBorder(BorderFactory.createEmptyBorder(12, 20, 8, 18));
@@ -354,6 +405,7 @@ public class SonarShell extends JPanel {
         names.add(Box.createVerticalStrut(1));
         names.add(subtitle);
         names.setMinimumSize(new Dimension(0, 0));
+        namesRef[0] = names;
 
         bar.add(back);
         bar.add(Box.createHorizontalStrut(4));
@@ -364,16 +416,19 @@ public class SonarShell extends JPanel {
         bar.add(pill);
         bar.add(Box.createHorizontalStrut(8));
         bar.add(vaultPill);
+        // beside "Sniffer live": the two things you look up to check are on, on every page
+        bar.add(Box.createHorizontalStrut(14));
+        bar.add(overlay);
         bar.add(Box.createHorizontalGlue());
-        bar.add(Box.createHorizontalStrut(12));
+        bar.add(barGap(12));
         bar.add(settingsButton);
-        bar.add(Box.createHorizontalStrut(10));
+        bar.add(barGap(10));
         bar.add(friendsButton);
-        bar.add(javax.swing.Box.createHorizontalStrut(14));
+        bar.add(barGap(14));
         bar.add(windowsButton);
-        bar.add(Box.createHorizontalStrut(10));
+        bar.add(barGap(10));
         bar.add(resetButton);
-        bar.add(Box.createHorizontalStrut(10));
+        bar.add(barGap(10));
         bar.add(snifferButton);
 
         // The window's own buttons go here once there is a window to drive - this bar is built in
