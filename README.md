@@ -62,13 +62,24 @@ One click copies a finished run straight to your clipboard as an image, ready to
 
 Drawn at **three times the resolution**, because a picture posted in a Discord gets read by zooming in on it — and the game's own art is drawn at a whole multiple of its own pixels, so an item is still an item and an enchant gem is still a gem when you do.
 
+## Every realm event, on your minimap
+
+![The game's minimap and Sonar's overlay side by side over a whole realm: the game shows every event as the same purple icon, Sonar shows each one as the actual boss, numbered and named below](docs/screenshots/realm-events.png)
+
+Just landed on the beach and every event is the same purple skull? Zoom your minimap all the way out and Sonar shows you which is which: the actual boss, right where it is on the map. Pick the one you want and go, no running around checking.
+
+- **Turn it on** with **Minimap overlay** in Sonar's top bar, then zoom out with your minimap's minus key.
+- **It sits on the game's own minimap** and follows its zoom. Every click still goes straight to the game.
+- **Big things get big rings.** Bosses, events and quest targets stand out; zoomed out, the trash stays off the map.
+- **In the Shatters** it also marks the Void Phantasm, the Stone Idol, the Derelict Monument and the void cracks.
+
 ## The Shatters, solved
 
 ![The Observatory puzzle solved automatically](docs/screenshots/puzzle.png)
 
 The Observatory puzzle is Lights Out: shoot a tower and it flips, along with the four around it. Sonar already receives every tower's state and position, so unlike the solvers on the web **there is nothing to type in** — walk in and the answer is drawn for you, using the game's own tower sprites so the grid reads the same as the room.
 
-There is also an optional minimap overlay that marks the Stone Idol, the Derelict Monument and the Source as they are spotted.
+The [minimap overlay](#every-realm-event-on-your-minimap) also marks the Void Phantasm, the Stone Idol, the Derelict Monument and the void cracks as they are spotted.
 
 ## Your account, read from the game
 
@@ -141,7 +152,7 @@ That passes only if the file you have is the file that workflow produced from th
 
 [INSTALL.md](INSTALL.md) has the details and the fixes for known problems.
 
-> The screenshots on this page are Sonar's demo mode. The damage figures are the shape of a real Oryx's Sanctuary run; the names are placeholders, because no real player should end up in a screenshot without being asked.
+> The screenshots on this page are Sonar's demo mode, apart from the realm minimap picture, which was taken in a live realm and shows no names. The damage figures are the shape of a real Oryx's Sanctuary run; the names are placeholders, because no real player should end up in a screenshot without being asked.
 
 ## Licence
 
