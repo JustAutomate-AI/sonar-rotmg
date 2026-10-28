@@ -8,10 +8,21 @@ import java.util.HashSet;
 /**
  * The ranked damage bars. Each player keeps their bar while the numbers
  * change: bars grow, slide to their new rank and count up instead of jumping.
+ * <p>
+ * Each row is one line of text - rank, portrait, party button, gear, name, class, and the
+ * numbers at the right - with the bar as a strip along its bottom edge, running the full
+ * width of the list. The bar used to start after the name and gear, which could take more
+ * than half of a row in a smaller window: the bars were squeezed into what was left, looked
+ * alike, and the numbers drawn over them crossed the bar's edge. A strip under the row has
+ * the whole width to show who is ahead, and no text is ever drawn on a coloured bar.
  */
 class DamagePane extends Pane {
 
-    private static final int ROW = 34, GAP = 5, PICKER = 36;
+    private static final int ROW = 40, GAP = 5, PICKER = 36;
+    /** The bar strip: how thick it is and how far it sits from the row's bottom edge. */
+    private static final int STRIP = 6, STRIP_INSET = 6;
+    /** The text line takes the row above the strip. */
+    private static final int BAND = ROW - STRIP - STRIP_INSET;
 
     private static class Bar {
         LiveModel.Row row;
@@ -171,6 +182,61 @@ class DamagePane extends Pane {
         return order.isEmpty() ? 0 : top() + order.size() * (ROW + GAP) - GAP;
     }
 
+    // ------------------------------------------------------------------ what a row has room for
+
+    /** How much of a player's identity a row has room for. Each step gives up one more thing. */
+    private static final class Fit {
+        final int gear;          // icon size, 0 for none
+        final boolean allGear;   // false: the weapon alone
+        final boolean cls, portrait;
+
+        Fit(int gear, boolean allGear, boolean cls, boolean portrait) {
+            this.gear = gear;
+            this.allGear = allGear;
+            this.cls = cls;
+            this.portrait = portrait;
+        }
+    }
+
+    /**
+     * What a narrowing row gives up, in order: the class, then the gear's size, then all
+     * but the weapon, then the portrait. The name and the numbers are never given up.
+     */
+    private static final Fit[] FITS = {
+            new Fit(22, true, true, true),
+            new Fit(22, true, false, true),
+            new Fit(18, true, false, true),
+            new Fit(18, false, false, true),
+            new Fit(0, false, false, false),
+    };
+
+    private static int gearCount(LiveModel.Row row, Fit f) {
+        if (f.gear == 0) return 0;
+        if (!f.allGear) return hasGear(row, 0) ? 1 : 0;
+        int n = 0;
+        for (int i = 0; i < 4; i++) if (hasGear(row, i)) n++;
+        return n;
+    }
+
+    /** How far right a row's identity reaches under one fit. */
+    private static int identityWidth(LiveModel.Row row, Fit f, FontMetrics nameFm, FontMetrics smallFm) {
+        int left = 30;
+        left += f.portrait && row.skin > 0 ? 21 : 4;
+        if (!row.me && !row.name.isEmpty()) left += 22;
+        int n = gearCount(row, f);
+        if (n > 0) left += n * (f.gear + GEAR_GAP) + 6;
+        left += nameFm.stringWidth(row.name.isEmpty() ? "Unknown" : row.name) + 8;
+        if (f.cls) left += smallFm.stringWidth(row.cls) + 8;
+        return left;
+    }
+
+    /** The widest row in the list under one fit; one fit for the whole list, so rows line up. */
+    private int widest(Fit f, FontMetrics nameFm, FontMetrics smallFm) {
+        int w = 0;
+        for (Bar b : order) w = Math.max(w, identityWidth(b.row, f, nameFm, smallFm));
+        return w;
+    }
+
     @Override
     void paintContent(Graphics2D g, int width) {
         if (order.isEmpty()) {
@@ -187,25 +253,17 @@ class DamagePane extends Pane {
             // the arrows only appear when there is somewhere to step to
             if (onPrevious != null) {
                 g.setColor(SonarTheme.accent());
-                g.drawString("\u2039", 15, base);
+                g.drawString("‹", 15, base);
             }
             if (onNext != null) {
                 g.setColor(SonarTheme.accent());
-                g.drawString("\u203a", width - 21, base);
+                g.drawString("›", width - 21, base);
             }
             g.setColor(SonarTheme.TEXT);
             String label = SonarTheme.fit(pickerLabel, fm, width - (onPrevious == null && onNext == null ? 24 : 80));
             g.drawString(label, (width - fm.stringWidth(label)) / 2f, base);
             g.translate(0, PICKER);
         }
-        Font nameFont = SonarTheme.bold(13f), small = SonarTheme.font(11.5f), numberFont = SonarTheme.bold(13f);
-        FontMetrics nameFm = g.getFontMetrics(nameFont), smallFm = g.getFontMetrics(small), numFm = g.getFontMetrics(numberFont);
-        // columns give way one by one as the window narrows, so text never overlaps
-        boolean showShare = width >= 300;
-        boolean showClass = width >= 400;
-        // both numbers are now set in the larger type, so the second one gives way a little
-        // sooner than it used to rather than reaching back over the name beside it
-        boolean showTotal = width >= 520;
         gearHits.clear();
         // the effect ticker runs only while a style is actually on screen
         boolean anyStyle = false;
@@ -221,53 +279,90 @@ class DamagePane extends Pane {
         } else if (!anyStyle && arcane.isRunning()) {
             arcane.stop();
         }
-        long now = System.currentTimeMillis();
-        // Where the bars begin. Everything that identifies a player - rank, portrait,
-        // party button, gear, name and class - is laid out to the left of this, on the
-        // row's own backdrop, and the coloured bar starts after the widest of them. The
-        // name used to be drawn on top of the bar, where it had to fight a different
-        // colour on every row and never looked right whatever was done to the lettering.
-        // One figure for the whole list rather than one per row, so the bars line up.
-        int wanted = 0;
-        for (Bar b : order) wanted = Math.max(wanted, leftBlockEnd(b.row, nameFm, smallFm, showClass));
-        int barStart = Math.max(110, Math.min(wanted + 14, (int) Math.round(width * 0.58)));
-        barStart = Math.min(barStart, Math.max(80, width - 90));
-        for (Bar b : order) {
-            double y = b.y.get();
-            float alpha = (float) b.fade.get();
-            Composite old = g.getComposite();
-            g.setComposite(AlphaComposite.SrcOver.derive(Math.max(0f, Math.min(1f, alpha))));
+        paintRows(g, width, System.currentTimeMillis());
+        if (pickerLabel != null) g.translate(0, -PICKER);
+    }
 
-            Shape track = SonarTheme.round(0, y, width, ROW, 11);
+    private void paintRows(Graphics2D g, int width, long now) {
+        Font nameFont = SonarTheme.bold(13f), small = SonarTheme.font(11.5f), numberFont = SonarTheme.bold(13f);
+        FontMetrics nameFm = g.getFontMetrics(nameFont), smallFm = g.getFontMetrics(small), numFm = g.getFontMetrics(numberFont);
+
+        // The numbers first: they are never given up. Each sits in a column of its own, measured
+        // over the whole list, so the figures line up from row to row.
+        //
+        // Per minute, not per second: the bars are read at a glance while something is being
+        // fought, and a per-second figure changes under the eye with every shot that lands. The
+        // player page keeps the per-second number, where one person is read closely.
+        int n = order.size();
+        String[] mains = new String[n], others = new String[n], shares = new String[n];
+        boolean showShare = width >= 300, showOther = width >= 560;
+        int mainCol = 0, otherCol = 0, shareCol = 0, lane = 0;
+        for (int pass = 0; pass < 2; pass++) {
+            // damage is written out in full unless that would crowd the name off the row
+            boolean shortDealt = pass == 1;
+            mainCol = otherCol = shareCol = 0;
+            for (int i = 0; i < n; i++) {
+                Bar b = order.get(i);
+                long dealtNow = Math.round(b.shown.get());
+                String dpm = SonarTheme.even(Math.round(b.shown.get() / seconds * 60)) + " dpm";
+                String dealt = shortDealt ? SonarTheme.even(dealtNow) : SonarTheme.number(dealtNow);
+                mains[i] = totals ? dealt : dpm;
+                others[i] = totals ? dpm : dealt;
+                shares[i] = total <= 0 ? "" : String.format("%.1f%%", b.row.damage * 100.0 / total);
+                mainCol = Math.max(mainCol, numFm.stringWidth(mains[i]));
+                otherCol = Math.max(otherCol, numFm.stringWidth(others[i]));
+                shareCol = Math.max(shareCol, smallFm.stringWidth(shares[i]));
+            }
+            lane = mainCol + (showShare ? 12 + shareCol : 0) + (showOther ? 14 + otherCol : 0);
+            if (lane <= width * 0.34) break;
+        }
+        int numbersStart = width - 12 - lane;
+
+        // Then the identity: the fullest fit whose widest row still stops short of the numbers.
+        int textLimit = numbersStart - 16;
+        Fit fit = FITS[FITS.length - 1];
+        for (Fit f : FITS) {
+            if (widest(f, nameFm, smallFm) <= textLimit) {
+                fit = f;
+                break;
+            }
+        }
+
+        // the strip runs the width of the row; the empty track behind it shows the full scale
+        double x0 = 12, x1 = width - 12;
+        for (int i = 0; i < n; i++) {
+            Bar b = order.get(i);
+            double y = b.y.get();
+            Composite old = g.getComposite();
+            g.setComposite(AlphaComposite.SrcOver.derive((float) Math.max(0, Math.min(1, b.fade.get()))));
             boolean hovered = hoverY - top() >= y && hoverY - top() < y + ROW;
             g.setColor(new Color(255, 255, 255, hovered ? 22 : 10));
-            g.fill(track);
-            double barLength = Math.max(ROW * 0.35, b.fill.get() * (width - barStart));
-            double barEnd = barStart + barLength;
+            g.fill(SonarTheme.round(0, y, width, ROW, 11));
+
+            double mid = y + BAND / 2.0 + 1;
+            float base = (float) (mid - nameFm.getHeight() / 2.0 + nameFm.getAscent());
+
+            // the bar
+            double by = y + ROW - STRIP_INSET - STRIP;
+            g.setColor(new Color(255, 255, 255, 16));
+            g.fill(SonarTheme.round(x0, by, x1 - x0, STRIP, STRIP / 2.0));
+            double len = Math.min(x1 - x0, Math.max(STRIP, b.fill.get() * (x1 - x0)));
             Color dark = SonarTheme.classColor(b.row.cls, false), light = SonarTheme.classColor(b.row.cls, true);
-            g.setPaint(new GradientPaint((float) barStart, 0, dark, (float) Math.max(barStart + 60, barEnd), 0, light));
-            Shape oldClip = g.getClip();
-            // Rectangles for clipping, never rounded shapes: a rounded clip sends every fill
-            // after it down Java's slowest path, and this ran for every row on every frame of
-            // an animation. The bar is already rounded and starts inside its track, so all the
-            // track's own clip ever did was stop a full bar at the track's end - which a
-            // rectangle does just as well.
-            g.clipRect(0, (int) Math.floor(y), (int) Math.ceil(width), ROW + 1);
-            double shown = Math.min(barLength, width - barStart);
-            Shape bar = SonarTheme.round(barStart, y, shown, ROW, 11);
+            g.setPaint(new GradientPaint((float) x0, 0, dark, (float) Math.max(x0 + 60, x0 + len), 0, light));
+            Shape bar = SonarTheme.round(x0, by, len, STRIP, STRIP / 2.0);
             g.fill(bar);
             if (b.row.pet > 0 && b.row.damage > 0) {
-                // the end of the bar, as wide as the pet's part of the damage: the bar's own
-                // shape again, in gold, seen through a rectangle over just that part
-                double petWidth = shown * Math.min(1.0, (double) b.row.pet / b.row.damage);
-                double petStart = barStart + shown - petWidth;
-                g.clipRect((int) Math.floor(petStart), (int) Math.floor(y), (int) Math.ceil(petWidth) + 1, ROW + 1);
+                // the end of the bar, as wide as the pet's part of the damage, in gold. Clipped
+                // with a rectangle, never a rounded shape: a rounded clip sends every fill after
+                // it down Java's slowest path, and this runs for every row on every frame.
+                double petWidth = len * Math.min(1.0, (double) b.row.pet / b.row.damage);
+                Shape clip = g.getClip();
+                g.clipRect((int) Math.floor(x0 + len - petWidth), (int) Math.floor(by),
+                        (int) Math.ceil(petWidth) + 1, STRIP + 1);
                 g.setColor(SonarTheme.GOLD);
                 g.fill(bar);
-                g.setColor(new Color(0, 0, 0, 70));
-                g.fill(new java.awt.geom.Rectangle2D.Double(petStart, y, 1.2, ROW));
+                g.setClip(clip);
             }
-            g.setClip(oldClip);
             if (b.row.me) {
                 g.setColor(SonarTheme.MINT);
                 g.setStroke(new BasicStroke(1.6f));
@@ -275,50 +370,24 @@ class DamagePane extends Pane {
                 g.setStroke(new BasicStroke(1f));
             }
 
-            float base = (float) (y + (ROW - nameFm.getHeight()) / 2.0 + nameFm.getAscent());
+            // The numbers, on the row's own backdrop. The chosen measure sits furthest right
+            // with its share beside it; damage dealt is drawn in the full text colour and the
+            // rate softened, whichever of the two is the main one.
             int right = width - 12;
             if (showShare) {
-                String share = total <= 0 ? "" : String.format("%.1f%%", b.row.damage * 100.0 / total);
                 g.setFont(small);
-                shadowText(g, share, right - smallFm.stringWidth(share), base,
-                        new Color(255, 255, 255, 200));
-                right -= 52;
+                shadowText(g, shares[i], right - smallFm.stringWidth(shares[i]), base, new Color(255, 255, 255, 190));
+                right -= shareCol + 12;
             }
-            // per minute, not per second: the bars are read at a glance while something is being
-            // fought, and a per-second figure changes under the eye with every shot that lands.
-            // The player page keeps the per-second number, where one person is read closely.
-            //
-            // Abbreviated to one decimal, and the same way on every row. Written out, a rate per
-            // minute is six digits and a unit - the longest thing on the bar, in the heaviest
-            // type, next to the damage figure it is supposed to accompany rather than drown.
-            String dpm = SonarTheme.even(Math.round(b.shown.get() / seconds * 60)) + " dpm";
-            String dealt = SonarTheme.number(Math.round(b.shown.get()));
-            // the chosen measure is the main number; the other one follows when there is room
-            String main = totals ? dealt : dpm, other = totals ? dpm : dealt;
-            // The chosen measure sits furthest right, the other one to its left; which of the two
-            // is damage dealt depends on the switch above the bars. Both are set in the same type
-            // and what separates them is their treatment: damage is drawn to come forward off the
-            // bar (see damageText), and the rate is softened to the theme's own text colour so it
-            // sits back against it. The step each one leaves is measured rather than assumed,
-            // because how wide these runs are is not something a constant can know.
-            Color rateColor = SonarTheme.alpha(SonarTheme.TEXT, 0.78);
             g.setFont(numberFont);
-            if (totals) {
-                damageText(g, main, right - numFm.stringWidth(main), base, b.row.cls);
-                right -= numFm.stringWidth(main) + 14;
-                if (showTotal) {
-                    shadowText(g, other, right - numFm.stringWidth(other), base, rateColor);
-                    right -= numFm.stringWidth(other) + 14;
-                }
-            } else {
-                shadowText(g, main, right - numFm.stringWidth(main), base, rateColor);
-                right -= numFm.stringWidth(main) + 14;
-                if (showTotal) {
-                    damageText(g, other, right - numFm.stringWidth(other), base, b.row.cls);
-                    right -= numFm.stringWidth(other) + 14;
-                }
+            Color rateColor = SonarTheme.alpha(SonarTheme.TEXT, 0.72);
+            shadowText(g, mains[i], right - numFm.stringWidth(mains[i]), base, totals ? SonarTheme.TEXT : rateColor);
+            right -= mainCol + 14;
+            if (showOther) {
+                shadowText(g, others[i], right - numFm.stringWidth(others[i]), base, totals ? rateColor : SonarTheme.TEXT);
             }
 
+            // the identity, left to right
             boolean member = !b.row.me && Party.has(b.row.name);
             g.setFont(small);
             String rank = String.valueOf(b.rank);
@@ -326,76 +395,48 @@ class DamagePane extends Pane {
             g.drawString(rank, 16 - smallFm.stringWidth(rank) / 2f, base);
             int left = 30;
             // the character as they look in game, between the rank and the party button
-            if (b.row.skin > 0 && right - left > 150) {
-                // An Arcane Style is twice the character's size in game and spreads around
-                // them. Here the portrait sits on top of the class-coloured bar, so an effect
-                // at full spread would wash its colour across the bar and make the class read
-                // wrongly - the one thing these bars must not do. So it is clipped to the
-                // portrait, and sits a little further left of the bar's brighter end.
+            if (fit.portrait && b.row.skin > 0) {
+                // An Arcane Style spreads around the character in game; here it is kept to the
+                // portrait and sits a little further left, so it never runs into the name.
                 boolean style = b.row.shader > 0 && ArcaneArt.canDraw(ArcaneStyle.of(b.row.shader));
-                double px = style ? left - 4 : left;
                 Glyph.playerStyled(g, b.row.skin, b.row.dyeMain, b.row.dyeAccessory,
-                        b.row.shader, now - arcaneStart, px, y + ROW / 2.0 - 9, 18, 0);
+                        b.row.shader, now - arcaneStart, style ? left - 4 : left, mid - 9, 18, 0);
                 left += 21;
             } else {
                 left += 4;
             }
             if (!b.row.me && !b.row.name.isEmpty()) {
                 // the party button: a filled gold person for a member, an outline to add someone
-                Glyph.person(g, left + 0.5, y + ROW / 2.0 - 7, 15, new Color(0, 0, 0, 80), member);
-                Glyph.person(g, left, y + ROW / 2.0 - 7.5, 15, member ? SonarTheme.GOLD : new Color(255, 255, 255, hovered ? 235 : 140), member);
+                Glyph.person(g, left + 0.5, mid - 7, 15, new Color(0, 0, 0, 80), member);
+                Glyph.person(g, left, mid - 7.5, 15, member ? SonarTheme.GOLD : new Color(255, 255, 255, hovered ? 235 : 140), member);
                 left += 22;
-                // the button moved when the portrait was added in front of it, so the area that
-                // counts as a click on it follows the drawing rather than a figure fixed here
+                // the area that counts as a click on it follows the drawing, since the portrait moves it
                 partyZone = left;
             }
-            // the four items worn, each glowing in the colour of its rarest enchant; dropped quietly
-            // when the bar is too narrow to fit them and the name
-            left = paintGear(g, b.row, left, y, barStart);
+            // the four items worn, each glowing in the colour of its rarest enchant
+            if (fit.gear > 0) left = paintGear(g, b.row, left, mid - fit.gear / 2.0, fit.gear, fit.allGear);
             g.setFont(nameFont);
-            String name = SonarTheme.fit(b.row.name.isEmpty() ? "Unknown" : b.row.name, nameFm, barStart - left - 8);
+            String name = SonarTheme.fit(b.row.name.isEmpty() ? "Unknown" : b.row.name, nameFm, textLimit - left - 4);
             g.setColor(SonarTheme.TEXT);
             g.drawString(name, left, base);
             left += nameFm.stringWidth(name) + 8;
-            if (showClass && barStart - left > 40) {
+            if (fit.cls && textLimit - left > 30) {
                 g.setFont(small);
                 g.setColor(SonarTheme.MUTED);
-                g.drawString(SonarTheme.fit(b.row.cls, smallFm, barStart - left - 8), left, base);
+                g.drawString(SonarTheme.fit(b.row.cls, smallFm, textLimit - left - 4), left, base);
             }
             g.setComposite(old);
         }
-        if (pickerLabel != null) g.translate(0, -PICKER);
     }
 
-    /**
-     * How far along a row the left block reaches: rank, portrait, party button, gear,
-     * then the name and its class.
-     * <p>
-     * Measured rather than drawn, because the bar has to be painted before any of it and
-     * the widest row in the list decides where every bar begins. It assumes the portrait,
-     * button and gear are all shown, which is the widest a row can be; a row that drops
-     * its gear for want of room still starts its bar in the same place, which is the
-     * point of measuring the list rather than the row.
-     */
-    private int leftBlockEnd(LiveModel.Row row, FontMetrics nameFm, FontMetrics smallFm, boolean showClass) {
-        int left = 30;
-        left += row.skin > 0 ? 21 : 4;
-        if (!row.me && !row.name.isEmpty()) left += 22;
-        int shown = 0;
-        for (int i = 0; i < 4; i++) if (hasGear(row, i)) shown++;
-        if (shown > 0) left += shown * (GEAR + GEAR_GAP) + 6;
-        left += nameFm.stringWidth(row.name.isEmpty() ? "Unknown" : row.name) + 8;
-        if (showClass) left += smallFm.stringWidth(row.cls) + 8;
-        return left;
-    }
-
-    private static final int GEAR = 22, GEAR_GAP = 3;
+    private static final int GEAR_GAP = 3;
 
     /** Where one gear icon was last drawn, so hovering it can be recognised. */
     private static final class GearHit {
         LiveModel.Row row;
         int slot;
         double x, y;
+        int size;
     }
 
     /** Rebuilt on every paint; read when the pointer rests over a bar. */
@@ -417,7 +458,7 @@ class DamagePane extends Pane {
     /** The gear icon under the pointer, or null when it is somewhere else on the bar. */
     private GearHit gearAt(int x, double y) {
         for (GearHit h : gearHits) {
-            if (x >= h.x && x < h.x + GEAR && y >= h.y && y < h.y + GEAR) return h;
+            if (x >= h.x && x < h.x + h.size && y >= h.y && y < h.y + h.size) return h;
         }
         return null;
     }
@@ -497,74 +538,35 @@ class DamagePane extends Pane {
     }
 
     /**
-     * Draws the player's weapon, ability, armor and ring as icons, each behind
-     * a glow in the colour of the rarest enchant on it. Returns the x to carry
-     * on from, unchanged when there was no room or nothing is known yet.
+     * Draws the player's weapon, ability, armor and ring as icons at the given size, each
+     * behind a glow in the colour of the rarest enchant on it; the weapon alone when
+     * {@code all} is false. Returns the x to carry on from, unchanged when nothing is known yet.
      */
-    private int paintGear(Graphics2D g, LiveModel.Row row, int left, double y, int right) {
-        int shown = 0;
-        for (int i = 0; i < 4; i++) if (hasGear(row, i)) shown++;
-        if (shown == 0) return left;
-        int need = shown * (GEAR + GEAR_GAP) + 6;
-        // the name must still have somewhere to go
-        if (right - left - need < 70) return left;
-
+    private int paintGear(Graphics2D g, LiveModel.Row row, int left, double top, int size, boolean all) {
         int x = left;
-        double top = y + (ROW - GEAR) / 2.0;
-        for (int i = 0; i < 4; i++) {
+        boolean any = false;
+        for (int i = 0; i < (all ? 4 : 1); i++) {
             if (!hasGear(row, i)) continue;
+            any = true;
             String enchants = i < row.enchants.length ? row.enchants[i] : "";
+            int r = size >= 20 ? 6 : 5;
             g.setColor(new Color(0, 0, 0, 70));
-            g.fill(SonarTheme.round(x, top, GEAR, GEAR, 6));
+            g.fill(SonarTheme.round(x, top, size, size, r));
             // after the plate, so the glow's ring lands on the tile's edge rather than under it
-            Glyph.enchantGlow(g, EnchantSprites.slots(enchants), x, top, GEAR, 6);
-            Glyph.drawIcon(g, gearIcon(row, i), x + 2, top + 2, GEAR - 4);
+            Glyph.enchantGlow(g, EnchantSprites.slots(enchants), x, top, size, r);
+            Glyph.drawIcon(g, gearIcon(row, i), x + 2, top + 2, size - 4);
             // the game's own mark for the best enchant on it, over the glow of that same rarity
-            Glyph.enchant(g, enchants, x, top, GEAR);
+            Glyph.enchant(g, enchants, x, top, size);
             GearHit hit = new GearHit();
             hit.row = row;
             hit.slot = i;
             hit.x = x;
             hit.y = top;
+            hit.size = size;
             gearHits.add(hit);
-            x += GEAR + GEAR_GAP;
+            x += size + GEAR_GAP;
         }
-        return x + 6;
-    }
-
-    /**
-     * The numbers at the right of a row, which are the only text still drawn over the
-     * bar. One soft shadow is enough for them: they are large, bold and white, and the
-     * bar is at its darkest by the time it reaches them on all but the leading row.
-     * <p>
-     * The name and class no longer come through here. They sit to the left of where the
-     * bar begins, on the row's own backdrop, so they need nothing but the theme's
-     * ordinary text colour - which is the whole reason the bar was moved.
-     */
-    /**
-     * Damage dealt, drawn to be read while it sits on a bar in the player's class colour.
-     * <p>
-     * A figure on a coloured ground needs an edge of its own, or the colour behind it eats
-     * the thin parts of the glyphs - which is what a drop shadow alone could not stop where
-     * a number crossed from the dark track onto a bright bar. The hard black outline does
-     * that work. The bloom beneath it is in the colour opposite this player's class, so it
-     * separates the number from exactly the colour it is lying on, and is faint enough to
-     * be felt rather than seen.
-     */
-    private static void damageText(Graphics2D g, String s, float x, float y, String cls) {
-        bloom(g, s, x, y, SonarTheme.classContrast(cls));
-        SonarTheme.outlined(g, s, x, y, Color.WHITE, SonarTheme.OUTLINE);
-    }
-
-    /** A bloom two to three pixels out, faint enough to lift an edge without being a colour of its own. */
-    private static void bloom(Graphics2D g, String s, float x, float y, Color c) {
-        for (int r = 3; r >= 2; r--) {
-            g.setColor(SonarTheme.alpha(c, 0.05 + (3 - r) * 0.045));
-            g.drawString(s, x - r, y);
-            g.drawString(s, x + r, y);
-            g.drawString(s, x, y - r);
-            g.drawString(s, x, y + r);
-        }
+        return any ? x + 6 : left;
     }
 
     private static void shadowText(Graphics2D g, String s, float x, float y, Color c) {

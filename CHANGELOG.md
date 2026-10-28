@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.60.0
+
+**Damage bars that fit any window, and a simpler minimap overlay**
+
+- **The damage bar is now a strip under each row, running the full width of the list.** It used to start after the name and gear, which could take more than half of the row in a smaller window: in the default window on a 1080p screen the bars had about 230 pixels to share, looked much alike, and the numbers drawn over them crossed the bar's edge. The strip has the whole width - 526 pixels in that same window - so who is ahead is plain at any size, and no text is drawn on a coloured bar any more.
+- **Everything else stays on one line above the strip:** portrait, party button, gear, name, class and the numbers, which now sit in lined-up columns. In a narrow window a row gives things up in order - the class, then smaller gear, then the weapon alone - but never the name or the numbers. Rows are 6 pixels taller, so a list shows one or two fewer players before it scrolls.
+- **The minimap overlay is one switch, on the Instance page under the damage breakdown.** It draws the enemies on the game's own minimap, and the objectives in the Shatters, and nothing else. A small **?** beside the switch says what it does. The choice between Sonar's full minimap and the enemies alone, and the Map layers menu, are gone; an overlay left on the full minimap comes back as the enemies. The Shatters window on the Analysis page keeps its list of what was found.
+- **Trash mobs get small rings on the overlay.** Anything with 15,000 health or more was ringed like a boss - a 36-pixel sprite in a 44-pixel red circle - and in an endgame dungeon that is nearly every trash mob. Their rings are now thin and under 20 pixels across. The big rings are kept for the quest target, enemies on the quest list, and anything the game itself marks as a boss or miniboss.
+- If you had moved or resized the damage breakdown, only its height is trimmed, once, to make room for the switch; every other window stays where you put it.
+
 ## 2.59.0
 
 **Drag to scroll, and a click is a click, with a mouse or a pen**

@@ -764,6 +764,10 @@ class ShattersOverlayWindow extends JWindow {
         // Only a piece with no sprite falls back to a glyph of the game's icon.
         java.awt.image.BufferedImage pieceFace = m.piece != null ? faceOf(m.kindId()) : null;
         if (m.piece != null && pieceFace == null && paintPiece(g, m.piece, x, y)) return;
+        if (m.tough && m.piece == null && m.type == ShattersRadar.FOE) {
+            paintTough(g, m, x, y);
+            return;
+        }
         if ((m.important || m.piece != null) && m.type == ShattersRadar.FOE) {
             java.awt.image.BufferedImage face = pieceFace != null ? pieceFace : faceOf(m.kindId());
             Color tint = m.piece != null ? MinimapIcons.colorOf(m.kindId()) : null;
@@ -784,6 +788,35 @@ class ShattersOverlayWindow extends JWindow {
             return;
         }
         paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+    }
+
+    /** The largest a trash mob's sprite is drawn, in pixels; its ring sits just outside it. */
+    static final int TOUGH_SIZE = 14;
+
+    /**
+     * A trash mob with a lot of health: its sprite, small and to scale, in a thin red ring.
+     * <p>
+     * These used to be drawn like bosses - a 36-pixel sprite in a 44-pixel ring - because health
+     * alone made them count as important, and in an endgame dungeon every trash mob has that
+     * much. The minimap filled with big red circles and the boss ring among them was one more.
+     * Now the ring is under twenty pixels across and thin, so the crowd reads as a crowd and the
+     * few large rings are the things worth finding.
+     */
+    private void paintTough(Graphics2D g, ShattersRadar.Mark m, int x, int y) {
+        java.awt.image.BufferedImage face = faceOf(m.kindId());
+        int size = face == null ? 8 : Math.max(8, Math.min(TOUGH_SIZE, faceSizeFor(pixelsPerTile, face.getWidth(), true)));
+        int ring = size + 4;
+        g.setStroke(new BasicStroke(1.4f));
+        g.setColor(new Color(0, 0, 0, 150));
+        g.drawOval(x - ring / 2 - 1, y - ring / 2 - 1, ring + 2, ring + 2);
+        g.setColor(new Color(255, 70, 70, 220));
+        g.drawOval(x - ring / 2, y - ring / 2, ring, ring);
+        if (face != null) {
+            g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
+        } else {
+            g.setColor(FOE_RED);
+            g.fillOval(x - 3, y - 3, 6, 6);
+        }
     }
 
     private static final Color UFO = new Color(200, 24, 110), DANGER = new Color(150, 60, 220), PRESENT = new Color(228, 75, 141);
@@ -981,7 +1014,7 @@ class ShattersOverlayWindow extends JWindow {
      * People, ways through and events are never dropped. They are what the map is for.
      */
     static boolean worthDrawing(ShattersRadar.Mark m, double tilesWide) {
-        if (m.type != ShattersRadar.FOE || m.important || m.piece != null) return true;
+        if (m.type != ShattersRadar.FOE || m.important || m.tough || m.piece != null) return true;
         if (tilesWide <= LESSER_UNTIL) return true;
         java.awt.image.BufferedImage face = faceOf(m.kindId());
         return face != null && face.getWidth() >= FACE_SIZE * 2;

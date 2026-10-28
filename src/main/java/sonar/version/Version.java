@@ -8,7 +8,7 @@ public class Version {
      * The app's version, the one shown in the left rail and used for release names.
      * Comes from Updater.CURRENT, which is where it is raised.
      */
-    public static final String VERSION = "2.59.0";
+    public static final String VERSION = "2.60.0";
 
     /**
      * The asset-extraction format, which is NOT the app's version and does not move

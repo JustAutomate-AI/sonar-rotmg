@@ -197,10 +197,17 @@ final class ShattersRadar {
         final float x, y;
 
         /**
-         * Worth finding: the game's quest target, anything on its quest list, or an enemy with
-         * the health of a boss. Drawn large at every zoom and never thinned out.
+         * Worth finding: the game's quest target, anything on its quest list, or something the
+         * game itself marks as a boss or miniboss. Drawn large at every zoom and never thinned out.
          */
         boolean important;
+
+        /**
+         * A lot of health and nothing else to say it matters. In an endgame dungeon that is every
+         * trash mob, so it is still marked at every zoom, but small: a boss-sized ring on each
+         * one buried the few rings that did matter under a crowd of identical red circles.
+         */
+        boolean tough;
 
         /** The icon the game's own minimap gives this object, from its XML; null for none. */
         String piece;
@@ -448,12 +455,14 @@ final class ShattersRadar {
                 } catch (RuntimeException noStat) {
                     // not sent yet; the quest list still decides
                 }
-                m.important = e.id == GameData.questId || GameData.questList.contains(e.id) || hp >= BOSS_HP
+                m.important = e.id == GameData.questId || GameData.questList.contains(e.id)
                         || "Boss".equals(piece) || "Miniboss".equals(piece);
+                m.tough = !m.important && hp >= BOSS_HP;
             }
             found.add(m);
         }
-        found.sort((a, b) -> Boolean.compare(a.important || a.piece != null, b.important || b.piece != null));
+        // drawn in this order, so the marks that matter land on top of the crowd
+        found.sort(java.util.Comparator.comparingInt(a -> a.important || a.piece != null ? 2 : a.tough ? 1 : 0));
         java.util.Map<Integer, Mark> byId = new java.util.HashMap<>();
         for (Mark m : found) if (m.eid >= 0) byId.put(m.eid, m);
         lastById = byId;
