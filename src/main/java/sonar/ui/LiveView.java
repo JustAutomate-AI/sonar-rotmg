@@ -1484,6 +1484,16 @@ class LiveView {
                 shattersOverlay == null || shattersOverlay.enemiesOnly());
         report.accept("and its \"?\" says what it draws",
                 OverlayPane.HELP_TEXT.contains("enemies") && OverlayPane.HELP_TEXT.contains("minimap"));
+        // A long note used to be measured and drawn as one line, so the "?" above opened a strip
+        // the width of the screen. Plain notes now wrap at the width every other note uses.
+        NotePanel note = new NotePanel();
+        note.setPlain(OverlayPane.HELP_TEXT);
+        Dimension longNote = note.getPreferredSize();
+        note.setPlain("Click to turn the overlay off");
+        Dimension shortNote = note.getPreferredSize();
+        report.accept("a long hover note wraps into a small block, not one line across the screen",
+                longNote.width <= 330 && longNote.height > shortNote.height * 3);
+        report.accept("and a short one stays a single snug line", shortNote.height < 40 && shortNote.width < 260);
 
         // the windows keep their places: a drag on the title bar or the corner does nothing at all
         Rectangle home = damageWindow.getBounds();
@@ -2327,6 +2337,11 @@ class LiveView {
                         && !sonar.ChatPings.inDungeonNamed("Vault"));
         report.accept("being in one is", sonar.ChatPings.inDungeonNamed("The Shatters")
                 && sonar.ChatPings.inDungeonNamed("Oryx's Sanctuary"));
+        // the game sends the guild hall as {s.guildhall}, one word, and that used to count as a
+        // dungeon, so a "j" called in guild chat while waiting in the hall made no sound
+        report.accept("the guild hall is somewhere you wait, however the game spells it",
+                !sonar.ChatPings.inDungeonNamed("{s.guildhall}") && !sonar.ChatPings.inDungeonNamed("Guild Hall 4")
+                        && !sonar.ChatPings.inDungeonNamed("GuildHall"));
         report.accept("and more than four still shows four",
                 EnchantSprites.slots("A\nB\nC\nD\nE") == 4);
         // the game's own rarity marks, cut from the GUI atlas it ships: one green diamond for

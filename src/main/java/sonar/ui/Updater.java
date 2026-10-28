@@ -34,7 +34,7 @@ import java.util.zip.ZipInputStream;
 final class Updater {
 
     /** Version of this build. Raise it for each release; the build, the setup and the release workflow read it. */
-    static final String CURRENT = "2.60.0";
+    static final String CURRENT = "2.60.1";
 
     private static final String REPOSITORY = "https://github.com/JustAutomate-AI/sonar-rotmg";
     private static final String LATEST = REPOSITORY + "/releases/latest";

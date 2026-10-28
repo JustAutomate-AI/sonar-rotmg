@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.60.1
+
+**Hover notes that wrap, and the join ping in the guild hall**
+
+- **Long hover notes wrap into a small bubble.** A plain note was measured and drawn as one line, so the minimap overlay's **?** opened a strip across the whole screen. Plain notes now wrap at the same width as every other note: the **?** is a short block of about seven lines, and short hints stay on one line as before.
+- **The "j" join ping sounds in the guild hall.** The game names the guild hall `{s.guildhall}`, as one word, and Sonar's list of places you wait in spelled it with a space, so the guild hall counted as a dungeon - and inside a dungeon the join ping stays quiet on purpose. Names are now compared with their spaces taken out. In the guild hall the damage list also opens on Overall, as it does in the Nexus, instead of Bosses.
+
 ## 2.60.0
 
 **Damage bars that fit any window, and a simpler minimap overlay**

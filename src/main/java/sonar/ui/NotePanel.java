@@ -121,6 +121,22 @@ class NotePanel extends JComponent {
         return out;
     }
 
+    /**
+     * A plain note in the lines it is drawn in: wrapped at the same width as every other note,
+     * and broken wherever the text itself breaks. A short hint stays one line, as wide as its
+     * words; a long one becomes a small block instead of a strip across the whole screen.
+     */
+    private List<String> plainLines(FontMetrics fm) {
+        List<String> out = new ArrayList<>();
+        for (String paragraph : plain.split("\n")) out.addAll(wrap(paragraph, fm, WRAP));
+        return out;
+    }
+
+    /** The step from one line of a plain note to the next. */
+    private static int plainStep(FontMetrics fm) {
+        return fm.getHeight() + 2;
+    }
+
     /** The facts joined into one line, which is how they are both measured and drawn. */
     private String factLine() {
         return String.join("   ·   ", facts);
@@ -132,7 +148,10 @@ class NotePanel extends JComponent {
         if (set != null) return set;
         if (plain != null) {
             FontMetrics fm = getFontMetrics(noteFont());
-            return new Dimension(fm.stringWidth(plain) + PAD * 2, fm.getHeight() + PAD + 6);
+            List<String> lines = plainLines(fm);
+            int widest = 0;
+            for (String line : lines) widest = Math.max(widest, fm.stringWidth(line));
+            return new Dimension(widest + PAD * 2, fm.getHeight() + PAD + 6 + Math.max(0, lines.size() - 1) * plainStep(fm));
         }
         if (parts != null) {
             FontMetrics tf = getFontMetrics(titleFont()), nf = getFontMetrics(nameFont()), df = getFontMetrics(noteFont());
@@ -215,7 +234,12 @@ class NotePanel extends JComponent {
         if (plain != null) {
             g.setFont(noteFont());
             g.setColor(SonarTheme.TEXT);
-            g.drawString(plain, PAD, PAD + g.getFontMetrics().getAscent() - 2);
+            FontMetrics fm = g.getFontMetrics();
+            int baseline = PAD + fm.getAscent() - 2;
+            for (String line : plainLines(fm)) {
+                g.drawString(line, PAD, baseline);
+                baseline += plainStep(fm);
+            }
             g.dispose();
             return;
         }

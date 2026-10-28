@@ -94,9 +94,12 @@ public class ChatPings {
             int dot = name.lastIndexOf('.');
             if (dot >= 0) name = name.substring(dot + 1);
         }
-        name = name.replace('_', ' ').toLowerCase().trim();
+        // Compared with the spaces taken out, because the game runs some of these together: the
+        // guild hall arrives as {s.guildhall}, which never matched "guild hall", so the guild
+        // hall counted as a dungeon and the join ping stayed silent there.
+        String flat = name.replace('_', ' ').toLowerCase().replace(" ", "");
         for (String room : WAITING_ROOMS) {
-            if (name.equals(room) || name.startsWith(room) || name.contains(room)) return false;
+            if (flat.contains(room.replace(" ", ""))) return false;
         }
         return true;
     }
