@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.61.0
+
+**The minimap overlay pictures only what the game marks out**
+
+- **Trash mobs get no picture on the overlay.** 2.60 drew any trash mob with 15,000 health or more as a small sprite in a thin red ring, and at minimap size those could not be told apart from the game's own red dot. Now the overlay leaves trash alone: you see the game's red dot, with nothing drawn over it.
+- **Pictures are kept for what the game itself marks out:** bosses and events, minibosses and Heroes of Oryx, your quest target and the rest of the quest panel. Bosses and events keep their 36-pixel picture in a ring the colour of the game's icon for them. Minibosses and heroes get a smaller ring, a little over twice the size of the game's dot (22 pixels on a 475-pixel minimap), so they sit between the crowd and the bosses.
+- **Health no longer decides what gets a picture.** The game's own markers do: its minimap icon, a BOSS, MINIBOSS, HERO or ENCOUNTER label, a boss health bar, or a Hero flag. No health line works across the whole game - one enemy in ten with no marker at all has 20,000 health or more, as much as a typical miniboss. Beacons keep the game's own icon and get no picture.
+- **In the Shatters,** the Forgotten King gets the boss ring. The Bridge Sentinel and the Twilight Archmage get the miniboss ring, because the game labels them MINIBOSS - the same way the damage tab already lists them.
+
 ## 2.60.2
 
 **The minimap overlay's switch moves to the top bar**

@@ -694,8 +694,13 @@ class ShattersOverlayWindow extends JWindow {
         return drawMap || enemiesOnly;
     }
 
-    /** Only what can be fought, as sprites, with the frame left clear around them. */
+    /**
+     * Only what the game marks out - bosses, events, minibosses and your quest - as pictures over
+     * the game's own minimap, with the frame left clear around them. Trash is left to the red dot
+     * the game draws for it underneath.
+     */
     private void paintEnemiesOnly(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
+        dotPx = dotFor(w, h);
         double cx = w / 2.0, cy = h / 2.0;
         for (ShattersRadar.Mark m : ShattersRadar.live()) {
             if (m.type != ShattersRadar.FOE) continue;
@@ -704,7 +709,7 @@ class ShattersOverlayWindow extends JWindow {
             int x = (int) Math.round(cx + off[0] * pixelsPerTile);
             int y = (int) Math.round(cy + off[1] * pixelsPerTile);
             if (x < -8 || y < -8 || x > w + 8 || y > h + 8) continue;
-            if (!worthDrawing(m, tilesWide)) continue;
+            if (!getsPicture(m)) continue;
             paintMark(g, m, x, y, tilesWide);
         }
     }
@@ -722,6 +727,7 @@ class ShattersOverlayWindow extends JWindow {
      */
     private void paintLive(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
         if (!drawMap) return;
+        dotPx = dotFor(w, h);
         double cx = w / 2.0, cy = h / 2.0;
         for (ShattersRadar.Mark m : ShattersRadar.live()) {
             double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
@@ -758,65 +764,90 @@ class ShattersOverlayWindow extends JWindow {
     static final int IMPORTANT_SIZE = Math.max(24, Math.min(64, getInt("sonar.shatters.bosssize", 36)));
 
     private void paintMark(Graphics2D g, ShattersRadar.Mark m, int x, int y, double tilesWide) {
-        // Anything the game gives an icon is drawn as its own sprite, large, inside a ring in
-        // the colour of the game's icon for it - a purple ring where the game draws a purple
-        // skull, magenta for a UFO, red for a boss - so the two minimaps can be read together.
-        // Only a piece with no sprite falls back to a glyph of the game's icon.
+        if (m.type != ShattersRadar.FOE) {
+            paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+            return;
+        }
+        // Anything the game gives an icon is drawn as its own sprite inside a ring in the
+        // colour of the game's icon for it - a purple ring where the game draws a purple skull,
+        // magenta for a UFO, red for a boss - so the two minimaps can be read together. Only a
+        // piece with no sprite falls back to a glyph of the game's icon.
         java.awt.image.BufferedImage pieceFace = m.piece != null ? faceOf(m.kindId()) : null;
         if (m.piece != null && pieceFace == null && paintPiece(g, m.piece, x, y)) return;
-        if (m.tough && m.piece == null && m.type == ShattersRadar.FOE) {
-            paintTough(g, m, x, y);
-            return;
-        }
-        if ((m.important || m.piece != null) && m.type == ShattersRadar.FOE) {
-            java.awt.image.BufferedImage face = pieceFace != null ? pieceFace : faceOf(m.kindId());
-            Color tint = m.piece != null ? MinimapIcons.colorOf(m.kindId()) : null;
-            if (tint == null) tint = new Color(255, 70, 70);
+        java.awt.image.BufferedImage face = pieceFace != null ? pieceFace : faceOf(m.kindId());
+        if (m.rank == ShattersRadar.RANK_BOSS) {
             int size = Math.max(IMPORTANT_SIZE, face == null ? 0 : faceSizeFor(pixelsPerTile, face.getWidth(), true));
-            int ring = size + 8;
-            g.setStroke(new BasicStroke(2.5f));
-            g.setColor(new Color(0, 0, 0, 170));
-            g.drawOval(x - ring / 2 - 1, y - ring / 2 - 1, ring + 2, ring + 2);
-            g.setColor(new Color(tint.getRed(), tint.getGreen(), tint.getBlue(), 235));
-            g.drawOval(x - ring / 2, y - ring / 2, ring, ring);
-            if (face != null) {
-                g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
-            } else {
-                g.setColor(FOE_RED);
-                g.fillOval(x - size / 4, y - size / 4, size / 2, size / 2);
-            }
-            return;
+            paintRinged(g, m, face, x, y, size, 8, 2.5f);
+        } else if (m.rank == ShattersRadar.RANK_MINI) {
+            paintRinged(g, m, face, x, y, miniSize(dotPx), 6, 2f);
+        } else {
+            paintStandIn(g, m, x, y);
         }
-        paintMark(g, m.type, m.kindId(), x, y, tilesWide);
     }
 
-    /** The largest a trash mob's sprite is drawn, in pixels; its ring sits just outside it. */
-    static final int TOUGH_SIZE = 14;
+    /**
+     * Whether a fightable thing gets a picture of its own: only what the game marks out.
+     * <p>
+     * Trash gets none. Over the game's minimap its red dot is already there, and a sprite the
+     * size of that dot cannot be made out - reported as no difference at all between the two.
+     * The pictures are kept for what people are looking for: bosses, events, minibosses and
+     * heroes, and whatever the quest panel shows.
+     */
+    static boolean getsPicture(ShattersRadar.Mark m) {
+        return m.type == ShattersRadar.FOE && m.rank >= ShattersRadar.RANK_MINI;
+    }
 
     /**
-     * A trash mob with a lot of health: its sprite, small and to scale, in a thin red ring.
+     * How big the game draws an enemy's red dot on a minimap this size.
      * <p>
-     * These used to be drawn like bosses - a 36-pixel sprite in a 44-pixel ring - because health
-     * alone made them count as important, and in an endgame dungeon every trash mob has that
-     * much. The minimap filled with big red circles and the boss ring among them was one more.
-     * Now the ring is under twenty pixels across and thin, so the crowd reads as a crowd and the
-     * few large rings are the things worth finding.
+     * Measured off the game itself: ten pixels on its 475-pixel minimap at 2560x1440, the same
+     * at every zoom. As a share of the minimap rather than a number of pixels, so it is right
+     * at every resolution.
      */
-    private void paintTough(Graphics2D g, ShattersRadar.Mark m, int x, int y) {
-        java.awt.image.BufferedImage face = faceOf(m.kindId());
-        int size = face == null ? 8 : Math.max(8, Math.min(TOUGH_SIZE, faceSizeFor(pixelsPerTile, face.getWidth(), true)));
-        int ring = size + 4;
-        g.setStroke(new BasicStroke(1.4f));
-        g.setColor(new Color(0, 0, 0, 150));
+    static int dotFor(int w, int h) {
+        return Math.max(6, (int) Math.round(Math.min(w, h) / 47.5));
+    }
+
+    /** A miniboss or a hero: a little over twice a dot, between the crowd and the bosses. */
+    static int miniSize(int dot) {
+        return (int) Math.round(dot * 2.2);
+    }
+
+    /** The game's dot on the minimap being drawn on, set from the frame at the start of each paint. */
+    private int dotPx = 10;
+
+    /** A sprite in a ring the colour of the game's icon for it. */
+    private void paintRinged(Graphics2D g, ShattersRadar.Mark m, java.awt.image.BufferedImage face, int x, int y,
+                             int size, int ringGap, float stroke) {
+        Color tint = m.piece != null ? MinimapIcons.colorOf(m.kindId()) : null;
+        if (tint == null) tint = new Color(255, 70, 70);
+        int ring = size + ringGap;
+        g.setStroke(new BasicStroke(stroke));
+        g.setColor(new Color(0, 0, 0, 170));
         g.drawOval(x - ring / 2 - 1, y - ring / 2 - 1, ring + 2, ring + 2);
-        g.setColor(new Color(255, 70, 70, 220));
+        g.setColor(new Color(tint.getRed(), tint.getGreen(), tint.getBlue(), 235));
         g.drawOval(x - ring / 2, y - ring / 2, ring, ring);
         if (face != null) {
             g.drawImage(face, x - size / 2, y - size / 2, size, size, null);
         } else {
             g.setColor(FOE_RED);
-            g.fillOval(x - 3, y - 3, 6, 6);
+            g.fillOval(x - size / 4, y - size / 4, size / 2, size / 2);
         }
+    }
+
+    /**
+     * Trash on Sonar's own map, which covers the game's: the game's red dot as the game draws
+     * it, or the game's own icon for it where it has one, such as a beacon. No sprite - only
+     * what the game itself would have shown there.
+     * <p>
+     * Over the game's minimap (enemies only) trash is not drawn at all, since the game's dot is
+     * right there underneath; see {@link #getsPicture}.
+     */
+    private void paintStandIn(Graphics2D g, ShattersRadar.Mark m, int x, int y) {
+        if (m.piece != null && paintPiece(g, m.piece, x, y)) return;
+        int size = dotPx;
+        g.setColor(FOE_RED);
+        g.fillRect(x - size / 2, y - size / 2, size, size);
     }
 
     private static final Color UFO = new Color(200, 24, 110), DANGER = new Color(150, 60, 220), PRESENT = new Color(228, 75, 141);
@@ -1014,10 +1045,9 @@ class ShattersOverlayWindow extends JWindow {
      * People, ways through and events are never dropped. They are what the map is for.
      */
     static boolean worthDrawing(ShattersRadar.Mark m, double tilesWide) {
-        if (m.type != ShattersRadar.FOE || m.important || m.tough || m.piece != null) return true;
-        if (tilesWide <= LESSER_UNTIL) return true;
-        java.awt.image.BufferedImage face = faceOf(m.kindId());
-        return face != null && face.getWidth() >= FACE_SIZE * 2;
+        if (m.type != ShattersRadar.FOE || m.rank >= ShattersRadar.RANK_MINI || m.piece != null) return true;
+        // trash is trash at every zoom: zoomed right out it is left off, whatever its sprite
+        return tilesWide <= LESSER_UNTIL;
     }
 
     /** Past this many tiles on screen, only things the game itself draws large are marked. */

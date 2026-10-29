@@ -197,17 +197,10 @@ final class ShattersRadar {
         final float x, y;
 
         /**
-         * Worth finding: the game's quest target, anything on its quest list, or something the
-         * game itself marks as a boss or miniboss. Drawn large at every zoom and never thinned out.
+         * Whether it gets a picture of its own, and how big: {@link #RANK_BOSS}, {@link #RANK_MINI},
+         * or {@link #RANK_TRASH}, which gets none. See {@link #RANK_TRASH}.
          */
-        boolean important;
-
-        /**
-         * A lot of health and nothing else to say it matters. In an endgame dungeon that is every
-         * trash mob, so it is still marked at every zoom, but small: a boss-sized ring on each
-         * one buried the few rings that did matter under a crowd of identical red circles.
-         */
-        boolean tough;
+        int rank;
 
         /** The icon the game's own minimap gives this object, from its XML; null for none. */
         String piece;
@@ -402,8 +395,20 @@ final class ShattersRadar {
         return 0;
     }
 
-    /** Health at which an enemy counts as a boss-sized thing worth finding, whatever it is called. */
-    static final int BOSS_HP = 15000;
+    /**
+     * What a fightable thing is to the overlay, smallest first.
+     * <p>
+     * Only what the game itself marks out gets a picture: a boss, an event or a miniboss (see
+     * {@link MinimapIcons#rankOf}), or your quest and the rest of the quest panel's portraits.
+     * Everything else is trash and gets none. The game already draws it as a red dot, and trash
+     * drawn as dot-sized sprites over those dots was reported as no difference at all.
+     * <p>
+     * Health used to promote an unmarked enemy as well, at five times the instance's median.
+     * It stopped: the pictures are for what people are looking for, and the game's own markers
+     * already say what that is.
+     */
+    static final int RANK_TRASH = 0, RANK_MINI = MinimapIcons.RANK_MINI, RANK_BOSS = MinimapIcons.RANK_BOSS;
+
 
 
     /** Builds the list of things to draw. Called while the map is being drawn, and not otherwise. */
@@ -449,20 +454,15 @@ final class ShattersRadar {
                 }
             }
             if (kind == FOE) {
-                int hp = 0;
-                try {
-                    hp = e.maxHp();
-                } catch (RuntimeException noStat) {
-                    // not sent yet; the quest list still decides
-                }
-                m.important = e.id == GameData.questId || GameData.questList.contains(e.id)
-                        || "Boss".equals(piece) || "Miniboss".equals(piece);
-                m.tough = !m.important && hp >= BOSS_HP;
+                int rank = MinimapIcons.rankOf(e.objectType);
+                // the game's quest panel shows these with a portrait, their health and where they are
+                if (e.id == GameData.questId || GameData.questList.contains(e.id)) rank = RANK_BOSS;
+                m.rank = rank;
             }
             found.add(m);
         }
         // drawn in this order, so the marks that matter land on top of the crowd
-        found.sort(java.util.Comparator.comparingInt(a -> a.important || a.piece != null ? 2 : a.tough ? 1 : 0));
+        found.sort(java.util.Comparator.comparingInt(a -> a.rank));
         java.util.Map<Integer, Mark> byId = new java.util.HashMap<>();
         for (Mark m : found) if (m.eid >= 0) byId.put(m.eid, m);
         lastById = byId;

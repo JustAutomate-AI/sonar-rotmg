@@ -3409,6 +3409,65 @@ class LiveView {
     }
 
     /**
+     * Only what the game marks out gets a picture on the overlay, and trash is left to the game.
+     * <p>
+     * Trash was drawn as a 25-pixel sprite over the game's 10-pixel red square, then as a
+     * dot-sized sprite on it - and at that size nobody can tell the two apart. So trash gets no
+     * picture over the game's minimap, and only the game's red dot on Sonar's own map. A picture
+     * is earned by the game marking it a boss, an event or a miniboss, or by it being in the
+     * quest panel. Health no longer counts.
+     */
+    private static void checkMarkRanks(java.util.function.BiConsumer<String, Boolean> report) {
+        // the game's own markers decide first, the icon before the labels
+        report.accept("a Boss icon makes a boss, a Miniboss icon a miniboss",
+                MinimapIcons.rankFor("Boss", null, false, false) == MinimapIcons.RANK_BOSS
+                        && MinimapIcons.rankFor("Miniboss", "ENEMY,BOSS", true, false) == MinimapIcons.RANK_MINI);
+        report.accept("an event's icon, a BOSS or ENCOUNTER label or a boss health bar makes a boss",
+                MinimapIcons.rankFor("UFO", null, false, false) == MinimapIcons.RANK_BOSS
+                        && MinimapIcons.rankFor(null, "ENEMY, ENCOUNTER", false, false) == MinimapIcons.RANK_BOSS
+                        && MinimapIcons.rankFor(null, "ENEMY,BOSS", false, false) == MinimapIcons.RANK_BOSS
+                        && MinimapIcons.rankFor(null, null, true, false) == MinimapIcons.RANK_BOSS);
+        report.accept("a MINIBOSS or HERO label or a Hero flag makes a miniboss",
+                MinimapIcons.rankFor(null, "ENEMY,MINIBOSS", false, false) == MinimapIcons.RANK_MINI
+                        && MinimapIcons.rankFor(null, "ENEMY,HERO", false, false) == MinimapIcons.RANK_MINI
+                        && MinimapIcons.rankFor(null, null, false, true) == MinimapIcons.RANK_MINI);
+        report.accept("a MINIBOSS label wins over a boss health bar, as the damage tab already has it",
+                MinimapIcons.rankFor(null, "ENEMY,MINIBOSS,BOSSFIGHT,QUEST", true, false) == MinimapIcons.RANK_MINI);
+        report.accept("and BOSSFIGHT alone, which a boss's spawned helpers carry too, is not a boss",
+                MinimapIcons.rankFor(null, "ENEMY,BOSSFIGHT,BOSS_SPAWNED", false, false) == MinimapIcons.RANK_NONE);
+        report.accept("and nothing at all, or a waystone's beacon, is nothing",
+                MinimapIcons.rankFor(null, "ENEMY,STASISIMMUNE", false, false) == MinimapIcons.RANK_NONE
+                        && MinimapIcons.rankFor("Beacon", null, false, false) == MinimapIcons.RANK_NONE);
+
+        // only what the game marks out gets a picture; trash is the game's own dot
+        ShattersRadar.Mark trash = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+        ShattersRadar.Mark mini = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+        mini.rank = ShattersRadar.RANK_MINI;
+        ShattersRadar.Mark boss = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+        boss.rank = ShattersRadar.RANK_BOSS;
+        ShattersRadar.Mark person = ShattersRadar.markForTest(ShattersRadar.ALLY, 10, 10);
+        report.accept("trash gets no picture of its own over the game's minimap",
+                !ShattersOverlayWindow.getsPicture(trash));
+        report.accept("while minibosses, heroes, bosses and events do",
+                ShattersOverlayWindow.getsPicture(mini) && ShattersOverlayWindow.getsPicture(boss));
+        report.accept("and a person is not an enemy to picture", !ShattersOverlayWindow.getsPicture(person));
+
+        // the sizes, against the game's dot: 10 px on its 475 px minimap
+        int dot = ShattersOverlayWindow.dotFor(470, 481);
+        report.accept("the game's dot is ten pixels on a 470x481 minimap", dot == 10);
+        report.accept("and scales with the minimap: about seven on 1920x1080",
+                Math.abs(ShattersOverlayWindow.dotFor(356, 360) - 7) <= 1);
+        report.accept("a miniboss is drawn a little over twice the dot", ShattersOverlayWindow.miniSize(dot) == 22);
+        report.accept("and a boss stays the largest of all",
+                ShattersOverlayWindow.IMPORTANT_SIZE > ShattersOverlayWindow.miniSize(dot));
+
+        // on Sonar's own map, zoomed right out, even trash's dot is left off; minibosses stay
+        report.accept("zoomed right out on Sonar's own map, trash is left off but minibosses stay",
+                !ShattersOverlayWindow.worthDrawing(trash, 1800)
+                        && ShattersOverlayWindow.worthDrawing(mini, 1800));
+    }
+
+    /**
      * Telling the shipped worlds apart from a strip of walked ground.
      * <p>
      * A realm is one of a known set of layouts and the game never says which. Sonar ships a
@@ -3706,6 +3765,7 @@ class LiveView {
         checkLayoutRecognition(report);
         checkWorldRecognition(report);
         checkMarksGrowWithTheView(report);
+        checkMarkRanks(report);
         checkKeptAsLearned(report);
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);
