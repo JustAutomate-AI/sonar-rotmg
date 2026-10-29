@@ -20,15 +20,16 @@ class OverlaySwitch extends JComponent {
     static final String LABEL = "Minimap overlay", SHORT_LABEL = "Overlay";
 
     /** What the "?" says. Plain words: what appears, where, and that the game still gets every click. */
-    static final String HELP_TEXT = "Draws the enemies near you on the game's own minimap, each as its "
-            + "sprite, so you can see what is around before it reaches your screen. Bosses and quest "
-            + "targets get a large ring; ordinary enemies get a small one. In the Shatters it also marks "
+    static final String HELP_TEXT = "Draws the bosses, events and minibosses near you on the game's own "
+            + "minimap, each as its sprite in a ring, and whatever your quest panel shows. Ordinary enemies "
+            + "are left as the game's red dots - unless the realm filter beside this switch is set: then "
+            + "the enemies that drop a dungeon you picked get a lime ring. In the Shatters it also marks "
             + "the Void Phantasm, the Stone Idol, the Derelict Monument and the void cracks. It finds the "
             + "minimap by itself, and every click still goes to the game.";
 
     private final java.util.function.BooleanSupplier on;
     private final Runnable toggle;
-    /** 0 says "Minimap overlay", 1 "Overlay", 2 is the switch and its "?" alone. */
+    /** 0 says "Minimap overlay", 1 "Overlay", 2 is the switch and its "?" alone, 3 the switch alone. */
     private int fit;
     private int hoverX = -1, hoverY = -1, pressX = -1, pressY;
 
@@ -87,10 +88,15 @@ class OverlaySwitch extends JComponent {
      * layout, so it only takes note: the bar lays itself out straight after.
      */
     void setFit(int fit) {
-        fit = Math.max(0, Math.min(2, fit));
+        fit = Math.max(0, Math.min(3, fit));
         if (this.fit == fit) return;
         this.fit = fit;
         repaint();
+    }
+
+    /** Whether the "?" is drawn. In the tightest bar it is not, and the switch's own note says what it would have. */
+    boolean helpShown() {
+        return fit < 3;
     }
 
     private int labelX() {
@@ -105,16 +111,19 @@ class OverlaySwitch extends JComponent {
 
     /** The switch and its words: a click anywhere on them flips it. */
     private Rectangle switchZone() {
+        if (!helpShown()) return new Rectangle(0, 0, getWidth(), getHeight());
         return new Rectangle(0, 0, helpX() - 3, getHeight());
     }
 
     private Rectangle helpZone() {
+        if (!helpShown()) return new Rectangle();
         int hy = (getHeight() - HELP) / 2;
         return new Rectangle(helpX() - 3, hy - 5, HELP + 3 + END, HELP + 10);
     }
 
     @Override
     public Dimension getPreferredSize() {
+        if (!helpShown()) return new Dimension(SWITCH_W + END, HEIGHT);
         return new Dimension(helpX() + HELP + END, HEIGHT);
     }
 
@@ -136,7 +145,9 @@ class OverlaySwitch extends JComponent {
         } else if (switchZone().contains(e.getPoint())) {
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             String hint = on.getAsBoolean() ? "Click to turn the overlay off" : "Click to show enemies on your minimap";
-            SonarNote.show(this, screen, "overlay-switch:" + hint, () -> SonarNote.setPlain(hint));
+            // with no "?" to hover, the switch says what it does itself
+            String note = helpShown() ? hint : hint + ". " + HELP_TEXT;
+            SonarNote.show(this, screen, "overlay-switch:" + note, () -> SonarNote.setPlain(note));
         } else {
             setCursor(Cursor.getDefaultCursor());
             SonarNote.dismiss();
@@ -164,6 +175,10 @@ class OverlaySwitch extends JComponent {
         g2.setColor(SonarTheme.TEXT);
         if (!label().isEmpty()) g2.drawString(label(), labelX(), (float) ((h - fm.getHeight()) / 2.0 + fm.getAscent()));
 
+        if (!helpShown()) {
+            g2.dispose();
+            return;
+        }
         // the "?" right after the words
         double hx = helpX(), hy = (h - HELP) / 2.0;
         g2.setColor(overHelp ? SonarTheme.TEXT : SonarTheme.MUTED);

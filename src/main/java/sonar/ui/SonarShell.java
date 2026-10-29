@@ -330,11 +330,23 @@ public class SonarShell extends JPanel {
 
     /**
      * How the top bar makes room in a small window, one step at a time, before the page title
-     * is cut: the gaps between its buttons close up, then the overlay's switch says "Overlay"
-     * instead of "Minimap overlay", then it is the switch and its "?" alone. Only after all of
-     * that does the title give way - the subtitle under it may still be shortened at any step.
+     * is cut: the gaps between its buttons close up; the realm filter drops its heading, then its
+     * words, and is its portal alone; then the overlay's switch says "Overlay" instead of "Minimap
+     * overlay", then it is the switch and its "?" alone; and last the space around "Sniffer live"
+     * narrows, the "?" folds into the switch's own note and the filter loses its outline. Only
+     * after all of that does the title give way - the subtitle under it may still be shortened at
+     * any step.
      */
-    private static final int BAR_FITS = 4;
+    private static final int BAR_FITS = 7;
+
+    /** The spaces around the status pills, which only narrow at the very last step. */
+    private final java.util.Map<Box.Filler, Integer> tightGaps = new java.util.LinkedHashMap<>();
+
+    private Component tightGap(int width) {
+        Box.Filler gap = (Box.Filler) Box.createHorizontalStrut(width);
+        tightGaps.put(gap, width);
+        return gap;
+    }
 
     /** The gaps between the bar's buttons, with the width each has when there is room. */
     private final java.util.Map<Box.Filler, Integer> barGaps = new java.util.LinkedHashMap<>();
@@ -352,7 +364,13 @@ public class SonarShell extends JPanel {
             if (e.getKey().getPreferredSize().width == w) continue;
             e.getKey().changeShape(new Dimension(w, 0), new Dimension(w, 0), new Dimension(w, Short.MAX_VALUE));
         }
-        live.overlaySwitch().setFit(Math.max(0, step - 1));
+        for (java.util.Map.Entry<Box.Filler, Integer> e : tightGaps.entrySet()) {
+            int w = step >= 6 ? Math.min(6, e.getValue()) : e.getValue();
+            if (e.getKey().getPreferredSize().width == w) continue;
+            e.getKey().changeShape(new Dimension(w, 0), new Dimension(w, 0), new Dimension(w, Short.MAX_VALUE));
+        }
+        live.realmFilterButton().setFit(step <= 1 ? 0 : step == 2 ? 1 : step < 6 ? 2 : 3);
+        live.overlaySwitch().setFit(step <= 3 ? 0 : step - 3);
     }
 
     /** Whether the bar, at the step it is set to, has room for the whole page title. */
@@ -412,13 +430,15 @@ public class SonarShell extends JPanel {
         bar.add(forward);
         bar.add(Box.createHorizontalStrut(12));
         bar.add(names);
-        bar.add(Box.createHorizontalStrut(16));
+        bar.add(tightGap(16));
         bar.add(pill);
         bar.add(Box.createHorizontalStrut(8));
         bar.add(vaultPill);
         // beside "Sniffer live": the two things you look up to check are on, on every page
-        bar.add(Box.createHorizontalStrut(14));
+        bar.add(tightGap(14));
         bar.add(overlay);
+        // and what the overlay is hunting for in the realm, right after it; its gap is its own
+        bar.add(live.realmFilterButton());
         bar.add(Box.createHorizontalGlue());
         bar.add(barGap(12));
         bar.add(settingsButton);
@@ -846,6 +866,16 @@ public class SonarShell extends JPanel {
             g.scale(scale, scale);
             root.paint(g);
             g.dispose();
+            // the realm filter's picker is a window of its own, drawn over the app where it sits
+            RealmFilterPicker picker = RealmFilterPicker.current();
+            if (picker != null) {
+                Point rootAt = root.getLocationOnScreen(), at = picker.dialog().getLocationOnScreen();
+                Graphics2D pg = img.createGraphics();
+                pg.scale(scale, scale);
+                pg.translate(at.x - rootAt.x, at.y - rootAt.y);
+                picker.dialog().getRootPane().paint(pg);
+                pg.dispose();
+            }
             try {
                 ImageIO.write(img, "png", new File(path));
             } catch (Exception ex) {
@@ -855,6 +885,24 @@ public class SonarShell extends JPanel {
         });
         t.setRepeats(false);
         t.start();
+        String filter = System.getProperty("sonar.shot.realmfilter");
+        if (filter != null) {
+            // "Pirate Cave|Snake Pit" picks those for the picture; ".closed" leaves the picker shut
+            Timer open = new Timer(Math.max(300, delay - 1200), e -> {
+                java.util.List<String> names = new java.util.ArrayList<>();
+                for (String s : filter.split("[|]")) if (!s.trim().isEmpty()) names.add(s.trim());
+                RealmFilter.setForTest(names);
+                if (System.getProperty("sonar.shot.realmfilter.closed") != null) return;
+                live.realmFilterButton().openPicker();
+                RealmFilterPicker p = RealmFilterPicker.current();
+                if (p == null) return;
+                p.searchFor(System.getProperty("sonar.shot.realmfilter.search"));
+                String focus = System.getProperty("sonar.shot.realmfilter.focus");
+                if (focus != null) p.focusOn(focus);
+            });
+            open.setRepeats(false);
+            open.start();
+        }
         if (tab != null) {
             Timer pick = new Timer(Math.max(200, delay - 1500), e -> {
                 if (nav.containsKey(tab)) select(tab, false);

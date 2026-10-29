@@ -156,6 +156,7 @@ class LiveView {
     private ShattersOverlayWindow shattersOverlay;
     /** The overlay's one switch: the enemies on the game's minimap, on or off. It sits in the top bar. */
     private final OverlaySwitch overlaySwitch = new OverlaySwitch(() -> shattersEnabled, this::toggleShatters);
+    private final RealmFilterButton realmFilterButton = new RealmFilterButton(() -> shattersEnabled);
     private final SonarButton shattersCalibrate = new SonarButton("Calibrate", false, this::toggleShattersCalibrate);
     private static final int OVERALL = 0, ENEMY = 1, BOSSES = 2;
     // three separate damage views: the whole instance over elapsed time, one enemy at a time, and bosses only
@@ -1022,11 +1023,22 @@ class LiveView {
         shattersRecentre.setVisible(false);
         shattersPortals.setVisible(false);
         overlaySwitch.repaint();
+        // the realm filter does nothing without the overlay, so its button is only there with it
+        if (realmFilterButton.isVisible() != shattersEnabled) {
+            realmFilterButton.setVisible(shattersEnabled);
+            java.awt.Container bar = realmFilterButton.getParent();
+            if (bar != null) bar.revalidate();
+        }
     }
 
     /** The overlay's switch, for the top bar to show on every page. */
     OverlaySwitch overlaySwitch() {
         return overlaySwitch;
+    }
+
+    /** The realm filter's button, which sits beside the overlay's switch. */
+    RealmFilterButton realmFilterButton() {
+        return realmFilterButton;
     }
 
     /**
@@ -1494,6 +1506,8 @@ class LiveView {
                         && javax.swing.SwingUtilities.getAncestorOfClass(FloatWindow.class, overlaySwitch) == null
                         && instancePage.windows().stream().noneMatch(w -> "overlay".equals(w.id))
                         && analysisPage.windows().stream().noneMatch(w -> "overlay".equals(w.id)));
+        report.accept("the realm filter's button sits in the top bar, right after it",
+                realmFilterButton.getParent() != null && realmFilterButton.getParent() == overlaySwitch.getParent());
         report.accept("and the breakdown has the full height again",
                 breakdownWindow.fy + breakdownWindow.fh > 0.95);
         OverlaySwitch probe = new OverlaySwitch(() -> false, () -> { });
@@ -1506,6 +1520,9 @@ class LiveView {
         report.accept("and the smallest gets the switch and its \"?\" alone",
                 probe.label().isEmpty() && probe.getPreferredSize().width < shorter - 40
                         && probe.getPreferredSize().width >= 38 + 16);
+        probe.setFit(3);
+        report.accept("and only the tightest bar folds the \"?\" into the switch's own note",
+                !probe.helpShown() && probe.getPreferredSize().width <= 38 + 4);
         report.accept("the overlay is the enemies alone whenever it is open",
                 shattersOverlay == null || shattersOverlay.enemiesOnly());
         report.accept("and its \"?\" says what it draws",
@@ -3468,6 +3485,151 @@ class LiveView {
     }
 
     /**
+     * The realm filter: its shipped list, matched against the game's own objects, and what it
+     * does to the overlay. The list comes from RealmEye and names enemies; these checks are what
+     * catch a game update renaming one, since a name that stops matching just quietly rings nothing.
+     */
+    private static void checkRealmFilter(java.util.function.BiConsumer<String, Boolean> report) {
+        java.util.List<RealmFilter.Dungeon> all = RealmFilter.dungeons();
+        long events = all.stream().filter(d -> d.event).count();
+        report.accept("the realm filter ships 39 realm dungeons and 7 event dungeons", all.size() == 46 && events == 7);
+        boolean ordered = true;
+        for (int i = 1; i < all.size(); i++) {
+            RealmFilter.Dungeon a = all.get(i - 1), b = all.get(i);
+            if (a.event && !b.event || a.event == b.event && a.difficulty > b.difficulty) ordered = false;
+        }
+        report.accept("realm dungeons come first, each list in order of difficulty", ordered);
+        boolean resolved = RealmFilter.resolved();
+        report.accept("the list is matched against the game's own objects", resolved);
+        if (!resolved) return;
+
+        java.util.List<String> noPortal = new java.util.ArrayList<>(), lost = new java.util.ArrayList<>();
+        for (RealmFilter.Dungeon d : all) {
+            if (d.portalType <= 0 || sonar.assets.IdToAsset.getObjectIdName(d.portalType) == null) noPortal.add(d.name);
+            for (RealmFilter.Dropper x : d.droppers) if (!x.found() && !lost.contains(x.name)) lost.add(x.name);
+        }
+        report.accept("every dungeon's portal is in the game's files" + (noPortal.isEmpty() ? "" : " (not " + noPortal + ")"),
+                noPortal.isEmpty());
+        // RealmEye lists a Sword in the Stone hero that the game has no object of that name for
+        report.accept("every dropper is in the game's files but the Sword in the Stone"
+                + (lost.size() <= 1 ? "" : " (also missing " + lost + ")"),
+                lost.equals(java.util.Collections.singletonList("Sword in the Stone")));
+
+        RealmFilter.Dungeon cave = RealmFilter.dungeon("Pirate Cave"), pit = RealmFilter.dungeon("Snake Pit");
+        RealmFilter.Dropper pirate = null, medusa = null, buccaneer = null;
+        for (RealmFilter.Dropper x : cave.droppers) {
+            if (x.name.equals("Pirate")) pirate = x;
+            if (x.name.equals("Beached Buccaneer")) buccaneer = x;
+        }
+        for (RealmFilter.Dropper x : pit.droppers) if (x.name.equals("Medusa")) medusa = x;
+        java.util.function.BiPredicate<RealmFilter.Dropper, Integer> has = (x, t) -> {
+            if (x == null) return false;
+            for (int y : x.types) if (y == t) return true;
+            return false;
+        };
+        report.accept("a Pirate is matched in both its old and its new beach copy",
+                has.test(pirate, 0x600) && has.test(pirate, 0x550a) && pirate.ringed());
+        report.accept("and the Medusa that drops Snake Pit includes the Abandoned City's copy", has.test(medusa, 0x5581));
+        report.accept("searching an enemy finds the dungeons it drops, and a biome finds its dungeons",
+                pit.matches("medusa") && !cave.matches("medusa") && cave.matches("Beach"));
+        report.accept("a fourth pick lets go of the oldest, and picking one again lets it go",
+                RealmFilter.toggled(java.util.Arrays.asList("A", "B", "C"), "D").equals(java.util.Arrays.asList("B", "C", "D"))
+                        && RealmFilter.toggled(java.util.Arrays.asList("A", "B"), "A").equals(java.util.Collections.singletonList("B")));
+        report.accept("the filter works in the instance the game calls the realm",
+                LiveModel.prettyMapName("{s.rotmg}").equals(RealmFilter.REALM));
+
+        java.util.List<String> before = RealmFilter.picks();
+        try {
+            RealmFilter.setForTest(java.util.Collections.singletonList("Pirate Cave"));
+            report.accept("with Pirate Cave picked, a beach Pirate drops it, as trash",
+                    RealmFilter.dropsFor(0x550a, ShattersRadar.RANK_TRASH) == 1);
+            report.accept("while the Abandoned City's Medusa, which drops Snake Pit, does not",
+                    RealmFilter.dropsFor(0x5581, ShattersRadar.RANK_TRASH) == 0);
+            int hero = buccaneer == null || buccaneer.types.length == 0 ? -1 : buccaneer.types[0];
+            report.accept("a hero is ringed lime only where it already has a picture",
+                    hero > 0 && RealmFilter.dropsFor(hero, ShattersRadar.RANK_TRASH) == 0
+                            && RealmFilter.dropsFor(hero, ShattersRadar.RANK_MINI) == 1);
+
+            // an event's parts share its name; only the event itself, which has a picture, is ringed
+            RealmFilter.Dungeon dragonDrops = null;
+            RealmFilter.Dropper dragon = null;
+            for (RealmFilter.Dungeon d : all) for (RealmFilter.Dropper x : d.droppers) {
+                if (x.name.equals("Rock Dragon")) {
+                    dragonDrops = d;
+                    dragon = x;
+                }
+            }
+            int bomb = -1;
+            if (dragon != null) for (int t : dragon.types) {
+                String n = sonar.assets.IdToAsset.getObjectIdName(t);
+                if (n != null && n.contains("Bomb")) bomb = t;
+            }
+            if (dragonDrops != null) RealmFilter.setForTest(java.util.Collections.singletonList(dragonDrops.name));
+            report.accept("a Rock Dragon's bombs are not ringed when its dungeon is picked, the dragon is",
+                    bomb > 0 && RealmFilter.dropsFor(bomb, ShattersRadar.RANK_TRASH) == 0
+                            && RealmFilter.dropsFor(dragon.types[0], ShattersRadar.RANK_MINI) == 1);
+
+            RealmFilter.setForTest(java.util.Arrays.asList("Pirate Cave", "Snake Pit"));
+            report.accept("each pick has its own bit, in the order picked",
+                    RealmFilter.dropsFor(0x550a, ShattersRadar.RANK_TRASH) == 1
+                            && RealmFilter.dropsFor(0x5581, ShattersRadar.RANK_TRASH) == 2);
+            RealmFilter.setForTest(java.util.Collections.emptyList());
+            report.accept("and with nothing picked nothing drops anything",
+                    RealmFilter.dropsFor(0x550a, ShattersRadar.RANK_TRASH) == 0 && !RealmFilter.active());
+        } finally {
+            RealmFilter.setForTest(before);
+        }
+
+        // on the overlay
+        ShattersRadar.Mark trash = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+        ShattersRadar.Mark hunted = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+        hunted.drops = 1;
+        ShattersRadar.Mark huntedBoss = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+        huntedBoss.rank = ShattersRadar.RANK_BOSS;
+        huntedBoss.drops = 2;
+        ShattersRadar.Mark both = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+        both.drops = 3;
+        report.accept("an enemy that drops a picked dungeon gets a picture, in the filter's lime",
+                ShattersOverlayWindow.getsPicture(hunted) && RealmFilter.LIME.equals(ShattersOverlayWindow.ringTint(hunted)));
+        report.accept("an event that does keeps its picture and its ring turns lime",
+                ShattersOverlayWindow.getsPicture(huntedBoss) && RealmFilter.LIME.equals(ShattersOverlayWindow.ringTint(huntedBoss)));
+        report.accept("trash that drops nothing picked still gets no picture, and keeps the game's red",
+                !ShattersOverlayWindow.getsPicture(trash) && !RealmFilter.LIME.equals(ShattersOverlayWindow.ringTint(trash)));
+        int[] near = ShattersOverlayWindow.filterCounts(java.util.Arrays.asList(trash, hunted, huntedBoss, both), 2);
+        report.accept("the corner note counts the droppers near you for each pick", near[0] == 2 && near[1] == 2);
+        report.accept("and says one pick in words, two or three as counts",
+                ShattersOverlayWindow.filterWords(java.util.Collections.singletonList("Pirate Cave"), new int[]{2}).get(0).endsWith("2 nearby")
+                        && ShattersOverlayWindow.filterWords(java.util.Collections.singletonList("Pirate Cave"), new int[]{0}).get(0).endsWith("none nearby")
+                        && ShattersOverlayWindow.filterWords(java.util.Arrays.asList("A", "B"), new int[]{1, 0}).equals(java.util.Arrays.asList("1", "0")));
+        report.accept("zoomed right out on Sonar's own map, a hunted enemy stays",
+                ShattersOverlayWindow.worthDrawing(hunted, 1800));
+
+        // the top bar's button
+        RealmFilterButton probe = new RealmFilterButton(() -> true);
+        java.util.List<String> kept = RealmFilter.picks();
+        try {
+            RealmFilter.setForTest(java.util.Collections.emptyList());
+            boolean off = "Off".equals(probe.name());
+            RealmFilter.setForTest(java.util.Arrays.asList("Pirate Cave", "Snake Pit"));
+            report.accept("its button says Off with nothing picked, and the first pick with how many more",
+                    off && probe.name().equals("Pirate Cave  +1") && probe.hint().contains("Snake Pit"));
+            int wide = probe.getPreferredSize().width;
+            probe.setFit(1);
+            int shorter = probe.getPreferredSize().width;
+            probe.setFit(2);
+            int smallest = probe.getPreferredSize().width;
+            probe.setFit(3);
+            int bare = probe.getPreferredSize().width;
+            report.accept("and in a short bar it drops its heading, then is the portal alone, then loses its outline",
+                    shorter <= wide && smallest < shorter - 40 && smallest <= 48 && bare <= 30);
+            RealmFilterButton offProbe = new RealmFilterButton(() -> false);
+            report.accept("it is only in the bar while the overlay is on", !offProbe.isVisible() && probe.isVisible());
+        } finally {
+            RealmFilter.setForTest(kept);
+        }
+    }
+
+    /**
      * Telling the shipped worlds apart from a strip of walked ground.
      * <p>
      * A realm is one of a known set of layouts and the game never says which. Sonar ships a
@@ -3766,6 +3928,7 @@ class LiveView {
         checkWorldRecognition(report);
         checkMarksGrowWithTheView(report);
         checkMarkRanks(report);
+        checkRealmFilter(report);
         checkKeptAsLearned(report);
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);

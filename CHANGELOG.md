@@ -2,6 +2,18 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.62.0
+
+**The realm filter: pictures for the enemies that drop the dungeons you are hunting**
+
+- **Pick up to three dungeons, and the minimap overlay rings every realm enemy that can drop one of them.** Their sprite comes back in a lime ring, a little over twice the size of the game's dot, so you can run toward them. All other trash stays the game's red dot, as in 2.61.
+- **The realm filter's button sits in the top bar, right after the overlay's switch,** while the overlay is on. It shows your first pick's portal and name, and a click opens the picker: every realm and event dungeon as its portal, in order of difficulty, with a search by dungeon, enemy or biome - "Medusa" finds Snake Pit. Click a portal to pick it and again to let it go; a fourth pick lets go of the oldest. For the dungeon in focus it lists who drops it, their biome, and which biomes to look in. Your picks are saved.
+- **Heroes and events that drop a picked dungeon keep their pictures, and their ring turns lime.** Only the parts the game already marks are ringed, so a Rock Dragon is, and its bombs and body segments are not. Picking an event dungeon such as Lost Halls rings the events that drop it.
+- **A note in the minimap's bottom-left corner counts the droppers near you** while something is picked and you are in the realm: "Pirate Cave · 2 nearby" for one pick, and each portal with its count for two or three.
+- **Who drops which portal comes from the RealmEye wiki:** 46 dungeons and 200 droppers. The names are matched against the game's own files when Sonar starts, so the copies of an enemy that each biome spawns - the newer beach Pirate, the Abandoned City's Medusa - count too. The game tells Sonar about ordinary enemies only when they are near you, so the rings show droppers as you pass them, not across the whole realm.
+- **The top bar makes room for the button without cutting the page title.** The button gives way first - its heading, then its words, until it is the portal alone - so at 1440×900 the overlay's switch keeps its full label. In the smallest windows the space around "Sniffer live" narrows and the switch's **?** moves into the switch's own hover note.
+- **The overlay's ? now says what 2.61 changed:** ordinary enemies stay the game's red dots unless the realm filter is set. It still said they get a small ring.
+
 ## 2.61.0
 
 **The minimap overlay pictures only what the game marks out**

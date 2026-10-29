@@ -1,0 +1,1819 @@
+{
+ "about": "Which realm enemies drop each dungeon's portal, from the RealmEye wiki's Dungeons page and its 23 biome enemy pages, read 2026-10-28. Names are matched to the game's own objects when Sonar starts, so biome copies of an enemy are found too; type is the id it had when the list was made, used only if the name cannot be found.",
+ "dungeons": [
+  {
+   "name": "Pirate Cave",
+   "difficulty": 1,
+   "event": false,
+   "portal": "Pirate Cave Portal",
+   "portalType": 1815,
+   "droppers": [
+    {
+     "name": "Pirate",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": false,
+     "type": 1536
+    },
+    {
+     "name": "Piratess",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": false,
+     "type": 1537
+    },
+    {
+     "name": "Little Green Jelly",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": false,
+     "type": 21764
+    },
+    {
+     "name": "Little Blue Jelly",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": false,
+     "type": 21762
+    },
+    {
+     "name": "Little Pink Jelly",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": false,
+     "type": 21763
+    },
+    {
+     "name": "Giant Crab",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": false,
+     "type": 1732
+    },
+    {
+     "name": "Sand Devil",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": false,
+     "type": 1735
+    },
+    {
+     "name": "Goblin Warrior",
+     "biome": "Undead Forest",
+     "kind": "minion",
+     "always": false,
+     "type": 1555
+    },
+    {
+     "name": "X Treasure Chest",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": true,
+     "type": 44155
+    },
+    {
+     "name": "Beached Buccaneer",
+     "biome": "Beach",
+     "kind": "hero",
+     "always": true,
+     "type": 44158
+    }
+   ]
+  },
+  {
+   "name": "Forest Maze",
+   "difficulty": 1,
+   "event": false,
+   "portal": "Forest Maze Portal",
+   "portalType": 24372,
+   "droppers": [
+    {
+     "name": "Forest Nymph",
+     "biome": "Low Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 1745
+    },
+    {
+     "name": "Goblin Mage",
+     "biome": "Undead Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 1556
+    },
+    {
+     "name": "Elf Wizard",
+     "biome": "Low Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 1545
+    },
+    {
+     "name": "Hobbit Mage",
+     "biome": "Low Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 1559
+    },
+    {
+     "name": "Undead Hobbit Mage",
+     "biome": "Undead Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 1562
+    },
+    {
+     "name": "Sandsman King",
+     "biome": "Beach",
+     "kind": "enemy",
+     "always": false,
+     "type": 1549
+    },
+    {
+     "name": "Dwarf King",
+     "biome": "Nature Ruins",
+     "kind": "enemy",
+     "always": false,
+     "type": 1567
+    },
+    {
+     "name": "Drake Baby",
+     "biome": "Nature Ruins",
+     "kind": "minion",
+     "always": false,
+     "type": 2374
+    },
+    {
+     "name": "Enraged Bunny",
+     "biome": "Low Forest",
+     "kind": "minion",
+     "always": false,
+     "type": 1737
+    },
+    {
+     "name": "Skeleton",
+     "biome": "Undead Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 21784
+    }
+   ]
+  },
+  {
+   "name": "Spider Den",
+   "difficulty": 1.5,
+   "event": false,
+   "portal": "Spider Den Portal",
+   "portalType": 1817,
+   "droppers": [
+    {
+     "name": "Orc King",
+     "biome": "Mid Plains",
+     "kind": "enemy",
+     "always": false,
+     "type": 1580
+    },
+    {
+     "name": "Werelion",
+     "biome": "Nature Ruins",
+     "kind": "enemy",
+     "always": false,
+     "type": 1591
+    },
+    {
+     "name": "Big Ladybug",
+     "biome": "Nature Ruins",
+     "kind": "enemy",
+     "always": false,
+     "type": 21845
+    },
+    {
+     "name": "Shambling Sludge",
+     "biome": "Mid Plains",
+     "kind": "enemy",
+     "always": false,
+     "type": 2384
+    },
+    {
+     "name": "Swarm",
+     "biome": "Mid Plains",
+     "kind": "enemy",
+     "always": false,
+     "type": 2389
+    },
+    {
+     "name": "Desert Werewolf",
+     "biome": "",
+     "kind": "unlisted",
+     "always": false,
+     "type": 1571
+    }
+   ]
+  },
+  {
+   "name": "Forbidden Jungle",
+   "difficulty": 1.5,
+   "event": false,
+   "portal": "Forbidden Jungle Portal",
+   "portalType": 1843,
+   "droppers": [
+    {
+     "name": "Black Bat",
+     "biome": "Nature Ruins",
+     "kind": "enemy",
+     "always": false,
+     "type": 516
+    },
+    {
+     "name": "Earth Golem",
+     "biome": "Mid Plains",
+     "kind": "enemy",
+     "always": false,
+     "type": 1583
+    },
+    {
+     "name": "Great Coil Snake",
+     "biome": "Nature Ruins",
+     "kind": "hero",
+     "always": true,
+     "type": 3522
+    }
+   ]
+  },
+  {
+   "name": "The Hive",
+   "difficulty": 2,
+   "event": false,
+   "portal": "The Hive Portal",
+   "portalType": 285,
+   "droppers": [
+    {
+     "name": "Wasp Queen",
+     "biome": "Mid Plains",
+     "kind": "enemy",
+     "always": false,
+     "type": 2375
+    },
+    {
+     "name": "Warrior Bee",
+     "biome": "Mid Plains",
+     "kind": "enemy",
+     "always": false,
+     "type": 2378
+    },
+    {
+     "name": "Legion Surveyor",
+     "biome": "",
+     "kind": "unlisted",
+     "always": false,
+     "type": 54291
+    }
+   ]
+  },
+  {
+   "name": "Snake Pit",
+   "difficulty": 2.5,
+   "event": false,
+   "portal": "Snake Pit Portal",
+   "portalType": 1816,
+   "droppers": [
+    {
+     "name": "Lizard God",
+     "biome": "High Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 1616
+    },
+    {
+     "name": "Undead Dwarf God",
+     "biome": "High Plains",
+     "kind": "enemy",
+     "always": false,
+     "type": 1600
+    },
+    {
+     "name": "Ogre King",
+     "biome": "High Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 1605
+    },
+    {
+     "name": "Zombie Cleric",
+     "biome": "Dead Church",
+     "kind": "enemy",
+     "always": false,
+     "type": 49414
+    },
+    {
+     "name": "Werewolf Berserker",
+     "biome": "Haunted Hallows",
+     "kind": "enemy",
+     "always": false,
+     "type": 17901
+    },
+    {
+     "name": "Flying Seahorse",
+     "biome": "Coral Reefs",
+     "kind": "enemy",
+     "always": false,
+     "type": 49340
+    },
+    {
+     "name": "Medusa",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 1620
+    },
+    {
+     "name": "Insurgent Rebel Commander",
+     "biome": "Abandoned City",
+     "kind": "hero",
+     "always": false,
+     "type": 16995
+    }
+   ]
+  },
+  {
+   "name": "Sprite World",
+   "difficulty": 2.5,
+   "event": false,
+   "portal": "Glowing Portal",
+   "portalType": 1804,
+   "droppers": [
+    {
+     "name": "Sprite Beast",
+     "biome": "Sprite Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 49967
+    },
+    {
+     "name": "Sprite Child",
+     "biome": "Sprite Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 1619
+    },
+    {
+     "name": "Celestial Sprite",
+     "biome": "Sprite Forest",
+     "kind": "hero",
+     "always": true,
+     "type": 44151
+    },
+    {
+     "name": "Cosmic Sprite",
+     "biome": "Sprite Forest",
+     "kind": "hero",
+     "always": true,
+     "type": 44153
+    }
+   ]
+  },
+  {
+   "name": "Cave of a Thousand Treasures",
+   "difficulty": 2.5,
+   "event": false,
+   "portal": "Treasure Cave Portal",
+   "portalType": 24110,
+   "droppers": [
+    {
+     "name": "Sunken Soul",
+     "biome": "Shipwreck Cove",
+     "kind": "enemy",
+     "always": false,
+     "type": 49901
+    },
+    {
+     "name": "Silvery Narwhal",
+     "biome": "Coral Reefs",
+     "kind": "enemy",
+     "always": false,
+     "type": 49343
+    },
+    {
+     "name": "Djinn",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 2330
+    },
+    {
+     "name": "Washed-Up Captain",
+     "biome": "Shipwreck Cove",
+     "kind": "hero",
+     "always": false,
+     "type": 34499
+    }
+   ]
+  },
+  {
+   "name": "Ancient Ruins",
+   "difficulty": 3,
+   "event": false,
+   "portal": "Ancient Ruins Portal",
+   "portalType": 9657,
+   "droppers": [
+    {
+     "name": "Dark Elf Queen",
+     "biome": "High Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 21887
+    },
+    {
+     "name": "Hunter Centaur",
+     "biome": "High Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 15653
+    },
+    {
+     "name": "Minotaur",
+     "biome": "High Desert",
+     "kind": "enemy",
+     "always": false,
+     "type": 1606
+    },
+    {
+     "name": "Flayer God",
+     "biome": "High Desert",
+     "kind": "enemy",
+     "always": false,
+     "type": 1609
+    },
+    {
+     "name": "Ghastly Nun",
+     "biome": "Dead Church",
+     "kind": "enemy",
+     "always": false,
+     "type": 49630
+    },
+    {
+     "name": "Drowned Sailor",
+     "biome": "Shipwreck Cove",
+     "kind": "enemy",
+     "always": false,
+     "type": 49905
+    },
+    {
+     "name": "Nameless Gladiator",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 49633
+    },
+    {
+     "name": "Sword in the Stone",
+     "biome": "Abandoned City",
+     "kind": "hero",
+     "always": false,
+     "type": 0
+    }
+   ]
+  },
+  {
+   "name": "Magic Woods",
+   "difficulty": 3,
+   "event": false,
+   "portal": "Magic Woods Portal",
+   "portalType": 2172,
+   "droppers": [
+    {
+     "name": "Pumpkin Brute",
+     "biome": "Haunted Hallows",
+     "kind": "enemy",
+     "always": false,
+     "type": 17903
+    },
+    {
+     "name": "Evergreen Sprite",
+     "biome": "Sprite Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 17738
+    },
+    {
+     "name": "Ocean Spirit",
+     "biome": "Shipwreck Cove",
+     "kind": "enemy",
+     "always": false,
+     "type": 49906
+    },
+    {
+     "name": "Ent God",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 1621
+    },
+    {
+     "name": "Elder Sprite Tree",
+     "biome": "Sprite Forest",
+     "kind": "hero",
+     "always": false,
+     "type": 2907
+    },
+    {
+     "name": "Ent Ancient",
+     "biome": "Nature Ruins",
+     "kind": "hero",
+     "always": true,
+     "type": 2335
+    },
+    {
+     "name": "Legion Scout Master",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 54327
+    }
+   ]
+  },
+  {
+   "name": "Candyland Hunting Grounds",
+   "difficulty": 3.5,
+   "event": false,
+   "portal": "Candyland Portal",
+   "portalType": 1866,
+   "droppers": [
+    {
+     "name": "Candy Gnome",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 24137
+    }
+   ]
+  },
+  {
+   "name": "Undead Lair",
+   "difficulty": 3.5,
+   "event": false,
+   "portal": "Undead Lair Portal",
+   "portalType": 1818,
+   "droppers": [
+    {
+     "name": "Skeleton Worshipper",
+     "biome": "Dead Church",
+     "kind": "enemy",
+     "always": false,
+     "type": 49627
+    },
+    {
+     "name": "Skeleton of the Damned",
+     "biome": "Haunted Hallows",
+     "kind": "enemy",
+     "always": false,
+     "type": 17900
+    },
+    {
+     "name": "Undead Pirate",
+     "biome": "Shipwreck Cove",
+     "kind": "enemy",
+     "always": false,
+     "type": 49902
+    },
+    {
+     "name": "Burning Bones",
+     "biome": "Risen Hell",
+     "kind": "enemy",
+     "always": false,
+     "type": 49896
+    },
+    {
+     "name": "Ghost God",
+     "biome": "Haunted Hallows",
+     "kind": "enemy",
+     "always": false,
+     "type": 1625
+    },
+    {
+     "name": "Flesh Golem",
+     "biome": "Haunted Hallows",
+     "kind": "hero",
+     "always": false,
+     "type": 34515
+    }
+   ]
+  },
+  {
+   "name": "Puppet Master's Theatre",
+   "difficulty": 4,
+   "event": false,
+   "portal": "Puppet Theatre Portal",
+   "portalType": 9043,
+   "droppers": [
+    {
+     "name": "Wraith",
+     "biome": "Haunted Hallows",
+     "kind": "enemy",
+     "always": false,
+     "type": 17899
+    },
+    {
+     "name": "Corrupt Sprite",
+     "biome": "Sprite Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 17737
+    },
+    {
+     "name": "Unsung Jester",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 49631
+    },
+    {
+     "name": "Leviathan",
+     "biome": "Coral Reefs",
+     "kind": "enemy",
+     "always": false,
+     "type": 1752
+    },
+    {
+     "name": "Sinister Scarecrow",
+     "biome": "Haunted Hallows",
+     "kind": "hero",
+     "always": false,
+     "type": 34600
+    }
+   ]
+  },
+  {
+   "name": "Toxic Sewers",
+   "difficulty": 4,
+   "event": false,
+   "portal": "Toxic Sewers Portal",
+   "portalType": 574,
+   "droppers": [
+    {
+     "name": "Noxious Sprite",
+     "biome": "Sprite Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 17735
+    },
+    {
+     "name": "Smelly Octopus",
+     "biome": "Coral Reefs",
+     "kind": "enemy",
+     "always": false,
+     "type": 49342
+    },
+    {
+     "name": "Brimstone Wyvern",
+     "biome": "Risen Hell",
+     "kind": "enemy",
+     "always": false,
+     "type": 49900
+    },
+    {
+     "name": "Slime God",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 1624
+    },
+    {
+     "name": "Eternal Tormentor",
+     "biome": "Risen Hell",
+     "kind": "hero",
+     "always": false,
+     "type": 34573
+    }
+   ]
+  },
+  {
+   "name": "Cursed Library",
+   "difficulty": 4,
+   "event": false,
+   "portal": "Cursed Library Portal",
+   "portalType": 43862,
+   "droppers": [
+    {
+     "name": "Revenant",
+     "biome": "Dead Church",
+     "kind": "enemy",
+     "always": false,
+     "type": 49416
+    },
+    {
+     "name": "Creepy Beholder",
+     "biome": "Haunted Hallows",
+     "kind": "enemy",
+     "always": false,
+     "type": 17902
+    },
+    {
+     "name": "Harrowed Fiend",
+     "biome": "Risen Hell",
+     "kind": "enemy",
+     "always": false,
+     "type": 49898
+    },
+    {
+     "name": "Beholder",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 1622
+    },
+    {
+     "name": "Shady Sect Leader",
+     "biome": "Dead Church",
+     "kind": "hero",
+     "always": true,
+     "type": 24015
+    },
+    {
+     "name": "Legion Excavator",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 54331
+    }
+   ]
+  },
+  {
+   "name": "Mad Lab",
+   "difficulty": 4,
+   "event": false,
+   "portal": "Mad Lab Portal",
+   "portalType": 2192,
+   "droppers": [
+    {
+     "name": "Banshee",
+     "biome": "Haunted Hallows",
+     "kind": "enemy",
+     "always": false,
+     "type": 17898
+    },
+    {
+     "name": "Hazardous Sprite",
+     "biome": "Sprite Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 17736
+    },
+    {
+     "name": "Flying Brain",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 1623
+    },
+    {
+     "name": "Artificial Sprite God",
+     "biome": "Sprite Forest",
+     "kind": "hero",
+     "always": false,
+     "type": 34570
+    }
+   ]
+  },
+  {
+   "name": "Abyss of Demons",
+   "difficulty": 4,
+   "event": false,
+   "portal": "Abyss of Demons Portal",
+   "portalType": 1819,
+   "droppers": [
+    {
+     "name": "Blazing Sprite",
+     "biome": "Sprite Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 17734
+    },
+    {
+     "name": "Risen Hellhound",
+     "biome": "Risen Hell",
+     "kind": "enemy",
+     "always": false,
+     "type": 49899
+    },
+    {
+     "name": "White Demon",
+     "biome": "Risen Hell",
+     "kind": "enemy",
+     "always": false,
+     "type": 1617
+    },
+    {
+     "name": "Red Demon",
+     "biome": "Risen Hell",
+     "kind": "hero",
+     "always": false,
+     "type": 1640
+    },
+    {
+     "name": "Vagabond Satyr",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 49634
+    },
+    {
+     "name": "Legion Guard Captain",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 54323
+    }
+   ]
+  },
+  {
+   "name": "Manor of the Immortals",
+   "difficulty": 4,
+   "event": false,
+   "portal": "Manor of the Immortals Portal",
+   "portalType": 1849,
+   "droppers": [
+    {
+     "name": "Flying Vampire",
+     "biome": "Dead Church",
+     "kind": "enemy",
+     "always": false,
+     "type": 49628
+    },
+    {
+     "name": "Cerberus",
+     "biome": "Risen Hell",
+     "kind": "enemy",
+     "always": false,
+     "type": 50130
+    },
+    {
+     "name": "Kage Kami",
+     "biome": "Dead Church",
+     "kind": "hero",
+     "always": true,
+     "type": 1755
+    }
+   ]
+  },
+  {
+   "name": "Haunted Cemetery",
+   "difficulty": 4.5,
+   "event": false,
+   "portal": "Haunted Cemetery Portal",
+   "portalType": 1867,
+   "droppers": [
+    {
+     "name": "Headless Horseman",
+     "biome": "Haunted Hallows",
+     "kind": "enemy",
+     "always": false,
+     "type": 21955
+    },
+    {
+     "name": "Lantern Holder",
+     "biome": "Dead Church",
+     "kind": "hero",
+     "always": false,
+     "type": 17004
+    }
+   ]
+  },
+  {
+   "name": "The Machine",
+   "difficulty": 4.5,
+   "event": false,
+   "portal": "The Machine Portal",
+   "portalType": 43986,
+   "droppers": [
+    {
+     "name": "Rock Construct",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 2309
+    },
+    {
+     "name": "Wood Construct",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 2310
+    },
+    {
+     "name": "Steel Construct",
+     "biome": "Abandoned City",
+     "kind": "enemy",
+     "always": false,
+     "type": 2311
+    },
+    {
+     "name": "The Glitch",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 44020
+    }
+   ]
+  },
+  {
+   "name": "Davy Jones' Locker",
+   "difficulty": 5,
+   "event": false,
+   "portal": "Davy Jones' Locker Portal",
+   "portalType": 1857,
+   "droppers": [
+    {
+     "name": "Abyssal Hydra",
+     "biome": "Deep Sea Abyss",
+     "kind": "enemy",
+     "always": false,
+     "type": 29233
+    },
+    {
+     "name": "Sunken Treasure",
+     "biome": "Deep Sea Abyss",
+     "kind": "hero",
+     "always": false,
+     "type": 28065
+    },
+    {
+     "name": "Well of Souls",
+     "biome": "Dead Church",
+     "kind": "event",
+     "always": true,
+     "type": 34460
+    },
+    {
+     "name": "Ghost Ship",
+     "biome": "Shipwreck Cove",
+     "kind": "event",
+     "always": true,
+     "type": 3639
+    }
+   ]
+  },
+  {
+   "name": "Ocean Trench",
+   "difficulty": 5,
+   "event": false,
+   "portal": "Ocean Trench Portal",
+   "portalType": 1840,
+   "droppers": [
+    {
+     "name": "Abyssal Squid",
+     "biome": "Deep Sea Abyss",
+     "kind": "enemy",
+     "always": false,
+     "type": 29232
+    },
+    {
+     "name": "Ice Giant",
+     "biome": "Runic Tundra",
+     "kind": "enemy",
+     "always": false,
+     "type": 29442
+    },
+    {
+     "name": "Sea Dragon",
+     "biome": "Deep Sea Abyss",
+     "kind": "hero",
+     "always": false,
+     "type": 1033
+    },
+    {
+     "name": "Hermit God",
+     "biome": "Coral Reefs",
+     "kind": "event",
+     "always": true,
+     "type": 3425
+    },
+    {
+     "name": "Eye of the Storm",
+     "biome": "Shipwreck Cove",
+     "kind": "event",
+     "always": true,
+     "type": 51031
+    }
+   ]
+  },
+  {
+   "name": "The Crawling Depths",
+   "difficulty": 5.5,
+   "event": false,
+   "portal": "The Crawling Depths",
+   "portalType": 1838,
+   "droppers": [
+    {
+     "name": "Blood Hound",
+     "biome": "Sanguine Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 31633
+    },
+    {
+     "name": "Spore Spreader",
+     "biome": "Floral Escape",
+     "kind": "enemy",
+     "always": false,
+     "type": 29458
+    },
+    {
+     "name": "Sting Spider",
+     "biome": "Carboniferous",
+     "kind": "enemy",
+     "always": false,
+     "type": 21957
+    },
+    {
+     "name": "Critter Brood",
+     "biome": "Carboniferous",
+     "kind": "hero",
+     "always": false,
+     "type": 34481
+    },
+    {
+     "name": "Legion Lead Strategist",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 54301
+    }
+   ]
+  },
+  {
+   "name": "Woodland Labyrinth",
+   "difficulty": 5.5,
+   "event": false,
+   "portal": "Woodland Labyrinth",
+   "portalType": 1884,
+   "droppers": [
+    {
+     "name": "Bloodroot Treant",
+     "biome": "Sanguine Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 31634
+    },
+    {
+     "name": "Man-Eating Flytrap",
+     "biome": "Carboniferous",
+     "kind": "enemy",
+     "always": false,
+     "type": 31166
+    },
+    {
+     "name": "Great Owl",
+     "biome": "Floral Escape",
+     "kind": "enemy",
+     "always": false,
+     "type": 21958
+    },
+    {
+     "name": "Hornet's Nest",
+     "biome": "Floral Escape",
+     "kind": "hero",
+     "always": false,
+     "type": 34603
+    },
+    {
+     "name": "Possessed Pumpkin",
+     "biome": "Haunted Hallows",
+     "kind": "event",
+     "always": true,
+     "type": 51032
+    },
+    {
+     "name": "Legion Head Researcher",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 54308
+    }
+   ]
+  },
+  {
+   "name": "Deadwater Docks",
+   "difficulty": 5.5,
+   "event": false,
+   "portal": "Deadwater Docks",
+   "portalType": 1885,
+   "droppers": [
+    {
+     "name": "Snow Wolf",
+     "biome": "Runic Tundra",
+     "kind": "enemy",
+     "always": false,
+     "type": 9829
+    },
+    {
+     "name": "Corsair Crab",
+     "biome": "Deep Sea Abyss",
+     "kind": "enemy",
+     "always": false,
+     "type": 21956
+    },
+    {
+     "name": "Bilgewater's Galleon",
+     "biome": "Shipwreck Cove",
+     "kind": "event",
+     "always": true,
+     "type": 20475
+    },
+    {
+     "name": "Crab Sovereign",
+     "biome": "Shipwreck Cove",
+     "kind": "event",
+     "always": true,
+     "type": 51072
+    },
+    {
+     "name": "Legion Watchmaster",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 54296
+    }
+   ]
+  },
+  {
+   "name": "Puppet Master's Encore",
+   "difficulty": 5.5,
+   "event": false,
+   "portal": "Puppet Encore Portal",
+   "portalType": 29798,
+   "droppers": [
+    {
+     "name": "Shadow Lurker",
+     "biome": "Sanguine Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 31635
+    },
+    {
+     "name": "Organ Harvester",
+     "biome": "Sanguine Forest",
+     "kind": "hero",
+     "always": false,
+     "type": 34509
+    },
+    {
+     "name": "Daughter of Limon",
+     "biome": "Sprite Forest",
+     "kind": "event",
+     "always": true,
+     "type": 34605
+    },
+    {
+     "name": "Maze Minotaur",
+     "biome": "Abandoned City",
+     "kind": "event",
+     "always": true,
+     "type": 34565
+    }
+   ]
+  },
+  {
+   "name": "Cnidarian Reef",
+   "difficulty": 5.5,
+   "event": false,
+   "portal": "Cnidarian Reef Portal",
+   "portalType": 2554,
+   "droppers": [
+    {
+     "name": "Enchanted Turtle",
+     "biome": "Coral Reefs",
+     "kind": "enemy",
+     "always": false,
+     "type": 49341
+    },
+    {
+     "name": "Hadopelagic Jellyfish",
+     "biome": "Deep Sea Abyss",
+     "kind": "enemy",
+     "always": false,
+     "type": 29209
+    },
+    {
+     "name": "Man-eating Barnacle",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 47930
+    },
+    {
+     "name": "World's Oyster",
+     "biome": "Coral Reefs",
+     "kind": "event",
+     "always": true,
+     "type": 34538
+    }
+   ]
+  },
+  {
+   "name": "Parasite Chambers",
+   "difficulty": 5.5,
+   "event": false,
+   "portal": "Parasite Chambers Portal",
+   "portalType": 1944,
+   "droppers": [
+    {
+     "name": "Blood Ooze",
+     "biome": "Sanguine Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 31632
+    },
+    {
+     "name": "Abyssal Kraken",
+     "biome": "Deep Sea Abyss",
+     "kind": "enemy",
+     "always": false,
+     "type": 29221
+    },
+    {
+     "name": "Cold Soul",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 47951
+    },
+    {
+     "name": "Scout Colony",
+     "biome": "Sanguine Forest",
+     "kind": "hero",
+     "always": true,
+     "type": 1986
+    }
+   ]
+  },
+  {
+   "name": "The Tavern",
+   "difficulty": 5.5,
+   "event": false,
+   "portal": "The Tavern Portal",
+   "portalType": 17744,
+   "droppers": [
+    {
+     "name": "Spitting Arachnid",
+     "biome": "Carboniferous",
+     "kind": "enemy",
+     "always": false,
+     "type": 30573
+    },
+    {
+     "name": "Sigma Werewolf",
+     "biome": "Haunted Hallows",
+     "kind": "event",
+     "always": true,
+     "type": 34510
+    },
+    {
+     "name": "Beer God",
+     "biome": "Shipwreck Cove",
+     "kind": "event",
+     "always": true,
+     "type": 22128
+    }
+   ]
+  },
+  {
+   "name": "Sulfurous Wetlands",
+   "difficulty": 6,
+   "event": false,
+   "portal": "SulfW Portal",
+   "portalType": 25490,
+   "droppers": [
+    {
+     "name": "Bulbous Perforator",
+     "biome": "Sanguine Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 9821
+    },
+    {
+     "name": "Green Fingers",
+     "biome": "Floral Escape",
+     "kind": "enemy",
+     "always": false,
+     "type": 9825
+    },
+    {
+     "name": "Grand Dragonfly",
+     "biome": "Carboniferous",
+     "kind": "enemy",
+     "always": false,
+     "type": 17019
+    },
+    {
+     "name": "Elder Ent Ancient",
+     "biome": "Floral Escape",
+     "kind": "hero",
+     "always": false,
+     "type": 22084
+    },
+    {
+     "name": "The Plague Doctor",
+     "biome": "Dead Church",
+     "kind": "event",
+     "always": true,
+     "type": 34489
+    }
+   ]
+  },
+  {
+   "name": "Mountain Temple",
+   "difficulty": 6,
+   "event": false,
+   "portal": "Mountain Temple Portal",
+   "portalType": 311,
+   "droppers": [
+    {
+     "name": "Vegetarian Tiger",
+     "biome": "Floral Escape",
+     "kind": "enemy",
+     "always": false,
+     "type": 9827
+    },
+    {
+     "name": "Runic Golem",
+     "biome": "Runic Tundra",
+     "kind": "enemy",
+     "always": false,
+     "type": 9831
+    },
+    {
+     "name": "Skull Knight",
+     "biome": "Haunted Hallows",
+     "kind": "event",
+     "always": true,
+     "type": 34537
+    },
+    {
+     "name": "Jade Statue",
+     "biome": "Abandoned City",
+     "kind": "event",
+     "always": true,
+     "type": 28619
+    },
+    {
+     "name": "Garnet Statue",
+     "biome": "Abandoned City",
+     "kind": "event",
+     "always": true,
+     "type": 28618
+    }
+   ]
+  },
+  {
+   "name": "Lair of Draconis",
+   "difficulty": 6,
+   "event": false,
+   "portal": "Lair of Draconis Portal",
+   "portalType": 45591,
+   "droppers": [
+    {
+     "name": "Snapdragon",
+     "biome": "Floral Escape",
+     "kind": "enemy",
+     "always": false,
+     "type": 9826
+    },
+    {
+     "name": "Hunter Dragonfly",
+     "biome": "Carboniferous",
+     "kind": "enemy",
+     "always": false,
+     "type": 14714
+    },
+    {
+     "name": "Frost Dragon",
+     "biome": "Runic Tundra",
+     "kind": "enemy",
+     "always": false,
+     "type": 29443
+    },
+    {
+     "name": "Rock Dragon",
+     "biome": "Abandoned City",
+     "kind": "event",
+     "always": true,
+     "type": 21983
+    }
+   ]
+  },
+  {
+   "name": "Tomb of the Ancients",
+   "difficulty": 6,
+   "event": false,
+   "portal": "Tomb of the Ancients Portal",
+   "portalType": 1844,
+   "droppers": [
+    {
+     "name": "Ghoul",
+     "biome": "Sanguine Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 31637
+    },
+    {
+     "name": "Animate Sigillaria",
+     "biome": "Carboniferous",
+     "kind": "enemy",
+     "always": false,
+     "type": 30575
+    },
+    {
+     "name": "The Lich King",
+     "biome": "Dead Church",
+     "kind": "event",
+     "always": true,
+     "type": 34584
+    },
+    {
+     "name": "Legion General",
+     "biome": "Abandoned City",
+     "kind": "event",
+     "always": true,
+     "type": 24005
+    },
+    {
+     "name": "Grand Sphinx",
+     "biome": "Abandoned City",
+     "kind": "event",
+     "always": true,
+     "type": 3412
+    }
+   ]
+  },
+  {
+   "name": "The Third Dimension",
+   "difficulty": 6,
+   "event": false,
+   "portal": "The Third Dimension Portal",
+   "portalType": 19302,
+   "droppers": [
+    {
+     "name": "Tundra Tribe Leader",
+     "biome": "Runic Tundra",
+     "kind": "enemy",
+     "always": false,
+     "type": 29555
+    },
+    {
+     "name": "Abyssal Siren",
+     "biome": "Deep Sea Abyss",
+     "kind": "enemy",
+     "always": false,
+     "type": 29234
+    },
+    {
+     "name": "Assembled Giant",
+     "biome": "Runic Tundra",
+     "kind": "hero",
+     "always": false,
+     "type": 34480
+    },
+    {
+     "name": "Cube Deity",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 47927
+    },
+    {
+     "name": "Towering Perfection",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 47909
+    },
+    {
+     "name": "Astral Rift",
+     "biome": "Sprite Forest",
+     "kind": "event",
+     "always": true,
+     "type": 51061
+    },
+    {
+     "name": "Cube God",
+     "biome": "Sprite Forest",
+     "kind": "event",
+     "always": true,
+     "type": 3417
+    }
+   ]
+  },
+  {
+   "name": "Lair of Shaitan",
+   "difficulty": 6,
+   "event": false,
+   "portal": "Lair of Shaitan Portal",
+   "portalType": 28057,
+   "droppers": [
+    {
+     "name": "Raging Ifrit",
+     "biome": "Risen Hell",
+     "kind": "enemy",
+     "always": false,
+     "type": 50131
+    },
+    {
+     "name": "Ravenous Harpy",
+     "biome": "Sanguine Forest",
+     "kind": "enemy",
+     "always": false,
+     "type": 31636
+    },
+    {
+     "name": "Stygian Mirror",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 47956
+    }
+   ]
+  },
+  {
+   "name": "Secluded Thicket",
+   "difficulty": 6.5,
+   "event": false,
+   "portal": "Secluded Thicket Portal",
+   "portalType": 13983,
+   "droppers": [
+    {
+     "name": "Rhinoceros",
+     "biome": "Floral Escape",
+     "kind": "enemy",
+     "always": false,
+     "type": 9830
+    },
+    {
+     "name": "Scutosaurus",
+     "biome": "Carboniferous",
+     "kind": "enemy",
+     "always": false,
+     "type": 9819
+    }
+   ]
+  },
+  {
+   "name": "High Tech Terror",
+   "difficulty": 6.5,
+   "event": false,
+   "portal": "High Tech Terror Portal",
+   "portalType": 15730,
+   "droppers": [
+    {
+     "name": "Hadopelagic Submersible",
+     "biome": "Deep Sea Abyss",
+     "kind": "enemy",
+     "always": false,
+     "type": 31509
+    },
+    {
+     "name": "Artificial Slop",
+     "biome": "",
+     "kind": "unlisted",
+     "always": true,
+     "type": 47973
+    }
+   ]
+  },
+  {
+   "name": "Ice Citadel",
+   "difficulty": 7,
+   "event": false,
+   "portal": "Ice Citadel Portal",
+   "portalType": 40189,
+   "droppers": [
+    {
+     "name": "Snow Yeti",
+     "biome": "Runic Tundra",
+     "kind": "enemy",
+     "always": false,
+     "type": 31508
+    },
+    {
+     "name": "Monstrous Grizzly",
+     "biome": "Runic Tundra",
+     "kind": "hero",
+     "always": false,
+     "type": 34518
+    },
+    {
+     "name": "Lord of the Lost Lands",
+     "biome": "Runic Tundra",
+     "kind": "event",
+     "always": true,
+     "type": 3408
+    }
+   ]
+  },
+  {
+   "name": "Moonlight Village",
+   "difficulty": 9,
+   "event": false,
+   "portal": "Moonlight Village Portal",
+   "portalType": 20447,
+   "droppers": [
+    {
+     "name": "Colossal Mantis",
+     "biome": "Carboniferous",
+     "kind": "enemy",
+     "always": false,
+     "type": 9820
+    },
+    {
+     "name": "Alluring Blossom",
+     "biome": "Floral Escape",
+     "kind": "hero",
+     "always": false,
+     "type": 16999
+    },
+    {
+     "name": "Ethereal Shrine",
+     "biome": "Carboniferous",
+     "kind": "event",
+     "always": true,
+     "type": 20800
+    }
+   ]
+  },
+  {
+   "name": "The Nest",
+   "difficulty": 7,
+   "event": true,
+   "portal": "The Epic Hive Portal",
+   "portalType": 4259,
+   "droppers": [
+    {
+     "name": "Corrupted Bramblethorn",
+     "biome": "Floral Escape",
+     "kind": "event",
+     "always": false,
+     "type": 51078
+    },
+    {
+     "name": "Killer Bee Nest",
+     "biome": "Floral Escape",
+     "kind": "event",
+     "always": false,
+     "type": 4278
+    }
+   ]
+  },
+  {
+   "name": "Fungal Cavern",
+   "difficulty": 7.5,
+   "event": true,
+   "portal": "GC Gigantic Cave Portal",
+   "portalType": 45679,
+   "droppers": [
+    {
+     "name": "Ancient Kaiju",
+     "biome": "Carboniferous",
+     "kind": "event",
+     "always": false,
+     "type": 34558
+    },
+    {
+     "name": "Crystal Worm Father",
+     "biome": "Carboniferous",
+     "kind": "event",
+     "always": false,
+     "type": 22138
+    },
+    {
+     "name": "Sentient Monolith",
+     "biome": "Runic Tundra",
+     "kind": "event",
+     "always": false,
+     "type": 16935
+    },
+    {
+     "name": "Adult Baneserpent",
+     "biome": "Deep Sea Abyss",
+     "kind": "event",
+     "always": false,
+     "type": 34456
+    }
+   ]
+  },
+  {
+   "name": "Crystal Cavern",
+   "difficulty": 7.5,
+   "event": true,
+   "portal": "Crystal Cave Portal",
+   "portalType": 10042,
+   "droppers": [
+    {
+     "name": "Crystal Worm Mother",
+     "biome": "",
+     "kind": "event",
+     "always": false,
+     "type": 45712
+    }
+   ]
+  },
+  {
+   "name": "Spectral Penitentiary",
+   "difficulty": 8,
+   "event": true,
+   "portal": "SpecPen Portal",
+   "portalType": 23691,
+   "droppers": [
+    {
+     "name": "Spectral Jailer",
+     "biome": "",
+     "kind": "hero",
+     "always": false,
+     "type": 44337
+    },
+    {
+     "name": "Skeletal Centipede",
+     "biome": "Sanguine Forest",
+     "kind": "event",
+     "always": false,
+     "type": 34493
+    }
+   ]
+  },
+  {
+   "name": "Kogbold Steamworks",
+   "difficulty": 8,
+   "event": true,
+   "portal": "Kogbold Steamworks Portal",
+   "portalType": 49433,
+   "droppers": [
+    {
+     "name": "Aerial Warship",
+     "biome": "Runic Tundra",
+     "kind": "event",
+     "always": false,
+     "type": 51075
+    },
+    {
+     "name": "Kogbold Expedition Engine",
+     "biome": "Floral Escape",
+     "kind": "event",
+     "always": false,
+     "type": 14601
+    }
+   ]
+  },
+  {
+   "name": "Lost Halls",
+   "difficulty": 8,
+   "event": true,
+   "portal": "Lost Halls Portal",
+   "portalType": 45092,
+   "droppers": [
+    {
+     "name": "Bloodroot Heart",
+     "biome": "Sanguine Forest",
+     "kind": "event",
+     "always": false,
+     "type": 34581
+    },
+    {
+     "name": "Ravenous Rot",
+     "biome": "Sanguine Forest",
+     "kind": "event",
+     "always": false,
+     "type": 16990
+    },
+    {
+     "name": "Lost Sentry",
+     "biome": "Sanguine Forest",
+     "kind": "event",
+     "always": false,
+     "type": 22146
+    }
+   ]
+  },
+  {
+   "name": "The Shatters",
+   "difficulty": 10,
+   "event": true,
+   "portal": "Shatters Sentinel Portal",
+   "portalType": 14883,
+   "droppers": [
+    {
+     "name": "Behemoth's Egg",
+     "biome": "Carboniferous",
+     "kind": "event",
+     "always": false,
+     "type": 20799
+    },
+    {
+     "name": "Avatar of the Forgotten King",
+     "biome": "Sanguine Forest",
+     "kind": "event",
+     "always": false,
+     "type": 21959
+    }
+   ]
+  }
+ ]
+}

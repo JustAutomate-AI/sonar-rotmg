@@ -202,6 +202,12 @@ final class ShattersRadar {
          */
         int rank;
 
+        /**
+         * Which of the realm filter's picks it can drop, one bit per pick in the order they were
+         * picked; 0 for none. Anything non-zero gets a picture in the filter's lime, trash or not.
+         */
+        int drops;
+
         /** The icon the game's own minimap gives this object, from its XML; null for none. */
         String piece;
 
@@ -458,11 +464,13 @@ final class ShattersRadar {
                 // the game's quest panel shows these with a portrait, their health and where they are
                 if (e.id == GameData.questId || GameData.questList.contains(e.id)) rank = RANK_BOSS;
                 m.rank = rank;
+                // the realm filter: an enemy that can drop a dungeon being hunted gets its picture back
+                m.drops = RealmFilter.inRealm() ? RealmFilter.dropsFor(e.objectType, rank) : 0;
             }
             found.add(m);
         }
         // drawn in this order, so the marks that matter land on top of the crowd
-        found.sort(java.util.Comparator.comparingInt(a -> a.rank));
+        found.sort(java.util.Comparator.comparingInt(a -> a.rank * 2 + (a.drops != 0 ? 1 : 0)));
         java.util.Map<Integer, Mark> byId = new java.util.HashMap<>();
         for (Mark m : found) if (m.eid >= 0) byId.put(m.eid, m);
         lastById = byId;

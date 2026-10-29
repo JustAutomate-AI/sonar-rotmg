@@ -712,6 +712,7 @@ class ShattersOverlayWindow extends JWindow {
             if (!getsPicture(m)) continue;
             paintMark(g, m, x, y, tilesWide);
         }
+        paintFilterNote(g, w, h);
     }
 
     /** Ground nobody has walked on, near enough to black to read as the game's own unexplored map. */
@@ -775,11 +776,15 @@ class ShattersOverlayWindow extends JWindow {
         java.awt.image.BufferedImage pieceFace = m.piece != null ? faceOf(m.kindId()) : null;
         if (m.piece != null && pieceFace == null && paintPiece(g, m.piece, x, y)) return;
         java.awt.image.BufferedImage face = pieceFace != null ? pieceFace : faceOf(m.kindId());
+        boolean hunted = m.drops != 0;
         if (m.rank == ShattersRadar.RANK_BOSS) {
             int size = Math.max(IMPORTANT_SIZE, face == null ? 0 : faceSizeFor(pixelsPerTile, face.getWidth(), true));
-            paintRinged(g, m, face, x, y, size, 8, 2.5f);
+            paintRinged(g, m, face, x, y, size, 8, hunted ? 3f : 2.5f);
         } else if (m.rank == ShattersRadar.RANK_MINI) {
-            paintRinged(g, m, face, x, y, miniSize(dotPx), 6, 2f);
+            paintRinged(g, m, face, x, y, miniSize(dotPx), 6, hunted ? 2.5f : 2f);
+        } else if (hunted) {
+            // trash that drops a dungeon being hunted: miniboss-sized, a touch more room in its ring
+            paintRinged(g, m, face, x, y, miniSize(dotPx), 8, 2.5f);
         } else {
             paintStandIn(g, m, x, y);
         }
@@ -794,7 +799,75 @@ class ShattersOverlayWindow extends JWindow {
      * heroes, and whatever the quest panel shows.
      */
     static boolean getsPicture(ShattersRadar.Mark m) {
-        return m.type == ShattersRadar.FOE && m.rank >= ShattersRadar.RANK_MINI;
+        return m.type == ShattersRadar.FOE && (m.rank >= ShattersRadar.RANK_MINI || m.drops != 0);
+    }
+
+    /**
+     * The colour of a picture's ring: the filter's lime for anything that drops a dungeon being
+     * hunted, or else the colour of the game's own icon for it - a purple ring where the game
+     * draws a purple skull - and red where it has none.
+     */
+    static Color ringTint(ShattersRadar.Mark m) {
+        if (m.drops != 0) return RealmFilter.LIME;
+        Color tint = m.piece != null ? MinimapIcons.colorOf(m.kindId()) : null;
+        return tint != null ? tint : new Color(255, 70, 70);
+    }
+
+    /** How many marks drop each of the filter's picks, by pick. */
+    static int[] filterCounts(java.util.List<ShattersRadar.Mark> marks, int picks) {
+        int[] counts = new int[Math.max(0, picks)];
+        for (ShattersRadar.Mark m : marks) {
+            if (m.type != ShattersRadar.FOE || m.drops == 0) continue;
+            for (int i = 0; i < counts.length; i++) if ((m.drops & (1 << i)) != 0) counts[i]++;
+        }
+        return counts;
+    }
+
+    /** What the filter's corner note says for each pick: one pick in words, two or three as counts. */
+    static java.util.List<String> filterWords(java.util.List<String> picks, int[] near) {
+        java.util.List<String> words = new java.util.ArrayList<>();
+        if (picks.size() == 1) words.add(picks.get(0) + "  ·  " + (near[0] == 0 ? "none nearby" : near[0] + " nearby"));
+        else for (int n : near) words.add(String.valueOf(n));
+        return words;
+    }
+
+    /**
+     * The realm filter's note in the minimap's bottom-left corner: what is being hunted, and how
+     * many of its droppers are near. Only in the realm and only while something is picked, so it
+     * also says the filter is on when nothing near drops anything.
+     */
+    private void paintFilterNote(Graphics2D g, int w, int h) {
+        java.util.List<String> picks = RealmFilter.picks();
+        if (picks.isEmpty() || !RealmFilter.inRealm()) return;
+        int[] near = filterCounts(ShattersRadar.live(), picks.size());
+        double scale = dotPx / 10.0;
+        int chipH = (int) Math.round(24 * scale), icon = chipH - (int) Math.round(6 * scale);
+        int pad = (int) Math.round(6 * scale), gap = (int) Math.round(5 * scale);
+        Font font = SonarTheme.bold((float) (12 * scale));
+        FontMetrics fm = g.getFontMetrics(font);
+        java.util.List<String> words = filterWords(picks, near);
+        int width = pad;
+        for (String s : words) width += icon + gap + fm.stringWidth(s) + pad + gap;
+        width = Math.min(width - gap + (int) Math.round(4 * scale), w - 16);
+        int x = (int) Math.round(8 * scale), y = h - (int) Math.round(8 * scale) - chipH;
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setColor(new Color(16, 12, 24, 215));
+        g2.fill(SonarTheme.round(x, y, width, chipH, chipH));
+        g2.setColor(RealmFilter.LIME);
+        g2.setStroke(new BasicStroke((float) Math.max(1.2, 1.5 * scale)));
+        g2.draw(SonarTheme.round(x + 0.75, y + 0.75, width - 1.5, chipH - 1.5, chipH));
+        g2.setClip(new java.awt.geom.RoundRectangle2D.Double(x, y, width, chipH, chipH, chipH));
+        g2.setFont(font);
+        int cx = x + pad;
+        for (int i = 0; i < words.size(); i++) {
+            RealmFilter.Dungeon d = RealmFilter.dungeon(picks.get(i));
+            if (d != null) RealmFilterPicker.drawSprite(g2, d.portalType, cx, y + (chipH - icon) / 2.0, icon);
+            cx += icon + gap;
+            g2.setColor(near[i] > 0 ? SonarTheme.TEXT : SonarTheme.MUTED);
+            g2.drawString(words.get(i), cx, y + (chipH - fm.getHeight()) / 2 + fm.getAscent());
+            cx += fm.stringWidth(words.get(i)) + pad + gap;
+        }
+        g2.dispose();
     }
 
     /**
@@ -819,8 +892,7 @@ class ShattersOverlayWindow extends JWindow {
     /** A sprite in a ring the colour of the game's icon for it. */
     private void paintRinged(Graphics2D g, ShattersRadar.Mark m, java.awt.image.BufferedImage face, int x, int y,
                              int size, int ringGap, float stroke) {
-        Color tint = m.piece != null ? MinimapIcons.colorOf(m.kindId()) : null;
-        if (tint == null) tint = new Color(255, 70, 70);
+        Color tint = ringTint(m);
         int ring = size + ringGap;
         g.setStroke(new BasicStroke(stroke));
         g.setColor(new Color(0, 0, 0, 170));
@@ -1045,7 +1117,7 @@ class ShattersOverlayWindow extends JWindow {
      * People, ways through and events are never dropped. They are what the map is for.
      */
     static boolean worthDrawing(ShattersRadar.Mark m, double tilesWide) {
-        if (m.type != ShattersRadar.FOE || m.rank >= ShattersRadar.RANK_MINI || m.piece != null) return true;
+        if (m.type != ShattersRadar.FOE || m.rank >= ShattersRadar.RANK_MINI || m.drops != 0 || m.piece != null) return true;
         // trash is trash at every zoom: zoomed right out it is left off, whatever its sprite
         return tilesWide <= LESSER_UNTIL;
     }
