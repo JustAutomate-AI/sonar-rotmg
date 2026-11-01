@@ -65,6 +65,12 @@ final class MinimapIcons {
         return RANK_NONE;
     }
 
+    /** Whether the icons have been read; starts reading them if not. */
+    static boolean ready() {
+        if (pieces == null) startLoading();
+        return pieces != null;
+    }
+
     /** The minimap icon the game draws for this object type, or null for none. */
     static String pieceOf(int objectType) {
         java.util.Map<Integer, String> p = pieces;

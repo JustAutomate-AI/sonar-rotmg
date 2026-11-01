@@ -59,7 +59,99 @@ class ShattersOverlayWindow extends JWindow {
         if (want) {
             followGameWindow();
             startFrames();
+            watchGameMenu();
         }
+    }
+
+    // ---- the game's own Escape menu ----
+
+    /**
+     * Whether the game's Escape menu is up.
+     * <p>
+     * The menu dims the whole window, minimap and all, and a scroll in it belongs to the menu.
+     * The overlay used to go on drawing over it, and to take every scroll as a zoom, so it came
+     * back out of step with the minimap until zoomed all the way out and in again. While the
+     * menu is up it now draws nothing and takes no zoom from the wheel, the keys or the buttons.
+     * <p>
+     * Nothing in a packet says the menu is open. What changes on screen is the minimap's frame:
+     * it is drawn in one exact grey, the one {@link MinimapLocator} finds the minimap by, and
+     * the menu dims it with everything else. So a thin strip of the frame on each side of the
+     * minimap is read - straight after Escape, then every few tenths of a second while the menu
+     * may be up, and once a second otherwise, to catch it opened from the game's own button.
+     * Two strips of 12 by a couple of hundred pixels, not the whole window, which is what made
+     * the game stutter when it was read every second and a half.
+     * <p>
+     * The frame only counts as gone once it has been seen, so a screen where its grey never
+     * matches leaves the overlay showing rather than hiding it for good.
+     */
+    private volatile boolean gameMenuUp;
+    private boolean frameEverSeen;
+    private int framesMissing;
+    private long nextMenuCheck, escapeAt;
+    private java.awt.Robot frameReader;
+
+    /** The minimap frame's grey, as {@link MinimapLocator} knows it. */
+    static final int FRAME_GREY = -8553091;
+
+    private static final int VK_ESCAPE = 0x1B;
+
+    boolean gameMenuUp() {
+        return gameMenuUp;
+    }
+
+    private void watchGameMenu() {
+        long now = System.currentTimeMillis();
+        if (down(VK_ESCAPE) || pressedSinceLastLook(VK_ESCAPE)) escapeAt = now;
+        boolean justEscaped = now - escapeAt < 3000;
+        if (!gameMenuUp && !justEscaped && now < nextMenuCheck) return;
+        nextMenuCheck = now + 1000;
+        Boolean showing = frameShowing();
+        if (showing == null) return;
+        if (showing) {
+            frameEverSeen = true;
+            framesMissing = 0;
+            if (gameMenuUp) setGameMenuUp(false);
+            return;
+        }
+        if (!frameEverSeen) return;
+        framesMissing++;
+        // after Escape one look is enough; otherwise two in a row, so a card or a dragged item
+        // passing over the frame does not blink the overlay out
+        if (!gameMenuUp && framesMissing >= (justEscaped ? 1 : 2)) setGameMenuUp(true);
+    }
+
+    private void setGameMenuUp(boolean up) {
+        gameMenuUp = up;
+        System.out.println("[overlay] game menu " + (up ? "up: standing aside" : "gone: back"));
+        repaint();
+    }
+
+    /** Whether the minimap's frame is on screen undimmed, or null when the screen cannot be read. */
+    private Boolean frameShowing() {
+        Rectangle b = getBounds();
+        if (b.width < 32 || b.height < 32) return null;
+        try {
+            if (frameReader == null) frameReader = new java.awt.Robot();
+            int top = b.y + b.height / 4, band = b.height / 2;
+            java.awt.image.BufferedImage left = frameReader.createScreenCapture(new Rectangle(b.x - 10, top, 12, band));
+            if (frameIn(left)) return true;
+            java.awt.image.BufferedImage right = frameReader.createScreenCapture(new Rectangle(b.x + b.width - 2, top, 12, band));
+            return frameIn(right);
+        } catch (Throwable cannotRead) {
+            return null;
+        }
+    }
+
+    /** Whether a strip holds the frame: a good run of its exact grey, which a dimmed frame never has. */
+    static boolean frameIn(java.awt.image.BufferedImage strip) {
+        if (strip == null) return false;
+        int seen = 0;
+        for (int y = 0; y < strip.getHeight(); y++) {
+            for (int x = 0; x < strip.getWidth(); x++) {
+                if (strip.getRGB(x, y) == FRAME_GREY && ++seen >= 20) return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -310,6 +402,8 @@ class ShattersOverlayWindow extends JWindow {
         int w = getWidth(), h = getHeight();
         // a menu the game drew under us is more use than anything we would draw over it
         if (standingAside()) return;
+        // and so is the game's own Escape menu, which dims the minimap under us
+        if (gameMenuUp) return;
         // and so is the card it shows for whoever the pointer is resting on: the whole overlay
         // fades nearly away while it is up, so the card reads as clearly as it does without Sonar
         long nowNs = System.nanoTime();
@@ -702,15 +796,38 @@ class ShattersOverlayWindow extends JWindow {
     private void paintEnemiesOnly(Graphics2D g, int w, int h, double tilesWide, double tilesHigh) {
         dotPx = dotFor(w, h);
         double cx = w / 2.0, cy = h / 2.0;
+        boolean onlyHunted = RealmFilter.hidesOtherEvents();
+        java.util.List<ShattersRadar.Mark> portals = new java.util.ArrayList<>();
         for (ShattersRadar.Mark m : ShattersRadar.live()) {
+            if (marksPortal(m)) {
+                portals.add(m);
+                continue;
+            }
             if (m.type != ShattersRadar.FOE) continue;
             double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
             if (off == null) continue;
             int x = (int) Math.round(cx + off[0] * pixelsPerTile);
             int y = (int) Math.round(cy + off[1] * pixelsPerTile);
             if (x < -8 || y < -8 || x > w + 8 || y > h + 8) continue;
-            if (!getsPicture(m)) continue;
+            if (!getsPicture(m, onlyHunted)) continue;
             paintMark(g, m, x, y, tilesWide);
+        }
+        // a hunted dungeon's portal goes on top of everything, held at the frame's edge when it
+        // is outside what the minimap shows, so it is never missed
+        for (ShattersRadar.Mark m : portals) {
+            double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
+            if (off == null) continue;
+            double px = cx + off[0] * pixelsPerTile, py = cy + off[1] * pixelsPerTile;
+            int margin = 20;
+            boolean beyond = px < margin || py < margin || px > w - margin || py > h - margin;
+            if (beyond) {
+                double dx = px - cx, dy = py - cy;
+                double t = Math.min(dx == 0 ? Double.MAX_VALUE : (dx > 0 ? (w - margin - cx) : (margin - cx)) / dx,
+                        dy == 0 ? Double.MAX_VALUE : (dy > 0 ? (h - margin - cy) : (margin - cy)) / dy);
+                px = cx + dx * t;
+                py = cy + dy * t;
+            }
+            paintPortal(g, m, (int) Math.round(px), (int) Math.round(py), beyond);
         }
         paintFilterNote(g, w, h);
     }
@@ -765,6 +882,10 @@ class ShattersOverlayWindow extends JWindow {
     static final int IMPORTANT_SIZE = Math.max(24, Math.min(64, getInt("sonar.shatters.bosssize", 36)));
 
     private void paintMark(Graphics2D g, ShattersRadar.Mark m, int x, int y, double tilesWide) {
+        if (marksPortal(m)) {
+            paintPortal(g, m, x, y, false);
+            return;
+        }
         if (m.type != ShattersRadar.FOE) {
             paintMark(g, m.type, m.kindId(), x, y, tilesWide);
             return;
@@ -799,7 +920,181 @@ class ShattersOverlayWindow extends JWindow {
      * heroes, and whatever the quest panel shows.
      */
     static boolean getsPicture(ShattersRadar.Mark m) {
-        return m.type == ShattersRadar.FOE && (m.rank >= ShattersRadar.RANK_MINI || m.drops != 0);
+        return getsPicture(m, false);
+    }
+
+    /**
+     * The same, with the realm filter's "Show all events" switched off when {@code onlyHunted}:
+     * then an event or hero that drops nothing picked is left off too, and only what drops a
+     * picked dungeon is drawn.
+     */
+    static boolean getsPicture(ShattersRadar.Mark m, boolean onlyHunted) {
+        if (m.type != ShattersRadar.FOE) return false;
+        if (m.drops != 0) return true;
+        return !onlyHunted && m.rank >= ShattersRadar.RANK_MINI;
+    }
+
+    /** Whether a mark is the portal of a dungeon being hunted, which gets a mark of its own. */
+    static boolean marksPortal(ShattersRadar.Mark m) {
+        return m.type == ShattersRadar.DOOR && m.drops != 0;
+    }
+
+    /**
+     * For the screenshots: the realm filter's marks drawn by this overlay's own painting onto a
+     * picture of the game's minimap, without the game - a dropped portal mid-ping, the events
+     * with "Show all events" on and off, and a potion's droppers. Each mark is placed by hand on
+     * the picture; what is drawn, and how, is the real thing.
+     */
+    static void writePreviews(java.io.File ground, java.io.File outDir) {
+        java.util.List<String> keptPicks = RealmFilter.picks(), keptPotions = RealmFilter.potionPicks();
+        boolean keptAll = RealmFilter.showAllEvents();
+        ShattersOverlayWindow w = null;
+        try {
+            java.awt.image.BufferedImage base = javax.imageio.ImageIO.read(ground);
+            if (base == null) return;
+            outDir.mkdirs();
+            for (int i = 0; i < 60 && !MinimapIcons.ready(); i++) Thread.sleep(100);
+            RealmFilter.dungeons();
+            w = new ShattersOverlayWindow();
+            int W = base.getWidth(), H = base.getHeight();
+            w.dotPx = dotFor(W, H);
+
+            // a dropped Undead Lair portal, half a second after it appeared, and one of its droppers
+            RealmFilter.setForTest(java.util.Collections.singletonList("Undead Lair"));
+            RealmFilter.setPotionsForTest(java.util.Collections.emptyList());
+            RealmFilter.Dungeon lair = RealmFilter.dungeon("Undead Lair");
+            ShattersRadar.Mark portal = ShattersRadar.markForTest(ShattersRadar.DOOR, lair.portalType, 0, 0);
+            portal.drops = 1;
+            portal.seenAt = System.nanoTime() - 500_000_000L;
+            ShattersRadar.Mark lairDropper = ShattersRadar.markForTest(ShattersRadar.FOE, firstRinged(lair.droppers), 0, 0);
+            lairDropper.drops = 1;
+            writeScene(w, base, new java.io.File(outDir, "portal.png"), new ShattersRadar.Mark[]{lairDropper, portal},
+                    new int[][]{{291, 288}, {196, 210}}, false);
+
+            // Kogbold Steamworks: one of its events, and an event that drops something else
+            RealmFilter.setForTest(java.util.Collections.singletonList("Kogbold Steamworks"));
+            ShattersRadar.Mark kogbold = eventMark(RealmFilter.dungeon("Kogbold Steamworks"), 1);
+            ShattersRadar.Mark other = eventMark(RealmFilter.dungeon("Lost Halls"), 0);
+            ShattersRadar.Mark[] events = {kogbold, other};
+            int[][] eventsAt = {{132, 318}, {352, 150}};
+            writeScene(w, base, new java.io.File(outDir, "events-all.png"), events, eventsAt, false);
+            writeScene(w, base, new java.io.File(outDir, "events-only.png"), events, eventsAt, true);
+
+            // Potion of Mana: two of its droppers among the trash
+            RealmFilter.setForTest(java.util.Collections.emptyList());
+            RealmFilter.setPotionsForTest(java.util.Collections.singletonList("Mana"));
+            RealmFilter.Potion mana = RealmFilter.potion("Mana");
+            ShattersRadar.Mark a = ShattersRadar.markForTest(ShattersRadar.FOE, mana.droppers.get(0).spriteType(), 0, 0);
+            ShattersRadar.Mark b = ShattersRadar.markForTest(ShattersRadar.FOE, mana.droppers.get(9).spriteType(), 0, 0);
+            a.drops = b.drops = mana.bit();
+            writeScene(w, base, new java.io.File(outDir, "potion.png"), new ShattersRadar.Mark[]{a, b},
+                    new int[][]{{254, 275}, {291, 288}}, false);
+            System.out.println("[preview] overlay pictures written to " + outDir);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (w != null) w.dispose();
+            RealmFilter.setForTest(keptPicks);
+            RealmFilter.setPotionsForTest(keptPotions);
+            RealmFilter.setShowAllEventsForTest(keptAll);
+        }
+    }
+
+    private static int firstRinged(java.util.List<RealmFilter.Dropper> droppers) {
+        for (RealmFilter.Dropper d : droppers) if (d.ringed()) return d.spriteType();
+        return droppers.isEmpty() ? 0 : droppers.get(0).spriteType();
+    }
+
+    /** One of a dungeon's events as a mark: the part the game gives a minimap icon. */
+    private static ShattersRadar.Mark eventMark(RealmFilter.Dungeon d, int drops) {
+        int type = 0;
+        for (RealmFilter.Dropper x : d.droppers) {
+            if (x.kind != RealmFilter.Kind.EVENT) continue;
+            for (int t : x.types) {
+                if (MinimapIcons.pieceOf(t) != null) {
+                    type = t;
+                    break;
+                }
+            }
+            if (type != 0) break;
+        }
+        ShattersRadar.Mark m = ShattersRadar.markForTest(ShattersRadar.FOE, type, 0, 0);
+        m.rank = ShattersRadar.RANK_BOSS;
+        m.piece = MinimapIcons.pieceOf(type);
+        m.drops = drops;
+        return m;
+    }
+
+    private static void writeScene(ShattersOverlayWindow w, java.awt.image.BufferedImage base, java.io.File out,
+                                   ShattersRadar.Mark[] marks, int[][] at, boolean onlyHunted) throws java.io.IOException {
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(base.getWidth(), base.getHeight(),
+                java.awt.image.BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        g.drawImage(base, 0, 0, null);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        java.util.List<ShattersRadar.Mark> all = java.util.Arrays.asList(marks);
+        for (int i = 0; i < marks.length; i++) {
+            ShattersRadar.Mark m = marks[i];
+            if (marksPortal(m)) w.paintPortal(g, m, at[i][0], at[i][1], false);
+            else if (getsPicture(m, onlyHunted)) w.paintMark(g, m, at[i][0], at[i][1], 300);
+        }
+        java.util.List<RealmFilter.Target> targets = RealmFilter.targets();
+        w.drawFilterNote(g, img.getWidth(), img.getHeight(), targets, targetCounts(all, targets, false), targetCounts(all, targets, true));
+        g.dispose();
+        javax.imageio.ImageIO.write(img, "png", out);
+    }
+
+    /** How many picked dungeons' portals are up, by pick. */
+    static int[] portalCounts(java.util.List<ShattersRadar.Mark> marks, int picks) {
+        int[] counts = new int[Math.max(0, picks)];
+        for (ShattersRadar.Mark m : marks) {
+            if (!marksPortal(m)) continue;
+            for (int i = 0; i < counts.length; i++) if ((m.drops & (1 << i)) != 0) counts[i]++;
+        }
+        return counts;
+    }
+
+    /**
+     * A hunted dungeon's portal: its own sprite, boss-sized, in the filter's lime ring, with
+     * rings spreading out from it for as long as it is there, brightest in the first seconds
+     * after it drops. The game gives a portal no mark on its minimap at all, so this is the only
+     * sign of it there. Held at the frame's edge, a little faded, when it is outside the view.
+     */
+    private void paintPortal(Graphics2D g, ShattersRadar.Mark m, int x, int y, boolean beyond) {
+        double scale = dotPx / 10.0;
+        int size = (int) Math.round(beyond ? IMPORTANT_SIZE * 0.72 : IMPORTANT_SIZE);
+        int ring = size + 10;
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        if (beyond) g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(0.82f));
+        double age = m.seenAt == 0 ? 0 : Math.max(0, (System.nanoTime() - m.seenAt) / 1e9);
+        double period = 1.4;
+        double strength = age < 12 ? 1.0 : 0.55;
+        for (int k = 0; k < 2; k++) {
+            double phase = ((age / period) + k * 0.5) % 1.0;
+            double r = ring / 2.0 + phase * 22 * scale;
+            g2.setStroke(new BasicStroke((float) (1 + 2.5 * (1 - phase))));
+            g2.setColor(SonarTheme.alpha(RealmFilter.LIME, (1 - phase) * 0.85 * strength));
+            g2.draw(new java.awt.geom.Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
+        }
+        // a dark disc behind it, so the portal reads over any ground
+        g2.setColor(new Color(10, 8, 20, 175));
+        g2.fill(new java.awt.geom.Ellipse2D.Double(x - ring / 2.0, y - ring / 2.0, ring, ring));
+        g2.setStroke(new BasicStroke(3f));
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.drawOval(x - ring / 2 - 1, y - ring / 2 - 1, ring + 2, ring + 2);
+        g2.setColor(RealmFilter.LIME);
+        g2.drawOval(x - ring / 2, y - ring / 2, ring, ring);
+        java.awt.image.BufferedImage face = faceOf(m.kindId());
+        if (face != null) {
+            double fit = Math.min(size / (double) face.getWidth(), size / (double) face.getHeight());
+            int fw = (int) Math.round(face.getWidth() * fit), fh = (int) Math.round(face.getHeight() * fit);
+            g2.drawImage(face, x - fw / 2, y - fh / 2, fw, fh, null);
+        } else {
+            int d = size / 3;
+            g2.fillPolygon(new int[]{x, x + d, x, x - d}, new int[]{y - d, y, y + d, y}, 4);
+        }
+        g2.dispose();
     }
 
     /**
@@ -808,7 +1103,7 @@ class ShattersOverlayWindow extends JWindow {
      * draws a purple skull - and red where it has none.
      */
     static Color ringTint(ShattersRadar.Mark m) {
-        if (m.drops != 0) return RealmFilter.LIME;
+        if (m.drops != 0) return RealmFilter.ringColour(m.drops);
         Color tint = m.piece != null ? MinimapIcons.colorOf(m.kindId()) : null;
         return tint != null ? tint : new Color(255, 70, 70);
     }
@@ -825,9 +1120,18 @@ class ShattersOverlayWindow extends JWindow {
 
     /** What the filter's corner note says for each pick: one pick in words, two or three as counts. */
     static java.util.List<String> filterWords(java.util.List<String> picks, int[] near) {
+        return filterWords(picks, near, new int[near.length]);
+    }
+
+    /** The same, saying so when a picked dungeon's portal is up, which matters more than any count. */
+    static java.util.List<String> filterWords(java.util.List<String> picks, int[] near, int[] portals) {
         java.util.List<String> words = new java.util.ArrayList<>();
-        if (picks.size() == 1) words.add(picks.get(0) + "  ·  " + (near[0] == 0 ? "none nearby" : near[0] + " nearby"));
-        else for (int n : near) words.add(String.valueOf(n));
+        if (picks.size() == 1) {
+            String state = portals[0] > 0 ? "portal is up!" : near[0] == 0 ? "none nearby" : near[0] + " nearby";
+            words.add(picks.get(0) + "  ·  " + state);
+        } else {
+            for (int i = 0; i < near.length; i++) words.add(portals[i] > 0 ? "portal!" : String.valueOf(near[i]));
+        }
         return words;
     }
 
@@ -837,15 +1141,41 @@ class ShattersOverlayWindow extends JWindow {
      * also says the filter is on when nothing near drops anything.
      */
     private void paintFilterNote(Graphics2D g, int w, int h) {
-        java.util.List<String> picks = RealmFilter.picks();
-        if (picks.isEmpty() || !RealmFilter.inRealm()) return;
-        int[] near = filterCounts(ShattersRadar.live(), picks.size());
+        java.util.List<RealmFilter.Target> targets = RealmFilter.targets();
+        if (targets.isEmpty() || !RealmFilter.inRealm()) return;
+        java.util.List<ShattersRadar.Mark> live = ShattersRadar.live();
+        drawFilterNote(g, w, h, targets, targetCounts(live, targets, false), targetCounts(live, targets, true));
+    }
+
+    /**
+     * For each thing hunted, how many of its droppers are near, or with {@code portals}, how many
+     * of its portals are up - a dungeon's only, since a potion has none.
+     */
+    static int[] targetCounts(java.util.List<ShattersRadar.Mark> marks, java.util.List<RealmFilter.Target> targets, boolean portals) {
+        int[] counts = new int[targets.size()];
+        for (ShattersRadar.Mark m : marks) {
+            boolean counted = portals ? marksPortal(m) : m.type == ShattersRadar.FOE && m.drops != 0;
+            if (!counted) continue;
+            for (int i = 0; i < counts.length; i++) {
+                RealmFilter.Target t = targets.get(i);
+                if (portals && !t.dungeon) continue;
+                if ((m.drops & t.bit) != 0) counts[i]++;
+            }
+        }
+        return counts;
+    }
+
+    private void drawFilterNote(Graphics2D g, int w, int h, java.util.List<RealmFilter.Target> targets, int[] near, int[] portals) {
+        java.util.List<String> picks = new java.util.ArrayList<>();
+        for (RealmFilter.Target t : targets) picks.add(t.name);
+        boolean portalUp = false;
+        for (int p : portals) portalUp |= p > 0;
         double scale = dotPx / 10.0;
         int chipH = (int) Math.round(24 * scale), icon = chipH - (int) Math.round(6 * scale);
         int pad = (int) Math.round(6 * scale), gap = (int) Math.round(5 * scale);
         Font font = SonarTheme.bold((float) (12 * scale));
         FontMetrics fm = g.getFontMetrics(font);
-        java.util.List<String> words = filterWords(picks, near);
+        java.util.List<String> words = filterWords(picks, near, portals);
         int width = pad;
         for (String s : words) width += icon + gap + fm.stringWidth(s) + pad + gap;
         width = Math.min(width - gap + (int) Math.round(4 * scale), w - 16);
@@ -854,16 +1184,17 @@ class ShattersOverlayWindow extends JWindow {
         g2.setColor(new Color(16, 12, 24, 215));
         g2.fill(SonarTheme.round(x, y, width, chipH, chipH));
         g2.setColor(RealmFilter.LIME);
-        g2.setStroke(new BasicStroke((float) Math.max(1.2, 1.5 * scale)));
+        g2.setStroke(new BasicStroke((float) Math.max(1.2, (portalUp ? 2.5 : 1.5) * scale)));
         g2.draw(SonarTheme.round(x + 0.75, y + 0.75, width - 1.5, chipH - 1.5, chipH));
         g2.setClip(new java.awt.geom.RoundRectangle2D.Double(x, y, width, chipH, chipH, chipH));
         g2.setFont(font);
         int cx = x + pad;
         for (int i = 0; i < words.size(); i++) {
-            RealmFilter.Dungeon d = RealmFilter.dungeon(picks.get(i));
-            if (d != null) RealmFilterPicker.drawSprite(g2, d.portalType, cx, y + (chipH - icon) / 2.0, icon);
+            RealmFilterPicker.drawSprite(g2, targets.get(i).sprite, cx, y + (chipH - icon) / 2.0, icon);
             cx += icon + gap;
-            g2.setColor(near[i] > 0 ? SonarTheme.TEXT : SonarTheme.MUTED);
+            // a potion's count in its own colour, the colour its droppers' rings are
+            Color own = targets.get(i).dungeon ? SonarTheme.TEXT : targets.get(i).colour;
+            g2.setColor(portals[i] > 0 ? RealmFilter.LIME : near[i] > 0 ? own : SonarTheme.MUTED);
             g2.drawString(words.get(i), cx, y + (chipH - fm.getHeight()) / 2 + fm.getAscent());
             cx += fm.stringWidth(words.get(i)) + pad + gap;
         }
@@ -2131,6 +2462,12 @@ class ShattersOverlayWindow extends JWindow {
             return;
         }
         int[] mirror = GameKeys.minimapZoom();
+        if (gameMenuUp) {
+            // the keys do nothing to the minimap while the menu is up, so they do nothing here
+            plusWasDown = down(mirror[0]);
+            minusWasDown = down(mirror[1]);
+            return;
+        }
         boolean mods = down(VK_CONTROL) && down(VK_SHIFT);
         boolean plus = down(mirror[0]) || (mods && (down(VK_OEM_PLUS) || down(VK_ADD)));
         boolean minus = down(mirror[1]) || (mods && (down(VK_OEM_MINUS) || down(VK_SUBTRACT)));
@@ -2185,6 +2522,7 @@ class ShattersOverlayWindow extends JWindow {
         boolean clicked = (nowDown && !clickWasDown) || (!nowDown && pressedSinceLastLook(VK_LBUTTON));
         clickWasDown = nowDown;
         if (!gameItselfInFront()) return;   // the game's buttons cannot be clicked when it is not in front
+        if (gameMenuUp) return;             // and the menu covers them while it is up
         // while calibrating the window takes its own clicks, and those mean something else
         if (!clicked || calibrating || !isVisible()) return;
         Point at;
@@ -2308,6 +2646,8 @@ class ShattersOverlayWindow extends JWindow {
 
     private void wheeled(int screenX, int screenY, int notches) {
         if (calibrating || !isVisible() || !gameItselfInFront()) return;
+        // a scroll in the game's menu is the menu's, and the minimap does not move
+        if (gameMenuUp) return;
         if (!wheelIsForUs(gameBox(), getBounds(), screenX, screenY)) return;
         // away from you is a lower rung, the same direction the plus button goes
         int by = notches > 0 ? -1 : 1;

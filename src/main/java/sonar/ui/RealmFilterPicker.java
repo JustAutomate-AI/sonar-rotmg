@@ -30,9 +30,14 @@ final class RealmFilterPicker {
     private final Grid grid = new Grid();
     private final Detail detail = new Detail();
     private final JLabel overlayNote = new JLabel();
+    private final Tabs tabs = new Tabs();
     private final BooleanSupplier overlayOn;
     private final Runnable heard;
     private String focus;
+    /** The potion in focus on the Potions tab. */
+    private String potionFocus;
+    /** Which tab the grid shows: dungeons, or the eight stat potions. */
+    private boolean potionTab;
 
     /** Opens the picker over Sonar, or brings it forward if it is open already. */
     static void open(Component near, BooleanSupplier overlayOn) {
@@ -67,14 +72,27 @@ final class RealmFilterPicker {
         sync();
     }
 
+    /** For a screenshot: the Potions tab, with a potion in focus. */
+    void showPotions(String name) {
+        potionTab = true;
+        if (name != null && RealmFilter.potion(name) != null) potionFocus = name;
+        sync();
+    }
+
     private RealmFilterPicker(Window owner, BooleanSupplier overlayOn) {
         this.overlayOn = overlayOn == null ? () -> true : overlayOn;
         List<String> picks = RealmFilter.picks();
         List<RealmFilter.Dungeon> all = RealmFilter.dungeons();
         focus = !picks.isEmpty() ? picks.get(picks.size() - 1) : all.isEmpty() ? null : all.get(0).name;
+        List<String> pots = RealmFilter.potionPicks();
+        List<RealmFilter.Potion> allPots = RealmFilter.potions();
+        potionFocus = !pots.isEmpty() ? pots.get(pots.size() - 1) : allPots.isEmpty() ? null : allPots.get(0).name;
+        // opens where the last pick was made: a potion hunter lands on the potions
+        potionTab = picks.isEmpty() && !pots.isEmpty();
 
         dialog = new JDialog(owner, "Realm filter", Dialog.ModalityType.MODELESS);
         dialog.setUndecorated(true);
+        if (System.getProperty("sonar.shot") != null) dialog.setAutoRequestFocus(false);
 
         JPanel body = new JPanel(new BorderLayout(0, 14)) {
             @Override
@@ -103,7 +121,7 @@ final class RealmFilterPicker {
                 g2.setColor(SonarTheme.FAINT);
                 Insets in = getInsets();
                 FontMetrics fm = g2.getFontMetrics();
-                g2.drawString("Medusa, Mad Lab, Risen Hell…", in.left,
+                g2.drawString(potionTab ? "Life, Abandoned City, Medusa…" : "Medusa, Mad Lab, Risen Hell…", in.left,
                         (getHeight() - fm.getHeight()) / 2 + fm.getAscent());
                 g2.dispose();
             }
@@ -136,7 +154,13 @@ final class RealmFilterPicker {
 
         JPanel middle = new JPanel(new BorderLayout(0, 10));
         middle.setOpaque(false);
-        middle.add(chips, BorderLayout.NORTH);
+        Box rows = Box.createVerticalBox();
+        chips.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabs.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rows.add(chips);
+        rows.add(Box.createVerticalStrut(6));
+        rows.add(tabs);
+        middle.add(rows, BorderLayout.NORTH);
         JPanel split = new JPanel(new BorderLayout(16, 0));
         split.setOpaque(false);
         grid.setOpaque(false);
@@ -184,6 +208,8 @@ final class RealmFilterPicker {
         boolean on = overlayOn.getAsBoolean();
         overlayNote.setVisible(!on);
         chips.repaint();
+        tabs.repaint();
+        search.repaint();
         grid.repaint();
         detail.repaint();
     }
@@ -196,9 +222,9 @@ final class RealmFilterPicker {
         JLabel title = SonarTheme.label("Realm filter");
         title.setFont(SonarTheme.bold(21f));
         title.setForeground(SonarTheme.TEXT);
-        JLabel sub = SonarTheme.label("<html><body style='width:500px'>Pick up to three dungeons. The minimap overlay "
-                + "then gives a picture to every realm enemy that can drop one of them. All other trash stays "
-                + "the game's red dot.</body></html>");
+        JLabel sub = SonarTheme.label("<html><body style='width:500px'>Pick up to three dungeons, and any of the eight "
+                + "stat potions. The minimap overlay then gives a picture to every realm enemy that can drop one of "
+                + "them. All other trash stays the game's red dot.</body></html>");
         sub.setFont(SonarTheme.font(13f));
         sub.setForeground(SonarTheme.MUTED);
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -260,8 +286,8 @@ final class RealmFilterPicker {
         overlayNote.setFont(SonarTheme.bold(12f));
         overlayNote.setForeground(SonarTheme.GOLD);
         overlayNote.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel about = SonarTheme.label("<html><body style='width:620px'>Who drops which portal is from the RealmEye "
-                + "wiki. The game tells Sonar about ordinary enemies only when they are near you, so the rings show "
+        JLabel about = SonarTheme.label("<html><body style='width:620px'>Who drops which portal and potion is from the "
+                + "RealmEye wiki. The game tells Sonar about ordinary enemies only when they are near you, so the rings show "
                 + "droppers as you pass them, not across the whole realm.</body></html>");
         about.setFont(SonarTheme.font(11.5f));
         about.setForeground(SonarTheme.FAINT);
@@ -500,9 +526,19 @@ final class RealmFilterPicker {
         }
     }
 
-    /** The row of what is on the minimap now: a chip per pick, each with its own way out, and Clear. */
+    /**
+     * The row of what is on the minimap now: a chip per pick, each with its own way out, Clear,
+     * and at the right the "Show all events" switch.
+     */
     private final class Chips extends Clickable {
         private final List<Object[]> zones = new ArrayList<>();
+        /** Stands for the events switch among the zones, where a pick's name would be. */
+        private final Object eventsSwitch = new Object();
+        private Rectangle switchZone = new Rectangle();
+
+        Chips() {
+            ToolTipManager.sharedInstance().registerComponent(this);
+        }
 
         @Override
         public Dimension getPreferredSize() {
@@ -510,13 +546,25 @@ final class RealmFilterPicker {
         }
 
         @Override
+        public String getToolTipText(MouseEvent e) {
+            if (!switchZone.contains(e.getPoint())) return null;
+            return RealmFilter.showAllEvents()
+                    ? "On: every event and hero keeps its picture. Switch off to see only the ones that drop what you picked."
+                    : "Off: while something is picked, only the events and heroes that drop it are marked.";
+        }
+
+        @Override
         void clicked(int x, int y) {
             for (Object[] z : zones) {
                 if (!((Rectangle) z[0]).contains(x, y)) continue;
-                if (z[1] == null) RealmFilter.clear();
-                else {
-                    focus = (String) z[1];
-                    RealmFilter.remove((String) z[1]);
+                if (z[1] == eventsSwitch) RealmFilter.setShowAllEvents(!RealmFilter.showAllEvents());
+                else if (z[1] == null) RealmFilter.clear();
+                else if (((String) z[1]).startsWith("p:")) {
+                    potionFocus = ((String) z[1]).substring(2);
+                    RealmFilter.removePotion(potionFocus);
+                } else {
+                    focus = ((String) z[1]).substring(2);
+                    RealmFilter.remove(focus);
                 }
                 sync();
                 return;
@@ -529,11 +577,34 @@ final class RealmFilterPicker {
             return false;
         }
 
+        /** The switch at the right end of the row; returns where the chips must stop. */
+        private int paintSwitch(Graphics2D g2, int h) {
+            boolean on = RealmFilter.showAllEvents();
+            String label = "Show all events";
+            g2.setFont(SonarTheme.bold(12.5f));
+            FontMetrics fm = g2.getFontMetrics();
+            int sw = 38, sh = 20, gap = 10;
+            int width = fm.stringWidth(label) + gap + sw;
+            int x0 = getWidth() - width - 2;
+            switchZone = new Rectangle(x0 - 6, 0, width + 8, h);
+            boolean hot = switchZone.contains(hoverX, hoverY);
+            g2.setColor(hot ? SonarTheme.TEXT : on ? SonarTheme.TEXT : SonarTheme.MUTED);
+            g2.drawString(label, x0, (h - fm.getHeight()) / 2 + fm.getAscent());
+            double sx = x0 + fm.stringWidth(label) + gap, sy = (h - sh) / 2.0;
+            g2.setColor(on ? SonarTheme.alpha(RealmFilter.LIME, hot ? 1.0 : 0.85) : new Color(255, 255, 255, hot ? 40 : 26));
+            g2.fill(SonarTheme.round(sx, sy, sw, sh, sh / 2.0));
+            g2.setColor(on ? SonarTheme.BG : SonarTheme.MUTED);
+            g2.fill(new java.awt.geom.Ellipse2D.Double(on ? sx + sw - sh + 3 : sx + 3, sy + 3, sh - 6, sh - 6));
+            zones.add(new Object[]{switchZone, eventsSwitch});
+            return switchZone.x - 16;
+        }
+
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = SonarTheme.quality(g.create());
             zones.clear();
             int h = getHeight();
+            int limit = paintSwitch(g2, h);
             g2.setFont(caps(11f));
             FontMetrics cm = g2.getFontMetrics();
             g2.setColor(SonarTheme.MUTED);
@@ -541,20 +612,38 @@ final class RealmFilterPicker {
             g2.drawString(caption, 0, (h - cm.getHeight()) / 2 + cm.getAscent());
             int x = cm.stringWidth(caption) + 14;
             List<String> picks = RealmFilter.picks();
-            if (picks.isEmpty()) {
+            // every pick as a chip: the dungeons, then the potions
+            List<Object[]> chipList = new ArrayList<>();
+            for (String name : picks) {
+                RealmFilter.Dungeon d = RealmFilter.dungeon(name);
+                chipList.add(new Object[]{name, d == null ? 0 : d.portalType, "d:" + name});
+            }
+            for (String name : RealmFilter.potionPicks()) {
+                RealmFilter.Potion p = RealmFilter.potion(name);
+                if (p != null) chipList.add(new Object[]{p.item, p.itemType, "p:" + name});
+            }
+            if (chipList.isEmpty()) {
                 g2.setFont(SonarTheme.font(13f));
                 FontMetrics fm = g2.getFontMetrics();
                 g2.setColor(SonarTheme.MUTED);
-                g2.drawString("Nothing picked, so no ordinary enemy gets a picture.", x, (h - fm.getHeight()) / 2 + fm.getAscent());
+                g2.drawString(SonarTheme.fit("Nothing picked, so no ordinary enemy gets a picture.", fm, limit - x),
+                        x, (h - fm.getHeight()) / 2 + fm.getAscent());
                 g2.dispose();
                 return;
             }
+            g2.setFont(SonarTheme.bold(12.5f));
+            int clearW = g2.getFontMetrics().stringWidth("Clear") + 28;
             int chipH = 34, cy = (h - chipH) / 2;
-            for (String name : picks) {
-                RealmFilter.Dungeon d = RealmFilter.dungeon(name);
+            // long names or many picks can outrun the row; each chip then shortens its name to fit,
+            // and when even that is too tight the chips are their pictures alone
+            int perChip = (limit - x - clearW - 12 - 8 * (chipList.size() - 1)) / chipList.size();
+            boolean iconsOnly = perChip < 100;
+            for (Object[] c : chipList) {
+                String name = (String) c[0];
                 g2.setFont(SonarTheme.bold(13f));
                 FontMetrics fm = g2.getFontMetrics();
-                int w = 8 + 24 + 8 + fm.stringWidth(name) + 10 + 10 + 12;
+                String shown = iconsOnly ? "" : SonarTheme.fit(name, fm, Math.max(40, perChip - (8 + 24 + 8 + 32)));
+                int w = iconsOnly ? 8 + 24 + 6 + 12 + 8 : 8 + 24 + 8 + fm.stringWidth(shown) + 10 + 10 + 12;
                 Rectangle r = new Rectangle(x, cy, w, chipH);
                 boolean hot = r.contains(hoverX, hoverY);
                 g2.setColor(SonarTheme.alpha(RealmFilter.LIME, hot ? 0.20 : 0.11));
@@ -562,20 +651,20 @@ final class RealmFilterPicker {
                 g2.setColor(RealmFilter.LIME);
                 g2.setStroke(new BasicStroke(1.5f));
                 g2.draw(SonarTheme.round(r.x + 0.75, r.y + 0.75, r.width - 1.5, r.height - 1.5, chipH));
-                if (d != null) drawSprite(g2, d.portalType, x + 8, cy + 5, 24);
+                drawSprite(g2, (Integer) c[1], x + 8, cy + 5, 24);
                 g2.setColor(SonarTheme.TEXT);
-                g2.drawString(name, x + 40, cy + (chipH - fm.getHeight()) / 2 + fm.getAscent());
+                if (!shown.isEmpty()) g2.drawString(shown, x + 40, cy + (chipH - fm.getHeight()) / 2 + fm.getAscent());
                 int xx = x + w - 20, yy = cy + chipH / 2;
                 g2.setColor(hot ? SonarTheme.TEXT : SonarTheme.MUTED);
                 g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 g2.drawLine(xx - 4, yy - 4, xx + 4, yy + 4);
                 g2.drawLine(xx + 4, yy - 4, xx - 4, yy + 4);
-                zones.add(new Object[]{r, name});
+                zones.add(new Object[]{r, c[2]});
                 x += w + 8;
             }
             g2.setFont(SonarTheme.bold(12.5f));
             FontMetrics fm = g2.getFontMetrics();
-            Rectangle clear = new Rectangle(x + 4, cy, fm.stringWidth("Clear") + 28, chipH);
+            Rectangle clear = new Rectangle(x + 4, cy, clearW, chipH);
             boolean hot = clear.contains(hoverX, hoverY);
             g2.setColor(hot ? SonarTheme.lift(0.08) : SonarTheme.RAISED);
             g2.fill(SonarTheme.round(clear.x, clear.y, clear.width, clear.height, 10));
@@ -590,12 +679,64 @@ final class RealmFilterPicker {
                 FontMetrics nm = g2.getFontMetrics();
                 String note = "Three picked: a fourth lets go of " + picks.get(0) + ".";
                 int nx = clear.x + clear.width + 14;
-                if (nx + nm.stringWidth(note) <= getWidth()) {
+                if (nx + nm.stringWidth(note) <= limit) {
                     g2.setColor(SonarTheme.FAINT);
                     g2.drawString(note, nx, (h - nm.getHeight()) / 2 + nm.getAscent());
                 }
             }
             g2.dispose();
+        }
+    }
+
+    /** Dungeons or potions: which of the two the grid shows. */
+    private final class Tabs extends Clickable {
+        private Rectangle dungeons = new Rectangle(), potions = new Rectangle();
+
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(10, 38);
+        }
+
+        @Override
+        void clicked(int x, int y) {
+            if (dungeons.contains(x, y)) potionTab = false;
+            else if (potions.contains(x, y)) potionTab = true;
+            else return;
+            sync();
+        }
+
+        @Override
+        boolean over(int x, int y) {
+            return dungeons.contains(x, y) || potions.contains(x, y);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = SonarTheme.quality(g.create());
+            g2.setFont(SonarTheme.bold(13f));
+            FontMetrics fm = g2.getFontMetrics();
+            String a = "Dungeons · " + RealmFilter.dungeons().size(), b = "Potions · " + RealmFilter.potions().size();
+            int h = 34, y0 = (getHeight() - h) / 2;
+            int wa = fm.stringWidth(a) + 32, wb = fm.stringWidth(b) + 32;
+            g2.setColor(SonarTheme.RAISED);
+            g2.fill(SonarTheme.round(0, y0, wa + wb + 6, h, 12));
+            dungeons = new Rectangle(3, y0 + 3, wa, h - 6);
+            potions = new Rectangle(3 + wa, y0 + 3, wb, h - 6);
+            paintTab(g2, dungeons, a, !potionTab, fm);
+            paintTab(g2, potions, b, potionTab, fm);
+            g2.dispose();
+        }
+
+        private void paintTab(Graphics2D g2, Rectangle r, String label, boolean on, FontMetrics fm) {
+            boolean hot = r.contains(hoverX, hoverY);
+            if (on) {
+                g2.setColor(SonarTheme.lift(0.12));
+                g2.fill(SonarTheme.round(r.x, r.y, r.width, r.height, 9));
+                g2.setColor(RealmFilter.LIME);
+                g2.fill(SonarTheme.round(r.x + 14, r.y + r.height - 3, r.width - 28, 2.5, 2.5));
+            }
+            g2.setColor(on || hot ? SonarTheme.TEXT : SonarTheme.MUTED);
+            g2.drawString(label, r.x + 16, r.y + (r.height - fm.getHeight()) / 2 + fm.getAscent());
         }
     }
 
@@ -618,6 +759,72 @@ final class RealmFilterPicker {
         /** Lays the grid out at a width; with a graphics, paints it too. Returns its height. */
         private int lay(Graphics2D g, int width) {
             if (g != null) tiles.clear();
+            return potionTab ? layPotions(g, width) : layDungeons(g, width);
+        }
+
+        /** The eight stat potions, each as its own sprite. */
+        private int layPotions(Graphics2D g, int width) {
+            List<RealmFilter.Potion> shown = new ArrayList<>();
+            for (RealmFilter.Potion p : RealmFilter.potions()) if (p.matches(search.getText())) shown.add(p);
+            if (shown.isEmpty()) {
+                if (g != null) {
+                    g.setFont(SonarTheme.font(13f));
+                    g.setColor(SonarTheme.MUTED);
+                    g.drawString("No potion, enemy or biome matches that search.", 0, g.getFontMetrics().getAscent());
+                }
+                return 24;
+            }
+            int y = caption(g, "STAT POTIONS · " + shown.size(), 0);
+            int cols = columns(width);
+            int tileW = (width - (cols - 1) * GAP) / cols;
+            for (int i = 0; i < shown.size(); i++) {
+                Rectangle r = new Rectangle((i % cols) * (tileW + GAP), y + (i / cols) * (TILE_H + GAP), tileW, TILE_H);
+                if (g != null) {
+                    paintPotionTile(g, shown.get(i), r);
+                    tiles.add(new Object[]{r, "p:" + shown.get(i).name});
+                }
+            }
+            y += ((shown.size() + cols - 1) / cols) * (TILE_H + GAP) + 6;
+            Font f = SonarTheme.font(12.5f);
+            FontMetrics fm = getFontMetrics(f);
+            for (String line : wrap("Pick any of them. Who drops each potion is from its RealmEye page, kept to the "
+                    + "enemies on RealmEye's biome lists. No realm enemy drops a Greater potion.", fm, width, 0)) {
+                if (g != null) {
+                    g.setFont(f);
+                    g.setColor(SonarTheme.MUTED);
+                    g.drawString(line, 0, y + fm.getAscent());
+                }
+                y += fm.getHeight();
+            }
+            return y + 4;
+        }
+
+        private void paintPotionTile(Graphics2D g, RealmFilter.Potion p, Rectangle r) {
+            boolean picked = RealmFilter.isPotionPicked(p.name), here = p.name.equals(potionFocus), hot = r.contains(hoverX, hoverY);
+            Color fill = picked ? SonarTheme.mix(SonarTheme.RAISED, RealmFilter.LIME, hot ? 0.16 : 0.10)
+                    : here ? SonarTheme.lift(0.07) : hot ? SonarTheme.lift(0.04) : SonarTheme.RAISED;
+            g.setColor(fill);
+            g.fill(SonarTheme.round(r.x, r.y, r.width, r.height, 12));
+            g.setStroke(new BasicStroke(picked ? 1.5f : 1f));
+            g.setColor(picked ? RealmFilter.LIME : here ? new Color(255, 255, 255, 90) : SonarTheme.LINE);
+            g.draw(SonarTheme.round(r.x + 0.75, r.y + 0.75, r.width - 1.5, r.height - 1.5, 12));
+            drawSprite(g, p.itemType, r.x + 8, r.y + (r.height - 40) / 2.0, 40);
+            int tx = r.x + 8 + 40 + 10, tw = r.width - (tx - r.x) - 8;
+            g.setFont(SonarTheme.bold(13f));
+            FontMetrics nm = g.getFontMetrics();
+            g.setFont(SonarTheme.font(11.5f));
+            FontMetrics dm = g.getFontMetrics();
+            int ty = r.y + (r.height - nm.getHeight() - dm.getHeight() + 2) / 2;
+            g.setFont(SonarTheme.bold(13f));
+            g.setColor(SonarTheme.TEXT);
+            g.drawString(SonarTheme.fit(p.item, nm, tw), tx, ty + nm.getAscent());
+            g.setFont(SonarTheme.font(11.5f));
+            g.setColor(SonarTheme.MUTED);
+            int n = p.droppers.size();
+            g.drawString(SonarTheme.fit(n + (n == 1 ? " realm dropper" : " realm droppers"), dm, tw), tx, ty + nm.getHeight() - 2 + dm.getAscent());
+        }
+
+        private int layDungeons(Graphics2D g, int width) {
             int y = 0;
             List<RealmFilter.Dungeon> realm = shown(false), events = shown(true);
             if (realm.isEmpty() && events.isEmpty()) {
@@ -725,8 +932,13 @@ final class RealmFilterPicker {
         void clicked(int x, int y) {
             String name = tileAt(x, y);
             if (name == null) return;
-            focus = name;
-            RealmFilter.toggle(name);
+            if (name.startsWith("p:")) {
+                potionFocus = name.substring(2);
+                RealmFilter.togglePotion(potionFocus);
+            } else {
+                focus = name;
+                RealmFilter.toggle(name);
+            }
             sync();
         }
 
@@ -741,6 +953,119 @@ final class RealmFilterPicker {
         private Rectangle toggle;
 
         private int lay(Graphics2D g, int width) {
+            return potionTab ? layPotion(g, width) : layDungeon(g, width);
+        }
+
+        /** A potion: its sprite, a button to pick it, the biomes where it drops most, and who drops it. */
+        private int layPotion(Graphics2D g, int width) {
+            RealmFilter.Potion p = potionFocus == null ? null : RealmFilter.potion(potionFocus);
+            if (p == null) return 0;
+            boolean picked = RealmFilter.isPotionPicked(p.name);
+            int rings = p.ringCount(), n = p.droppers.size();
+            String sub = n + " realm " + (n == 1 ? "enemy drops" : "enemies drop") + " it · "
+                    + (rings == 1 ? "1 ordinary one gets a ring" : rings + " ordinary ones get a ring");
+            int y = header(g, width, p.itemType, p.item, sub, picked);
+
+            y = caption(g, "BEST BIOMES", y);
+            List<RealmFilter.BiomeCount> best = p.bestBiomes();
+            int most = best.isEmpty() ? 1 : best.get(0).all;
+            Font strong = SonarTheme.bold(13f), small = SonarTheme.font(12f);
+            FontMetrics stm = getFontMetrics(strong), smm = getFontMetrics(small);
+            int col = 124, countW = 160;
+            for (int i = 0; i < best.size(); i++) {
+                RealmFilter.BiomeCount c = best.get(i);
+                if (g != null) {
+                    g.setFont(strong);
+                    g.setColor(SonarTheme.TEXT);
+                    g.drawString(SonarTheme.fit(c.biome, stm, col - 10), 0, y + (26 - stm.getHeight()) / 2 + stm.getAscent());
+                    int barW = Math.max(6, (int) Math.round((width - col - countW - 8) * (c.all / (double) most)));
+                    g.setColor(SonarTheme.alpha(RealmFilter.LIME, c.all == most ? 0.85 : 0.40));
+                    g.fill(SonarTheme.round(col, y + 8, barW, 10, 5));
+                    String count = c.all + (c.all == 1 ? " dropper" : " droppers")
+                            + (c.ordinary > 0 ? " · " + c.ordinary + (c.ordinary == 1 ? " enemy" : " enemies") : "");
+                    g.setFont(small);
+                    g.setColor(SonarTheme.MUTED);
+                    String fitted = SonarTheme.fit(count, smm, countW);
+                    g.drawString(fitted, width - smm.stringWidth(fitted), y + (26 - smm.getHeight()) / 2 + smm.getAscent());
+                }
+                y += 26 + 4;
+            }
+            Font noteFont = SonarTheme.font(12f);
+            FontMetrics nfm = getFontMetrics(noteFont);
+            for (String line : wrap("Counted by how many of its droppers live in each biome. Enemies are there all "
+                    + "the time; events and heroes come and go.", nfm, width, 0)) {
+                if (g != null) {
+                    g.setFont(noteFont);
+                    g.setColor(SonarTheme.FAINT);
+                    g.drawString(line, 0, y + nfm.getAscent());
+                }
+                y += nfm.getHeight();
+            }
+            y += 16;
+
+            y = caption(g, "DROPPED BY", y);
+            List<RealmFilter.Dropper> rows = new ArrayList<>(p.droppers);
+            rows.sort(java.util.Comparator.comparingInt(RealmFilterPicker::order));
+            for (RealmFilter.Dropper x : rows) {
+                if (g != null) paintRow(g, x, new Rectangle(0, y, width, 52), p.colour);
+                y += 52 + 6;
+            }
+            return y;
+        }
+
+        /** The sprite, the name and a line under it, and the one button. Returns where the next part starts. */
+        private int header(Graphics2D g, int width, int sprite, String name, String sub, boolean picked) {
+            if (g != null) drawSprite(g, sprite, 0, 0, 64);
+            int tx = 78, tw = width - tx;
+            Font nameFont = SonarTheme.bold(19f), subFont = SonarTheme.font(12.5f);
+            FontMetrics nm = getFontMetrics(nameFont), sm = getFontMetrics(subFont);
+            List<String> nameLines = wrap(name, nm, tw, 2), subLines = wrap(sub, sm, tw, 2);
+            int textH = nameLines.size() * nm.getHeight() + subLines.size() * sm.getHeight();
+            int ty = Math.max(0, (64 - textH) / 2);
+            if (g != null) {
+                g.setFont(nameFont);
+                g.setColor(SonarTheme.TEXT);
+                for (String line : nameLines) {
+                    g.drawString(line, tx, ty + nm.getAscent());
+                    ty += nm.getHeight();
+                }
+                g.setFont(subFont);
+                g.setColor(SonarTheme.MUTED);
+                for (String line : subLines) {
+                    g.drawString(line, tx, ty + sm.getAscent());
+                    ty += sm.getHeight();
+                }
+            }
+            int y = Math.max(64, textH) + 14;
+            Rectangle button = new Rectangle(0, y, width, 40);
+            if (g != null) {
+                toggle = button;
+                boolean hot = button.contains(hoverX, hoverY);
+                g.setColor(picked ? SonarTheme.mix(SonarTheme.BG, RealmFilter.LIME, hot ? 0.20 : 0.14)
+                        : hot ? SonarTheme.lift(0.08) : SonarTheme.RAISED);
+                g.fill(SonarTheme.round(button.x, button.y, button.width, button.height, 10));
+                g.setStroke(new BasicStroke(1.5f));
+                g.setColor(picked ? RealmFilter.LIME : new Color(255, 255, 255, 60));
+                g.draw(SonarTheme.round(button.x + 0.75, button.y + 0.75, button.width - 1.5, button.height - 1.5, 10));
+                g.setFont(SonarTheme.bold(13.5f));
+                FontMetrics bm = g.getFontMetrics();
+                String label = picked ? "Showing on the minimap" : "Show on the minimap";
+                int lw = bm.stringWidth(label) + (picked ? 20 : 0);
+                int lx = (width - lw) / 2, ly = y + (40 - bm.getHeight()) / 2 + bm.getAscent();
+                if (picked) {
+                    g.setColor(RealmFilter.LIME);
+                    g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    int cy = y + 20;
+                    g.drawPolyline(new int[]{lx, lx + 4, lx + 12}, new int[]{cy, cy + 4, cy - 5}, 3);
+                    lx += 20;
+                }
+                g.setColor(SonarTheme.TEXT);
+                g.drawString(label, lx, ly);
+            }
+            return y + 40 + 18;
+        }
+
+        private int layDungeon(Graphics2D g, int width) {
             RealmFilter.Dungeon d = focus == null ? null : RealmFilter.dungeon(focus);
             if (d == null) return 0;
             boolean picked = RealmFilter.isPicked(d.name);
@@ -876,6 +1201,11 @@ final class RealmFilterPicker {
         }
 
         private void paintRow(Graphics2D g, RealmFilter.Dropper x, Rectangle r) {
+            paintRow(g, x, r, RealmFilter.LIME);
+        }
+
+        /** A dropper's row, its "Gets a ring" tag in the colour its ring will be. */
+        private void paintRow(Graphics2D g, RealmFilter.Dropper x, Rectangle r, Color ring) {
             g.setColor(SonarTheme.RAISED);
             g.fill(SonarTheme.round(r.x, r.y, r.width, r.height, 10));
             boolean drew = x.found() && drawSprite(g, x.spriteType(), r.x + 6, r.y + 6, 40);
@@ -886,7 +1216,7 @@ final class RealmFilterPicker {
             }
             // the tag on the right, and under it whether the drop is certain
             String tag = tagFor(x);
-            Color ink = tagInk(x);
+            Color ink = x.ringed() && x.found() ? ring : tagInk(x);
             g.setFont(SonarTheme.bold(11f));
             FontMetrics tm = g.getFontMetrics();
             int pw = tm.stringWidth(tag) + 16, ph = 20;
@@ -936,10 +1266,10 @@ final class RealmFilterPicker {
 
         @Override
         void clicked(int x, int y) {
-            if (toggle != null && toggle.contains(x, y) && focus != null) {
-                RealmFilter.toggle(focus);
-                sync();
-            }
+            if (toggle == null || !toggle.contains(x, y)) return;
+            if (potionTab && potionFocus != null) RealmFilter.togglePotion(potionFocus);
+            else if (!potionTab && focus != null) RealmFilter.toggle(focus);
+            sync();
         }
 
         @Override

@@ -61,6 +61,8 @@ public class AppWindow {
         placeFrame();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setContentPane(shell);
+        // a picture taken for a page or a test must never take the keyboard from a game being played
+        if (System.getProperty("sonar.shot") != null) frame.setAutoRequestFocus(false);
         frame.setVisible(true);
         // after the window is up, so the dialogs have something to sit on
         javax.swing.SwingUtilities.invokeLater(() -> {

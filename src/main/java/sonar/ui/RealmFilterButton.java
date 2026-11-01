@@ -87,16 +87,22 @@ class RealmFilterButton extends JComponent {
 
     /** What the hover note says: what is shown now, and what a click does. */
     String hint() {
-        java.util.List<String> picks = RealmFilter.picks();
-        if (picks.isEmpty()) return "Realm filter: pick dungeons, and the realm enemies that drop them get pictures on your minimap";
-        return "Showing the enemies that drop " + String.join(", ", picks) + ". Click to change";
+        java.util.List<String> names = targetNames();
+        if (names.isEmpty()) return "Realm filter: pick dungeons or potions, and the realm enemies that drop them get pictures on your minimap";
+        return "Showing the enemies that drop " + String.join(", ", names) + ". Click to change";
     }
 
-    /** The name it shows: the first pick, with how many more. */
+    /** The name it shows: the first pick, dungeon or potion, with how many more. */
     String name() {
-        java.util.List<String> picks = RealmFilter.picks();
-        if (picks.isEmpty()) return "Off";
-        return picks.size() == 1 ? picks.get(0) : picks.get(0) + "  +" + (picks.size() - 1);
+        java.util.List<String> names = targetNames();
+        if (names.isEmpty()) return "Off";
+        return names.size() == 1 ? names.get(0) : names.get(0) + "  +" + (names.size() - 1);
+    }
+
+    private static java.util.List<String> targetNames() {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (RealmFilter.Target t : RealmFilter.targets()) names.add(t.name);
+        return names;
     }
 
     /** Called from the bar's own layout as it makes room; it lays itself out straight after. */
@@ -165,10 +171,11 @@ class RealmFilterButton extends JComponent {
             g2.fill(SonarTheme.round(pad + 4, h - 5, ICON - 8, 2.5, 2.5));
         }
 
-        // the first pick's portal, or a funnel while nothing is picked
+        // the first pick's portal or potion, or a funnel while nothing is picked
         double iy = (h - ICON) / 2.0 - (fit >= 3 ? 2 : 0);
-        RealmFilter.Dungeon first = on ? RealmFilter.dungeon(RealmFilter.picks().get(0)) : null;
-        if (first == null || !RealmFilterPicker.drawSprite(g2, first.portalType, pad, iy, ICON)) paintFunnel(g2, pad, iy, on);
+        java.util.List<RealmFilter.Target> targets = RealmFilter.targets();
+        RealmFilter.Target first = targets.isEmpty() ? null : targets.get(0);
+        if (first == null || !RealmFilterPicker.drawSprite(g2, first.sprite, pad, iy, ICON)) paintFunnel(g2, pad, iy, on);
 
         if (fit < 2) {
             int x = pad + ICON + GAP, words = wordsWidth();

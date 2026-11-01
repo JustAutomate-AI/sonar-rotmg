@@ -1815,5 +1815,937 @@
     }
    ]
   }
+ ],
+ "potionsAbout": "Which realm enemies drop each stat potion, from the Drops From list on each potion's RealmEye page, kept to the enemies RealmEye lists on its 23 biome pages, read 2026-10-31. No realm enemy drops a Greater potion. Each potion's colour is the brightest colour of its own sprite, light grey for Defense, which has none.",
+ "potions": [
+  {
+   "name": "Life",
+   "item": "Potion of Life",
+   "droppers": [
+    {
+     "name": "Aerial Warship",
+     "biomes": [
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Alluring Blossom",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "hero"
+    },
+    {
+     "name": "Avatar of the Forgotten King",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Blood Hound",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Blood Ooze",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Bloodroot Heart",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Bloodroot Treant",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Bulbous Perforator",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Corrupted Bramblethorn",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Crystal Worm Father",
+     "biomes": [
+      "Carboniferous",
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Ghoul",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Great Owl",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Green Fingers",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Elder Ent Ancient",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "hero"
+    },
+    {
+     "name": "Ethereal Shrine",
+     "biomes": [
+      "Carboniferous",
+      "Floral Escape",
+      "Relentless Springs"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Hornet's Nest",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "hero"
+    },
+    {
+     "name": "Kogbold Expedition Engine",
+     "biomes": [
+      "Floral Escape",
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Legion Colonel",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Legion Commissioner",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Legion Missionary",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Legion Principal",
+     "biomes": [
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Lord of the Lost Lands",
+     "biomes": [
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Lost Sentry",
+     "biomes": [
+      "Sanguine Forest",
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Overgrown Lily",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Ravenous Harpy",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Ravenous Rot",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Rhinoceros",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Organ Harvester",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "hero"
+    },
+    {
+     "name": "Scout Colony",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "hero"
+    },
+    {
+     "name": "Sentient Monolith",
+     "biomes": [
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Shadow Lurker",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Skeletal Centipede",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Snapdragon",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Spore Spreader",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Sunflower Sentinel",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Vegetarian Tiger",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "enemy"
+    }
+   ],
+   "colour": "#42dee4"
+  },
+  {
+   "name": "Mana",
+   "item": "Potion of Mana",
+   "droppers": [
+    {
+     "name": "Abyssal Hydra",
+     "biomes": [
+      "Deep Sea Abyss"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Abyssal Kraken",
+     "biomes": [
+      "Deep Sea Abyss"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Abyssal Siren",
+     "biomes": [
+      "Deep Sea Abyss"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Abyssal Squid",
+     "biomes": [
+      "Deep Sea Abyss"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Hadopelagic Jellyfish",
+     "biomes": [
+      "Deep Sea Abyss"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Hadopelagic Submersible",
+     "biomes": [
+      "Deep Sea Abyss"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Animate Sigillaria",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Colossal Mantis",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Grand Dragonfly",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Hunter Dragonfly",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Scutosaurus",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Spitting Arachnid",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Sting Spider",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "enemy"
+    }
+   ],
+   "colour": "#efd05d"
+  },
+  {
+   "name": "Attack",
+   "item": "Potion of Attack",
+   "droppers": [
+    {
+     "name": "Avatar of the Forgotten King",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Beer God",
+     "biomes": [
+      "Shipwreck Cove",
+      "Runic Tundra",
+      "Relentless Springs"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Biff the Buffed Bunny",
+     "biomes": [
+      "Relentless Springs"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Blue Beehemoth",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Crystal Worm Father",
+     "biomes": [
+      "Carboniferous",
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Cube God",
+     "biomes": [
+      "Sprite Forest",
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Flying Brain",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Greater Nature Sprite",
+     "biomes": [
+      "Nature Ruins"
+     ],
+     "kind": "hero"
+    },
+    {
+     "name": "Jack Frost",
+     "biomes": [
+      "Eternal Frost"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Jade Statue",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Garnet Statue",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Lord of the Lost Lands",
+     "biomes": [
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Lost Sentry",
+     "biomes": [
+      "Sanguine Forest",
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Pentaract",
+     "biomes": [
+      "Dead Church"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Permafrost Lord",
+     "biomes": [
+      "Eternal Frost"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Red Beehemoth",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Rock Construct",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Rock Dragon",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Skull Shrine",
+     "biomes": [
+      "Haunted Hallows",
+      "Risen Hell"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Snowy the Frost God",
+     "biomes": [
+      "Eternal Frost"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Sprite God",
+     "biomes": [
+      "Sprite Forest"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Steel Construct",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "White Demon",
+     "biomes": [
+      "Risen Hell"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Wood Construct",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Yellow Beehemoth",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "event"
+    }
+   ],
+   "colour": "#dd5af0"
+  },
+  {
+   "name": "Defense",
+   "item": "Potion of Defense",
+   "droppers": [
+    {
+     "name": "Beer God",
+     "biomes": [
+      "Shipwreck Cove",
+      "Runic Tundra",
+      "Relentless Springs"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Beholder",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Cube God",
+     "biomes": [
+      "Sprite Forest",
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Ent God",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Leviathan",
+     "biomes": [
+      "Coral Reefs"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Pentaract",
+     "biomes": [
+      "Dead Church"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Skull Shrine",
+     "biomes": [
+      "Haunted Hallows",
+      "Risen Hell"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Slime God",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    }
+   ],
+   "colour": "#c1c1c1"
+  },
+  {
+   "name": "Speed",
+   "item": "Potion of Speed",
+   "droppers": [
+    {
+     "name": "Cube God",
+     "biomes": [
+      "Sprite Forest",
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Djinn",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Ghost God",
+     "biomes": [
+      "Haunted Hallows"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Medusa",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Pentaract",
+     "biomes": [
+      "Dead Church"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Red Demon",
+     "biomes": [
+      "Risen Hell"
+     ],
+     "kind": "hero"
+    },
+    {
+     "name": "Skull Shrine",
+     "biomes": [
+      "Haunted Hallows",
+      "Risen Hell"
+     ],
+     "kind": "event"
+    }
+   ],
+   "colour": "#41e480"
+  },
+  {
+   "name": "Dexterity",
+   "item": "Potion of Dexterity",
+   "droppers": [
+    {
+     "name": "Blue Beehemoth",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Cube God",
+     "biomes": [
+      "Sprite Forest",
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Headless Horseman",
+     "biomes": [
+      "Haunted Hallows"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Hermit God",
+     "biomes": [
+      "Coral Reefs"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Lost Sentry",
+     "biomes": [
+      "Sanguine Forest",
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Pentaract",
+     "biomes": [
+      "Dead Church"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Red Beehemoth",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Skull Shrine",
+     "biomes": [
+      "Haunted Hallows",
+      "Risen Hell"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Yellow Beehemoth",
+     "biomes": [
+      "Floral Escape"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Werewolf Berserker",
+     "biomes": [
+      "Haunted Hallows"
+     ],
+     "kind": "enemy"
+    }
+   ],
+   "colour": "#eb8931"
+  },
+  {
+   "name": "Vitality",
+   "item": "Potion of Vitality",
+   "droppers": [
+    {
+     "name": "Hermit God",
+     "biomes": [
+      "Coral Reefs"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Skull Shrine",
+     "biomes": [
+      "Haunted Hallows",
+      "Risen Hell"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Cube God",
+     "biomes": [
+      "Sprite Forest",
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Pentaract",
+     "biomes": [
+      "Dead Church"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Grand Sphinx",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Werewolf Berserker",
+     "biomes": [
+      "Haunted Hallows"
+     ],
+     "kind": "enemy"
+    }
+   ],
+   "colour": "#ff072c"
+  },
+  {
+   "name": "Wisdom",
+   "item": "Potion of Wisdom",
+   "droppers": [
+    {
+     "name": "Sting Spider",
+     "biomes": [
+      "Carboniferous"
+     ],
+     "kind": "enemy"
+    },
+    {
+     "name": "Cube God",
+     "biomes": [
+      "Sprite Forest",
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Pentaract",
+     "biomes": [
+      "Dead Church"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Skull Shrine",
+     "biomes": [
+      "Haunted Hallows",
+      "Risen Hell"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Avatar of the Forgotten King",
+     "biomes": [
+      "Sanguine Forest"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Ghost Ship",
+     "biomes": [
+      "Shipwreck Cove"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Grand Sphinx",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Jade Statue",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Garnet Statue",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Lord of the Lost Lands",
+     "biomes": [
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Rock Dragon",
+     "biomes": [
+      "Abandoned City"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Crystal Worm Father",
+     "biomes": [
+      "Carboniferous",
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Lost Sentry",
+     "biomes": [
+      "Sanguine Forest",
+      "Runic Tundra"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Biff the Buffed Bunny",
+     "biomes": [
+      "Relentless Springs"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Permafrost Lord",
+     "biomes": [
+      "Eternal Frost"
+     ],
+     "kind": "event"
+    },
+    {
+     "name": "Werewolf Berserker",
+     "biomes": [
+      "Haunted Hallows"
+     ],
+     "kind": "enemy"
+    }
+   ],
+   "colour": "#4a93fe"
+  }
  ]
 }

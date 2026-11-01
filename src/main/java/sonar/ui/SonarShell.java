@@ -857,6 +857,11 @@ public class SonarShell extends JPanel {
         String tab = System.getProperty("sonar.shot.tab");
         Timer t = new Timer(delay, e -> {
             if (System.getProperty("sonar.selftest") != null) live.selfTest();
+            String previews = System.getProperty("sonar.shot.overlaypreview");
+            if (previews != null) {
+                ShattersOverlayWindow.writePreviews(new File(System.getProperty("sonar.shot.overlaypreview.ground", "")),
+                        new File(previews));
+            }
             String cards = System.getProperty("sonar.shot.cards");
             if (cards != null) live.writeExports(cards);
             JRootPane root = SwingUtilities.getRootPane(this);
@@ -892,6 +897,11 @@ public class SonarShell extends JPanel {
                 java.util.List<String> names = new java.util.ArrayList<>();
                 for (String s : filter.split("[|]")) if (!s.trim().isEmpty()) names.add(s.trim());
                 RealmFilter.setForTest(names);
+                java.util.List<String> potions = new java.util.ArrayList<>();
+                String potionList = System.getProperty("sonar.shot.realmfilter.potions", "");
+                for (String s : potionList.split("[|]")) if (!s.trim().isEmpty()) potions.add(s.trim());
+                RealmFilter.setPotionsForTest(potions);
+                if ("false".equals(System.getProperty("sonar.shot.realmfilter.allevents"))) RealmFilter.setShowAllEventsForTest(false);
                 if (System.getProperty("sonar.shot.realmfilter.closed") != null) return;
                 live.realmFilterButton().openPicker();
                 RealmFilterPicker p = RealmFilterPicker.current();
@@ -899,6 +909,8 @@ public class SonarShell extends JPanel {
                 p.searchFor(System.getProperty("sonar.shot.realmfilter.search"));
                 String focus = System.getProperty("sonar.shot.realmfilter.focus");
                 if (focus != null) p.focusOn(focus);
+                String potionFocus = System.getProperty("sonar.shot.realmfilter.potionfocus");
+                if (potionFocus != null) p.showPotions(potionFocus);
             });
             open.setRepeats(false);
             open.start();

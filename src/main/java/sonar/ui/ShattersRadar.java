@@ -211,6 +211,9 @@ final class ShattersRadar {
         /** The icon the game's own minimap gives this object, from its XML; null for none. */
         String piece;
 
+        /** When the radar first saw it, on {@link System#nanoTime()}; a dropped portal pings from then. */
+        long seenAt;
+
         /** Where it was being drawn when it last moved, so it can be slid rather than jumped. */
         float fromX = Float.NaN, fromY = Float.NaN;
 
@@ -263,6 +266,11 @@ final class ShattersRadar {
     /** Lets the self-test place a mark without a live instance. */
     static Mark markForTest(int type, float x, float y) {
         return new Mark(type, x, y);
+    }
+
+    /** The same, standing for a real object. */
+    static Mark markForTest(int type, int objectType, float x, float y) {
+        return new Mark(type, objectType, x, y);
     }
 
     private static volatile List<Mark> marks = Collections.emptyList();
@@ -446,6 +454,7 @@ final class ShattersRadar {
             m.piece = piece;
             m.eid = e.id;
             Mark before = lastById.get(e.id);
+            m.seenAt = before != null && before.seenAt != 0 ? before.seenAt : System.nanoTime();
             if (before != null && Math.abs(before.x - m.x) <= TELEPORT && Math.abs(before.y - m.y) <= TELEPORT) {
                 if (before.x == m.x && before.y == m.y) {
                     // not moved since: carry on with the slide already under way, untouched
@@ -466,6 +475,10 @@ final class ShattersRadar {
                 m.rank = rank;
                 // the realm filter: an enemy that can drop a dungeon being hunted gets its picture back
                 m.drops = RealmFilter.inRealm() ? RealmFilter.dropsFor(e.objectType, rank) : 0;
+            } else if (kind == DOOR) {
+                // and the portal of a dungeon being hunted gets a mark of its own, which the game's
+                // minimap does not give it
+                m.drops = RealmFilter.inRealm() ? RealmFilter.portalPicks(e.objectType) : 0;
             }
             found.add(m);
         }

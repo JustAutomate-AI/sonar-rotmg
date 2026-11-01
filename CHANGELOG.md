@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.63.0
+
+**Portals that ping, potions to farm, and the overlay steps aside for the game's menu**
+
+- **A picked dungeon's portal gets its own mark on the minimap when it drops, and Sonar plays its Dungeon ping once.** The game gives a portal no minimap icon, so it was easy to miss even with the realm filter set. It is drawn as its own sprite in a lime ring, with rings spreading out from it while it is up, on top of everything else. Outside the minimap's view it is held at the edge, so you can see which way to go, and the corner note says "portal is up!".
+- **Portals are matched by where they lead.** The list's Shatters portal was the Bridge Sentinel's rehearsal portal; the real one is used now, and Crystal Cavern's second, temporary portal counts too.
+- **"Show all events", a new switch in the realm filter.** It starts on, as before. Switched off, while something is picked, events and heroes that do not drop a pick lose their pictures, so hunting the Shatters or Kogbold Steamworks shows only the events that drop them.
+- **Potions, a second tab in the realm filter.** Pick any of the eight stat potions by their sprites, together with your dungeons. For each potion it ranks the biomes by how many of its droppers live there - Life drops most in the Floral Escape and the Sanguine Forest, Mana in the Carboniferous - and lists every dropper. Picked potions' droppers are ringed on the minimap in the potion's own colour - Mana's gold, Wisdom's blue, Life's cyan - while a dropper of a picked dungeon stays lime, and the corner note counts each pick in its colour. The droppers are from each potion's RealmEye page, kept to the enemies on RealmEye's biome lists; no realm enemy drops a Greater potion.
+- **The overlay steps aside for the game's Escape menu.** It used to keep drawing over the menu and take every scroll in it as a zoom, so it came back out of step with the minimap. While the menu is up it now draws nothing and takes no zoom from the wheel, the keys or the buttons. It sees the menu by the minimap's frame, which the menu dims.
+- With many things picked, the chips in the realm filter's "On the minimap" row shrink to their pictures, so they never run into the switch.
+
 ## 2.62.0
 
 **The realm filter: pictures for the enemies that drop the dungeons you are hunting**

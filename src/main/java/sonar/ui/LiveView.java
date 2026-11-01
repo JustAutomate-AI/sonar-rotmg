@@ -3604,10 +3604,121 @@ class LiveView {
         report.accept("zoomed right out on Sonar's own map, a hunted enemy stays",
                 ShattersOverlayWindow.worthDrawing(hunted, 1800));
 
+        // ---- portals, the events switch, potions and the game's menu ----
+        RealmFilter.Dungeon lair = RealmFilter.dungeon("Undead Lair"), shatters = RealmFilter.dungeon("The Shatters"),
+                crystal = RealmFilter.dungeon("Crystal Cavern");
+        java.util.function.BiPredicate<int[], Integer> holds = (arr, v) -> {
+            for (int x : arr) if (x == v) return true;
+            return false;
+        };
+        report.accept("a dungeon's portal is every portal the game says leads there: both of Crystal Cavern's",
+                holds.test(lair.portalTypes, 1818) && holds.test(crystal.portalTypes, 10042) && holds.test(crystal.portalTypes, 26094));
+        report.accept("and the Shatters' is the real one, not the Bridge Sentinel's rehearsal portal",
+                holds.test(shatters.portalTypes, 29310) && !holds.test(shatters.portalTypes, 14883) && shatters.portalType == 29310);
+        java.util.List<String> heldPicks = RealmFilter.picks(), heldPotions = RealmFilter.potionPicks();
+        boolean heldAll = RealmFilter.showAllEvents();
+        try {
+            RealmFilter.setPotionsForTest(java.util.Collections.emptyList());
+            RealmFilter.setForTest(java.util.Collections.singletonList("Undead Lair"));
+            report.accept("with Undead Lair picked its portal is hunted, and no other",
+                    RealmFilter.portalPicks(1818) == 1 && RealmFilter.portalPicks(1815) == 0);
+            report.accept("and the dungeon ping for it sounds only in the realm",
+                    RealmFilter.huntsPortal(1818) == RealmFilter.inRealm());
+            ShattersRadar.Mark door = ShattersRadar.markForTest(ShattersRadar.DOOR, 1818, 10, 10);
+            door.drops = 1;
+            ShattersRadar.Mark otherDoor = ShattersRadar.markForTest(ShattersRadar.DOOR, 1815, 10, 10);
+            report.accept("a hunted dungeon's portal gets a mark of its own, other portals do not",
+                    ShattersOverlayWindow.marksPortal(door) && !ShattersOverlayWindow.marksPortal(otherDoor));
+            java.util.List<RealmFilter.Target> one = RealmFilter.targets();
+            report.accept("and the corner note says when its portal is up",
+                    ShattersOverlayWindow.targetCounts(java.util.Arrays.asList(door, otherDoor), one, true)[0] == 1
+                            && ShattersOverlayWindow.filterWords(java.util.Collections.singletonList("Undead Lair"), new int[]{0}, new int[]{1}).get(0).endsWith("portal is up!")
+                            && ShattersOverlayWindow.filterWords(java.util.Arrays.asList("A", "B"), new int[]{2, 0}, new int[]{0, 1}).get(1).equals("portal!"));
+
+            // Show all events, off
+            ShattersRadar.Mark event = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+            event.rank = ShattersRadar.RANK_BOSS;
+            ShattersRadar.Mark huntedEvent = ShattersRadar.markForTest(ShattersRadar.FOE, 10, 10);
+            huntedEvent.rank = ShattersRadar.RANK_BOSS;
+            huntedEvent.drops = 1;
+            report.accept("with Show all events off, an event that drops nothing picked is left off",
+                    !ShattersOverlayWindow.getsPicture(event, true) && ShattersOverlayWindow.getsPicture(event, false));
+            report.accept("while one that drops a pick keeps its picture either way",
+                    ShattersOverlayWindow.getsPicture(huntedEvent, true) && ShattersOverlayWindow.getsPicture(huntedEvent, false));
+            RealmFilter.setShowAllEventsForTest(false);
+            RealmFilter.setForTest(java.util.Collections.emptyList());
+            report.accept("and with nothing picked the switch hides nothing",
+                    !RealmFilter.hidesOtherEvents() && !RealmFilter.showAllEvents());
+            RealmFilter.setShowAllEventsForTest(true);
+
+            // potions
+            java.util.List<RealmFilter.Potion> pots = RealmFilter.potions();
+            java.util.List<String> lostPots = new java.util.ArrayList<>();
+            for (RealmFilter.Potion p : pots) {
+                if (p.itemType <= 0) lostPots.add(p.item);
+                for (RealmFilter.Dropper x : p.droppers) if (!x.found()) lostPots.add(x.name);
+            }
+            report.accept("the realm filter ships the eight stat potions, Life first",
+                    pots.size() == 8 && pots.get(0).name.equals("Life") && pots.get(0).droppers.size() == 36);
+            report.accept("every potion and every potion dropper is in the game's files" + (lostPots.isEmpty() ? "" : " (not " + lostPots + ")"),
+                    lostPots.isEmpty());
+            java.util.List<RealmFilter.BiomeCount> life = RealmFilter.potion("Life").bestBiomes();
+            java.util.List<RealmFilter.BiomeCount> manaBest = RealmFilter.potion("Mana").bestBiomes();
+            report.accept("Life drops most in the Floral Escape and the Sanguine Forest, fifteen enemies each",
+                    life.size() >= 2 && life.get(0).all == 15 && life.get(1).all == 15
+                            && java.util.Arrays.asList("Floral Escape", "Sanguine Forest").contains(life.get(0).biome)
+                            && java.util.Arrays.asList("Floral Escape", "Sanguine Forest").contains(life.get(1).biome));
+            report.accept("and Mana in the Carboniferous", !manaBest.isEmpty() && manaBest.get(0).biome.equals("Carboniferous"));
+            RealmFilter.Potion mana = RealmFilter.potion("Mana");
+            int squid = mana.droppers.get(0).types.length > 0 ? mana.droppers.get(0).types[0] : -1;
+            RealmFilter.setPotionsForTest(java.util.Collections.singletonList("Mana"));
+            report.accept("with Mana picked, its droppers get its own bit and a Pirate gets none",
+                    squid > 0 && RealmFilter.dropsFor(squid, ShattersRadar.RANK_TRASH) == mana.bit()
+                            && RealmFilter.dropsFor(0x550a, ShattersRadar.RANK_TRASH) == 0 && RealmFilter.active());
+            RealmFilter.setForTest(java.util.Collections.singletonList("Pirate Cave"));
+            java.util.List<RealmFilter.Target> pair = RealmFilter.targets();
+            report.accept("a dungeon and a potion picked together are counted apart, dungeon first",
+                    pair.size() == 2 && pair.get(0).dungeon && !pair.get(1).dungeon && pair.get(1).name.equals("Potion of Mana")
+                            && RealmFilter.dropsFor(0x550a, ShattersRadar.RANK_TRASH) == 1);
+            ShattersRadar.Mark squidMark = ShattersRadar.markForTest(ShattersRadar.FOE, squid, 10, 10);
+            squidMark.drops = mana.bit();
+            ShattersRadar.Mark pirateMark = ShattersRadar.markForTest(ShattersRadar.FOE, 0x550a, 10, 10);
+            pirateMark.drops = 1;
+            int[] counted = ShattersOverlayWindow.targetCounts(java.util.Arrays.asList(squidMark, pirateMark, squidMark), pair, false);
+            report.accept("and the corner note counts each", counted[0] == 1 && counted[1] == 2);
+            // a potion's droppers are ringed in the potion's own colour; a dungeon's stay lime
+            ShattersRadar.Mark manaOnly = ShattersRadar.markForTest(ShattersRadar.FOE, squid, 10, 10);
+            manaOnly.drops = mana.bit();
+            ShattersRadar.Mark caveAndMana = ShattersRadar.markForTest(ShattersRadar.FOE, squid, 10, 10);
+            caveAndMana.drops = mana.bit() | 1;
+            java.util.Set<Integer> colours = new java.util.HashSet<>();
+            for (RealmFilter.Potion p : pots) colours.add(p.colour.getRGB());
+            report.accept("a potion's droppers are ringed in the potion's own colour, and a dungeon's stay lime",
+                    mana.colour.equals(ShattersOverlayWindow.ringTint(manaOnly)) && !mana.colour.equals(RealmFilter.LIME)
+                            && RealmFilter.LIME.equals(ShattersOverlayWindow.ringTint(caveAndMana)));
+            report.accept("and the eight potions have eight different colours, Mana's gold and Life's blue",
+                    colours.size() == 8 && mana.colour.getRed() > mana.colour.getBlue()
+                            && RealmFilter.potion("Life").colour.getBlue() > RealmFilter.potion("Life").colour.getRed());
+        } finally {
+            RealmFilter.setForTest(heldPicks);
+            RealmFilter.setPotionsForTest(heldPotions);
+            RealmFilter.setShowAllEventsForTest(heldAll);
+        }
+
+        // the game's Escape menu dims the minimap's frame; a strip of it says whether it is up
+        java.awt.image.BufferedImage strip = new java.awt.image.BufferedImage(12, 120, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < 120; y++) for (int x = 3; x < 8; x++) strip.setRGB(x, y, ShattersOverlayWindow.FRAME_GREY);
+        java.awt.image.BufferedImage dimmed = new java.awt.image.BufferedImage(12, 120, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < 120; y++) for (int x = 3; x < 8; x++) dimmed.setRGB(x, y, 0xFF323232);
+        report.accept("the minimap's frame is told from the frame dimmed by the game's menu",
+                ShattersOverlayWindow.frameIn(strip) && !ShattersOverlayWindow.frameIn(dimmed) && !ShattersOverlayWindow.frameIn(null));
+
         // the top bar's button
         RealmFilterButton probe = new RealmFilterButton(() -> true);
         java.util.List<String> kept = RealmFilter.picks();
+        java.util.List<String> keptPotions = RealmFilter.potionPicks();
         try {
+            RealmFilter.setPotionsForTest(java.util.Collections.emptyList());
             RealmFilter.setForTest(java.util.Collections.emptyList());
             boolean off = "Off".equals(probe.name());
             RealmFilter.setForTest(java.util.Arrays.asList("Pirate Cave", "Snake Pit"));
@@ -3624,8 +3735,12 @@ class LiveView {
                     shorter <= wide && smallest < shorter - 40 && smallest <= 48 && bare <= 30);
             RealmFilterButton offProbe = new RealmFilterButton(() -> false);
             report.accept("it is only in the bar while the overlay is on", !offProbe.isVisible() && probe.isVisible());
+            RealmFilter.setForTest(java.util.Collections.emptyList());
+            RealmFilter.setPotionsForTest(java.util.Collections.singletonList("Life"));
+            report.accept("and with only a potion picked it shows that potion", probe.name().equals("Potion of Life"));
         } finally {
             RealmFilter.setForTest(kept);
+            RealmFilter.setPotionsForTest(keptPotions);
         }
     }
 
