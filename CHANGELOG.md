@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.64.0
+
+**A damage meter on the game, waypoints to your potion's best biome, and the overlay stays on the minimap in windowed mode**
+
+- **A damage meter beside the minimap.** Switch it on with the new three-bar button on the Live page's damage window, or in Settings. It shows the current dungeon's top 10 damage per minute, the way a WoW damage meter does: one bar per player in their class colour, longest first, with rank, name, damage per minute and share of the total, and the dungeon and the time so far above them. The figures are the Live page's Overall list, always for the instance being played. Clicks go straight through it and it never takes the keyboard; it shows only while the game is in front, and steps aside for the game's Escape menu.
+- **Its opacity, size and place are yours.** A new Settings section, "Damage meter on the game", has the switch, an opacity slider from 30% to 100%, and "Move and resize on the game": the meter then takes the mouse, to be dragged by its body and sized by its corner, until Done is clicked on it. "Put it back beside the minimap" returns it to where it started. It keeps its place relative to the minimap, so it follows the minimap when the game's window moves or changes size. None of this changes the minimap overlay.
+- **With a potion picked, the waypoint to the biome where it drops most gets a ring in the potion's colour.** The ring goes round the game's own beacon star and breathes gently, so it stands out across a whole realm; two biomes tied for first both get one. Where one waypoint serves several picked potions - Attack, Defense, Speed and Wisdom all drop most in the Abandoned City - its ring turns from one potion's colour to the next. Outside the minimap's view it is held at the edge.
+- **The realm filter's note moves to the minimap's bottom right,** out from under the card the game opens when a beacon is hovered, and fades while the pointer is over the minimap, the only time the game opens those cards.
+- **The overlay stays on the minimap in windowed mode.** It measured the game by its whole window, which windowed includes the title bar and borders, and on displays scaled to 125% or 150% it placed itself in the wrong kind of pixel. It now reads the game's picture alone - its resolution, its aspect ratio and the display's scaling - and looks for the minimap at full resolution once the window has held still after a change. When it cannot see the minimap it places it from the last good fit, which it learns at every size it sees.
+
 ## 2.63.0
 
 **Portals that ping, potions to farm, and the overlay steps aside for the game's menu**

@@ -274,7 +274,12 @@ final class Glyph {
         g2.setColor(color);
         g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         java.awt.geom.Path2D.Double p = new java.awt.geom.Path2D.Double();
-        if ("share".equals(name)) {
+        if ("meter".equals(name)) {
+            // a damage meter's bars, longest first
+            g2.fill(SonarTheme.round(3, 3.5, 14, 3.4, 1.7));
+            g2.fill(SonarTheme.round(3, 8.3, 10.5, 3.4, 1.7));
+            g2.fill(SonarTheme.round(3, 13.1, 7, 3.4, 1.7));
+        } else if ("share".equals(name)) {
             // out of the tray
             p.moveTo(3, 12);
             p.lineTo(3, 17.5);

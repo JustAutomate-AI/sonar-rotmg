@@ -154,6 +154,7 @@ class SettingsPane extends Pane {
                 + HEAD + listHeight(w, bags.size())    // loot pings
                 + HEAD + listHeight(w, chat.size())    // chat pings
                 + HEAD + keywordsHeight(ChatPings.keywords().size())  // words to watch for
+                + HEAD + METER_H                       // damage meter on the game
                 + HEAD + 60                            // themes
                 + HEAD + SWATCH + 30                   // accent
                 + HEAD + 62                            // zoom
@@ -192,6 +193,8 @@ class SettingsPane extends Pane {
         y = paintToggles(g, width, y, chat);
         y = heading(g, width, y, "WORDS TO WATCH FOR");
         y = paintKeywords(g, width, y);
+        y = heading(g, width, y, "DAMAGE METER ON THE GAME");
+        y = paintMeter(g, width, y);
         y = heading(g, width, y, "THEME");
         y = paintThemes(g, y);
         y = heading(g, width, y, "ACCENT COLOUR");
@@ -201,6 +204,68 @@ class SettingsPane extends Pane {
         y = paintZoom(g, width, y);
         y = heading(g, width, y, "SAVED INSTANCES");
         paintWipe(g, width, y);
+    }
+
+    static final int METER_H = 36 + 50 + 36 + 24;
+    private Rectangle meterTrack = new Rectangle();
+    private boolean draggingOpacity;
+
+    /**
+     * The damage meter that sits beside the minimap on the game: on or off, how see-through it
+     * is, and a way to move and size it there. Only the meter; the minimap overlay has its own
+     * switch in the top bar and lines itself up with the minimap.
+     */
+    private int paintMeter(Graphics2D g, int width, int y) {
+        boolean on = DamageMeterWindow.isOn();
+        paintSwitch(g, 2, y + 4, on);
+        g.setFont(SonarTheme.font(12.5f));
+        g.setColor(SonarTheme.TEXT);
+        g.drawString("Show the top 10 damage per minute beside your minimap", 50, y + 18);
+        zone(new Rectangle(0, y, width, 28), () -> {
+            DamageMeterWindow.setOn(!DamageMeterWindow.isOn());
+            repaint();
+        });
+        y += 36;
+
+        double op = DamageMeterWindow.opacity();
+        g.setFont(SonarTheme.font(12.5f));
+        g.setColor(on ? SonarTheme.TEXT : SonarTheme.MUTED);
+        g.drawString("Opacity", 2, y + 16);
+        String pct = Math.round(op * 100) + "%";
+        g.setFont(SonarTheme.bold(12.5f));
+        g.setColor(SonarTheme.accent());
+        g.drawString(pct, width - g.getFontMetrics().stringWidth(pct) - 2, y + 16);
+        int trackX = 2, trackY = y + 30, trackW = Math.max(60, width - 80);
+        meterTrack = new Rectangle(trackX, trackY - 8, trackW, 20);
+        double frac = (op - 0.3) / 0.7;
+        g.setColor(SonarTheme.LINE);
+        g.fill(SonarTheme.round(trackX, trackY, trackW, 5, 3));
+        g.setColor(SonarTheme.accent());
+        g.fill(SonarTheme.round(trackX, trackY, trackW * frac, 5, 3));
+        g.setColor(SonarTheme.TEXT);
+        g.fill(new java.awt.geom.Ellipse2D.Double(trackX + trackW * frac - 6, trackY - 3.5, 12, 12));
+        y += 50;
+
+        boolean moving = DamageMeterWindow.adjusting();
+        int at = PAD - 2;
+        at += step(g, at, y, moving ? "Moving: click Done on the meter" : "Move and resize on the game", !moving, () -> {
+            DamageMeterWindow.adjust();
+            repaint();
+        }) + 8;
+        step(g, at, y, "Put it back beside the minimap", true, () -> {
+            DamageMeterWindow.resetPlace();
+            repaint();
+        });
+        y += 36;
+        g.setFont(SonarTheme.font(10.5f));
+        g.setColor(SonarTheme.FAINT);
+        g.drawString("While moving, the meter takes the mouse on the game: drag it, or its corner to resize, then click Done on it.", PAD, y + 12);
+        return y + 24;
+    }
+
+    private void setOpacityAt(int x) {
+        DamageMeterWindow.setOpacity(0.3 + 0.7 * Math.max(0, Math.min(1, (x - meterTrack.x) / (double) Math.max(1, meterTrack.width))));
+        repaint();
     }
 
     /** True once the wipe has been clicked once and is waiting to be confirmed. */
@@ -646,6 +711,11 @@ class SettingsPane extends Pane {
 
     @Override
     void clicked(int x, int y) {
+        if (meterTrack.contains(x, y)) {
+            draggingOpacity = true;
+            setOpacityAt(x);
+            return;
+        }
         if (volumeTrack.contains(x, y)) {
             draggingVolume = true;
             setVolume((int) Math.round((x - volumeTrack.x) * 100.0 / Math.max(1, volumeTrack.width)));
@@ -669,7 +739,7 @@ class SettingsPane extends Pane {
     /** The volume sliders follow the pointer from the moment they are pressed. */
     @Override
     boolean grabs(int x, int y) {
-        if (volumeTrack.contains(x, y)) return true;
+        if (volumeTrack.contains(x, y) || meterTrack.contains(x, y)) return true;
         for (Toggle t : all()) if (t.track.contains(x, y)) return true;
         return false;
     }
@@ -680,7 +750,9 @@ class SettingsPane extends Pane {
     /** Lets a volume follow the pointer while the button is held. */
     @Override
     void dragged(int x, int y) {
-        if (draggingVolume) {
+        if (draggingOpacity) {
+            setOpacityAt(x);
+        } else if (draggingVolume) {
             setVolume((int) Math.round((x - volumeTrack.x) * 100.0 / Math.max(1, volumeTrack.width)));
         } else if (dragging != null) {
             dragging.setVolume((int) Math.round((x - dragging.track.x) * 100.0 / Math.max(1, dragging.track.width)));
@@ -696,6 +768,7 @@ class SettingsPane extends Pane {
             if (s != null) s.play();
         }
         draggingVolume = false;
+        draggingOpacity = false;
         dragging = null;
     }
 }

@@ -65,93 +65,20 @@ class ShattersOverlayWindow extends JWindow {
 
     // ---- the game's own Escape menu ----
 
-    /**
-     * Whether the game's Escape menu is up.
-     * <p>
-     * The menu dims the whole window, minimap and all, and a scroll in it belongs to the menu.
-     * The overlay used to go on drawing over it, and to take every scroll as a zoom, so it came
-     * back out of step with the minimap until zoomed all the way out and in again. While the
-     * menu is up it now draws nothing and takes no zoom from the wheel, the keys or the buttons.
-     * <p>
-     * Nothing in a packet says the menu is open. What changes on screen is the minimap's frame:
-     * it is drawn in one exact grey, the one {@link MinimapLocator} finds the minimap by, and
-     * the menu dims it with everything else. So a thin strip of the frame on each side of the
-     * minimap is read - straight after Escape, then every few tenths of a second while the menu
-     * may be up, and once a second otherwise, to catch it opened from the game's own button.
-     * Two strips of 12 by a couple of hundred pixels, not the whole window, which is what made
-     * the game stutter when it was read every second and a half.
-     * <p>
-     * The frame only counts as gone once it has been seen, so a screen where its grey never
-     * matches leaves the overlay showing rather than hiding it for good.
-     */
-    private volatile boolean gameMenuUp;
-    private boolean frameEverSeen;
-    private int framesMissing;
-    private long nextMenuCheck, escapeAt;
-    private java.awt.Robot frameReader;
+    /** The minimap frame's grey, as {@link MinimapLocator} knows it; see {@link GameMenu}. */
+    static final int FRAME_GREY = GameMenu.FRAME_GREY;
 
-    /** The minimap frame's grey, as {@link MinimapLocator} knows it. */
-    static final int FRAME_GREY = -8553091;
-
-    private static final int VK_ESCAPE = 0x1B;
-
+    /** Whether the game's Escape menu is up; see {@link GameMenu}, which the damage meter shares. */
     boolean gameMenuUp() {
-        return gameMenuUp;
+        return GameMenu.up();
     }
 
     private void watchGameMenu() {
-        long now = System.currentTimeMillis();
-        if (down(VK_ESCAPE) || pressedSinceLastLook(VK_ESCAPE)) escapeAt = now;
-        boolean justEscaped = now - escapeAt < 3000;
-        if (!gameMenuUp && !justEscaped && now < nextMenuCheck) return;
-        nextMenuCheck = now + 1000;
-        Boolean showing = frameShowing();
-        if (showing == null) return;
-        if (showing) {
-            frameEverSeen = true;
-            framesMissing = 0;
-            if (gameMenuUp) setGameMenuUp(false);
-            return;
-        }
-        if (!frameEverSeen) return;
-        framesMissing++;
-        // after Escape one look is enough; otherwise two in a row, so a card or a dragged item
-        // passing over the frame does not blink the overlay out
-        if (!gameMenuUp && framesMissing >= (justEscaped ? 1 : 2)) setGameMenuUp(true);
+        GameMenu.watch(getBounds());
     }
 
-    private void setGameMenuUp(boolean up) {
-        gameMenuUp = up;
-        System.out.println("[overlay] game menu " + (up ? "up: standing aside" : "gone: back"));
-        repaint();
-    }
-
-    /** Whether the minimap's frame is on screen undimmed, or null when the screen cannot be read. */
-    private Boolean frameShowing() {
-        Rectangle b = getBounds();
-        if (b.width < 32 || b.height < 32) return null;
-        try {
-            if (frameReader == null) frameReader = new java.awt.Robot();
-            int top = b.y + b.height / 4, band = b.height / 2;
-            java.awt.image.BufferedImage left = frameReader.createScreenCapture(new Rectangle(b.x - 10, top, 12, band));
-            if (frameIn(left)) return true;
-            java.awt.image.BufferedImage right = frameReader.createScreenCapture(new Rectangle(b.x + b.width - 2, top, 12, band));
-            return frameIn(right);
-        } catch (Throwable cannotRead) {
-            return null;
-        }
-    }
-
-    /** Whether a strip holds the frame: a good run of its exact grey, which a dimmed frame never has. */
     static boolean frameIn(java.awt.image.BufferedImage strip) {
-        if (strip == null) return false;
-        int seen = 0;
-        for (int y = 0; y < strip.getHeight(); y++) {
-            for (int x = 0; x < strip.getWidth(); x++) {
-                if (strip.getRGB(x, y) == FRAME_GREY && ++seen >= 20) return true;
-            }
-        }
-        return false;
+        return GameMenu.frameIn(strip);
     }
 
     /**
@@ -403,7 +330,7 @@ class ShattersOverlayWindow extends JWindow {
         // a menu the game drew under us is more use than anything we would draw over it
         if (standingAside()) return;
         // and so is the game's own Escape menu, which dims the minimap under us
-        if (gameMenuUp) return;
+        if (GameMenu.up()) return;
         // and so is the card it shows for whoever the pointer is resting on: the whole overlay
         // fades nearly away while it is up, so the card reads as clearly as it does without Sonar
         long nowNs = System.nanoTime();
@@ -797,10 +724,14 @@ class ShattersOverlayWindow extends JWindow {
         dotPx = dotFor(w, h);
         double cx = w / 2.0, cy = h / 2.0;
         boolean onlyHunted = RealmFilter.hidesOtherEvents();
-        java.util.List<ShattersRadar.Mark> portals = new java.util.ArrayList<>();
+        java.util.List<ShattersRadar.Mark> portals = new java.util.ArrayList<>(), beacons = new java.util.ArrayList<>();
         for (ShattersRadar.Mark m : ShattersRadar.live()) {
             if (marksPortal(m)) {
                 portals.add(m);
+                continue;
+            }
+            if (marksBeacon(m)) {
+                beacons.add(m);
                 continue;
             }
             if (m.type != ShattersRadar.FOE) continue;
@@ -812,22 +743,15 @@ class ShattersOverlayWindow extends JWindow {
             if (!getsPicture(m, onlyHunted)) continue;
             paintMark(g, m, x, y, tilesWide);
         }
-        // a hunted dungeon's portal goes on top of everything, held at the frame's edge when it
-        // is outside what the minimap shows, so it is never missed
+        // the beacons to where a hunted potion drops most, and a hunted dungeon's portal on top of
+        // everything: both held at the frame's edge when outside what the minimap shows
+        for (ShattersRadar.Mark m : beacons) {
+            int[] at = heldInFrame(m, w, h, tilesWide, tilesHigh, 16);
+            if (at != null) paintBeaconRing(g, m, at[0], at[1], at[2] == 1);
+        }
         for (ShattersRadar.Mark m : portals) {
-            double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
-            if (off == null) continue;
-            double px = cx + off[0] * pixelsPerTile, py = cy + off[1] * pixelsPerTile;
-            int margin = 20;
-            boolean beyond = px < margin || py < margin || px > w - margin || py > h - margin;
-            if (beyond) {
-                double dx = px - cx, dy = py - cy;
-                double t = Math.min(dx == 0 ? Double.MAX_VALUE : (dx > 0 ? (w - margin - cx) : (margin - cx)) / dx,
-                        dy == 0 ? Double.MAX_VALUE : (dy > 0 ? (h - margin - cy) : (margin - cy)) / dy);
-                px = cx + dx * t;
-                py = cy + dy * t;
-            }
-            paintPortal(g, m, (int) Math.round(px), (int) Math.round(py), beyond);
+            int[] at = heldInFrame(m, w, h, tilesWide, tilesHigh, 20);
+            if (at != null) paintPortal(g, m, at[0], at[1], at[2] == 1);
         }
         paintFilterNote(g, w, h);
     }
@@ -886,6 +810,11 @@ class ShattersOverlayWindow extends JWindow {
             paintPortal(g, m, x, y, false);
             return;
         }
+        if (marksBeacon(m)) {
+            paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+            paintBeaconRing(g, m, x, y, false);
+            return;
+        }
         if (m.type != ShattersRadar.FOE) {
             paintMark(g, m.type, m.kindId(), x, y, tilesWide);
             return;
@@ -932,6 +861,81 @@ class ShattersOverlayWindow extends JWindow {
         if (m.type != ShattersRadar.FOE) return false;
         if (m.drops != 0) return true;
         return !onlyHunted && m.rank >= ShattersRadar.RANK_MINI;
+    }
+
+    /** Where a mark goes in the frame, x and y, and 1 when it is outside and held at the edge; null if it cannot be placed. */
+    private int[] heldInFrame(ShattersRadar.Mark m, int w, int h, double tilesWide, double tilesHigh, int margin) {
+        double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
+        if (off == null) return null;
+        double cx = w / 2.0, cy = h / 2.0;
+        double px = cx + off[0] * pixelsPerTile, py = cy + off[1] * pixelsPerTile;
+        boolean beyond = px < margin || py < margin || px > w - margin || py > h - margin;
+        if (beyond) {
+            double dx = px - cx, dy = py - cy;
+            double t = Math.min(dx == 0 ? Double.MAX_VALUE : (dx > 0 ? (w - margin - cx) : (margin - cx)) / dx,
+                    dy == 0 ? Double.MAX_VALUE : (dy > 0 ? (h - margin - cy) : (margin - cy)) / dy);
+            px = cx + dx * t;
+            py = cy + dy * t;
+        }
+        return new int[]{(int) Math.round(px), (int) Math.round(py), beyond ? 1 : 0};
+    }
+
+    /** Whether a mark is a beacon that teleports you to where a hunted potion drops most. */
+    static boolean marksBeacon(ShattersRadar.Mark m) {
+        return m.type == ShattersRadar.EVENT && m.drops != 0;
+    }
+
+    /** The clock the rings animate on; the screenshots set it to draw a chosen moment. */
+    static volatile long clockForPreview;
+
+    private static long now() {
+        long c = clockForPreview;
+        return c != 0 ? c : System.nanoTime();
+    }
+
+    /** The colour of a beacon's ring at a moment: its potion's, or each of its potions' in turn, blending from one to the next. */
+    static Color beaconColour(java.util.List<Color> colours, double seconds) {
+        if (colours.isEmpty()) return RealmFilter.LIME;
+        if (colours.size() == 1) return colours.get(0);
+        double phase = (seconds / 1.4) % colours.size();
+        int i = (int) phase;
+        double f = phase - i, blend = f < 0.7 ? 0 : (f - 0.7) / 0.3;
+        return SonarTheme.mix(colours.get(i), colours.get((i + 1) % colours.size()), blend);
+    }
+
+    /**
+     * A ring around the game's own beacon star, the waypoint that teleports you to the biome where
+     * a picked potion drops most, in that potion's colour. The ring breathes so it catches the eye
+     * across a whole realm, and where one beacon serves several picked potions it turns through
+     * their colours. The game draws the star itself; held at the frame's edge, the ring gets a dot
+     * of its colour in the middle instead.
+     */
+    private void paintBeaconRing(Graphics2D g, ShattersRadar.Mark m, int x, int y, boolean beyond) {
+        java.util.List<Color> colours = RealmFilter.potionColours(m.drops);
+        if (colours.isEmpty()) return;
+        double t = now() / 1e9;
+        Color c = beaconColour(colours, t);
+        double scale = dotPx / 10.0;
+        double r = 15 * scale;
+        double breath = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI / 1.6);
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        if (beyond) g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(0.85f));
+        double glow = r + (3 + 4 * breath) * scale;
+        g2.setStroke(new BasicStroke((float) (2.5 * scale)));
+        g2.setColor(SonarTheme.alpha(c, 0.20 + 0.25 * breath));
+        g2.draw(new java.awt.geom.Ellipse2D.Double(x - glow, y - glow, glow * 2, glow * 2));
+        g2.setStroke(new BasicStroke((float) Math.max(2.5, 3 * scale) + 2f));
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.draw(new java.awt.geom.Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
+        g2.setStroke(new BasicStroke((float) Math.max(2.5, 3 * scale)));
+        g2.setColor(c);
+        g2.draw(new java.awt.geom.Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
+        if (beyond) {
+            double d = 4 * scale;
+            g2.fill(new java.awt.geom.Ellipse2D.Double(x - d, y - d, d * 2, d * 2));
+        }
+        g2.dispose();
     }
 
     /** Whether a mark is the portal of a dungeon being hunted, which gets a mark of its own. */
@@ -989,6 +993,25 @@ class ShattersOverlayWindow extends JWindow {
             a.drops = b.drops = mana.bit();
             writeScene(w, base, new java.io.File(outDir, "potion.png"), new ShattersRadar.Mark[]{a, b},
                     new int[][]{{254, 275}, {291, 288}}, false);
+            // Life and Mana: the beacons to the Floral Escape, the Sanguine Forest and the Carboniferous
+            RealmFilter.setPotionsForTest(java.util.Arrays.asList("Life", "Mana"));
+            RealmFilter.Potion life = RealmFilter.potion("Life");
+            java.io.File starsGround = new java.io.File(ground.getParentFile(), "stars.png");
+            java.awt.image.BufferedImage stars = starsGround.isFile() ? javax.imageio.ImageIO.read(starsGround) : base;
+            ShattersRadar.Mark floral = beaconMark(life, "Floral Escape"), sanguine = beaconMark(life, "Sanguine Forest"),
+                    carbon = beaconMark(mana, "Carboniferous");
+            clockForPreview = 1_000_000_000L;
+            writeBeaconScene(w, stars, new java.io.File(outDir, "beacons.png"), new ShattersRadar.Mark[]{floral, sanguine, carbon},
+                    new int[][]{{210, 197}, {426, 246}, {330, 380}});
+            // Attack and Wisdom both drop most in the Abandoned City: its beacon turns from one colour to the other
+            RealmFilter.setPotionsForTest(java.util.Arrays.asList("Attack", "Wisdom"));
+            ShattersRadar.Mark city = beaconMark(RealmFilter.potion("Attack"), "Abandoned City");
+            city.drops = RealmFilter.potion("Attack").bit() | RealmFilter.potion("Wisdom").bit();
+            clockForPreview = 200_000_000L;
+            writeBeaconScene(w, stars, new java.io.File(outDir, "beacon-attack.png"), new ShattersRadar.Mark[]{city}, new int[][]{{183, 240}});
+            clockForPreview = 1_600_000_000L;
+            writeBeaconScene(w, stars, new java.io.File(outDir, "beacon-wisdom.png"), new ShattersRadar.Mark[]{city}, new int[][]{{183, 240}});
+            clockForPreview = 0;
             System.out.println("[preview] overlay pictures written to " + outDir);
         } catch (Exception e) {
             e.printStackTrace();
@@ -998,6 +1021,36 @@ class ShattersOverlayWindow extends JWindow {
             RealmFilter.setPotionsForTest(keptPotions);
             RealmFilter.setShowAllEventsForTest(keptAll);
         }
+    }
+
+    /** A biome's beacon as a mark, for a picked potion. */
+    private static ShattersRadar.Mark beaconMark(RealmFilter.Potion p, String biome) {
+        int type = 0;
+        for (int t : p.beaconTypes) {
+            String n = sonar.assets.IdToAsset.getObjectIdName(t);
+            if (n != null && n.toLowerCase(java.util.Locale.ROOT).endsWith(RealmFilter.beaconOf(biome))) type = t;
+        }
+        ShattersRadar.Mark m = ShattersRadar.markForTest(ShattersRadar.EVENT, type, 0, 0);
+        m.drops = p.bit();
+        return m;
+    }
+
+    /** A scene over a picture that already holds a corner note: the old note is painted out first. */
+    private static void writeBeaconScene(ShattersOverlayWindow w, java.awt.image.BufferedImage base, java.io.File out,
+                                         ShattersRadar.Mark[] marks, int[][] at) throws java.io.IOException {
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(base.getWidth(), base.getHeight(),
+                java.awt.image.BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        g.drawImage(base, 0, 0, null);
+        g.setColor(Color.BLACK);
+        g.fillRect(0, base.getHeight() - 40, 215, 40);
+        w.dotPx = dotFor(img.getWidth(), img.getHeight());
+        for (int i = 0; i < marks.length; i++) w.paintBeaconRing(g, marks[i], at[i][0], at[i][1], false);
+        java.util.List<RealmFilter.Target> targets = RealmFilter.targets();
+        java.util.List<ShattersRadar.Mark> none = java.util.Collections.emptyList();
+        w.drawFilterNote(g, img.getWidth(), img.getHeight(), targets, targetCounts(none, targets, false), targetCounts(none, targets, true));
+        g.dispose();
+        javax.imageio.ImageIO.write(img, "png", out);
     }
 
     private static int firstRinged(java.util.List<RealmFilter.Dropper> droppers) {
@@ -1067,7 +1120,7 @@ class ShattersOverlayWindow extends JWindow {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         if (beyond) g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(0.82f));
-        double age = m.seenAt == 0 ? 0 : Math.max(0, (System.nanoTime() - m.seenAt) / 1e9);
+        double age = m.seenAt == 0 ? 0 : Math.max(0, (now() - m.seenAt) / 1e9);
         double period = 1.4;
         double strength = age < 12 ? 1.0 : 0.55;
         for (int k = 0; k < 2; k++) {
@@ -1179,8 +1232,11 @@ class ShattersOverlayWindow extends JWindow {
         int width = pad;
         for (String s : words) width += icon + gap + fm.stringWidth(s) + pad + gap;
         width = Math.min(width - gap + (int) Math.round(4 * scale), w - 16);
-        int x = (int) Math.round(8 * scale), y = h - (int) Math.round(8 * scale) - chipH;
+        int x = noteX(w, width, scale), y = h - (int) Math.round(8 * scale) - chipH;
         Graphics2D g2 = (Graphics2D) g.create();
+        // the game opens its hover cards over the minimap - a beacon's name, "click to open menu" -
+        // and only while the pointer is on it, so the note keeps out of their way then
+        if (pointerOverMap()) g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(0.15f));
         g2.setColor(new Color(16, 12, 24, 215));
         g2.fill(SonarTheme.round(x, y, width, chipH, chipH));
         g2.setColor(RealmFilter.LIME);
@@ -1199,6 +1255,26 @@ class ShattersOverlayWindow extends JWindow {
             cx += fm.stringWidth(words.get(i)) + pad + gap;
         }
         g2.dispose();
+    }
+
+    /**
+     * Where the corner note starts: against the minimap's bottom right. It sat at the bottom left,
+     * which is exactly where the game opens a beacon's hover card, so the two were drawn on top of
+     * each other.
+     */
+    static int noteX(int w, int width, double scale) {
+        return w - (int) Math.round(8 * scale) - width;
+    }
+
+    /** Whether the pointer is over the minimap, where the game opens its hover cards. */
+    private boolean pointerOverMap() {
+        if (clockForPreview != 0) return false;
+        try {
+            Point at = MouseInfo.getPointerInfo().getLocation();
+            return at != null && getBounds().contains(at);
+        } catch (Throwable headless) {
+            return false;
+        }
     }
 
     /**
@@ -2141,6 +2217,8 @@ class ShattersOverlayWindow extends JWindow {
         if (calibrating && !on) {
             saveBounds();
             saveHome();
+            // and kept as the minimap's fit, so another window size is predicted from it
+            MinimapPlacement.learn(getBounds());
         }
         calibrating = on;
         setClickThrough(!on);
@@ -2263,6 +2341,7 @@ class ShattersOverlayWindow extends JWindow {
         setBounds(found);
         saveBounds();
         saveHome();
+        MinimapPlacement.learn(found);
         // the same instance keeps the zoom it had when the overlay was last on; the game has not
         // moved its zoom just because the overlay was switched off and on
         boolean sameInstance = rememberedMap >= 0 && rememberedMap == ShattersRadar.mapGeneration();
@@ -2400,28 +2479,25 @@ class ShattersOverlayWindow extends JWindow {
         }
     }
 
-    private Rectangle followed;
+    private int placedSerial = -1;
 
     /**
-     * Keeps the overlay over the minimap as the game's window moves.
-     * <p>
-     * Cheap enough for the input timer: one window-rectangle call, and the alignment only runs
-     * when the rectangle has actually changed.
+     * Keeps the overlay over the minimap as the game's picture moves or changes size - windowed,
+     * full screen, dragged, resized, at any display scaling. See {@link MinimapPlacement}, which
+     * waits for the picture to hold still, then finds the minimap in it or predicts it from the
+     * last fit. Cheap between changes: one window call per tick.
      */
     private void followGameWindow() {
-        Rectangle now;
-        try {
-            now = MinimapLocator.gameWindow();
-        } catch (Throwable e) {
-            return;
-        }
-        if (now == null) return;
-        if (now.equals(followed)) return;
-        boolean first = followed == null;
-        followed = now;
-        if (first) return;              // the opening position is set when the overlay is shown
+        MinimapPlacement.Placement p = MinimapPlacement.current();
+        if (p == null || p.serial == placedSerial || calibrating) return;
+        placedSerial = p.serial;
         MinimapSync.forgetWhere();      // the minimap has moved with the window
-        alignToMinimap();
+        lastFix = p.how();
+        if (getBounds().equals(p.rect)) return;
+        setBounds(p.rect);
+        saveBounds();
+        if (p.found) saveHome();
+        repaint();
     }
 
     // ---- stepping the zoom while the game has the keyboard ----
@@ -2462,7 +2538,7 @@ class ShattersOverlayWindow extends JWindow {
             return;
         }
         int[] mirror = GameKeys.minimapZoom();
-        if (gameMenuUp) {
+        if (GameMenu.up()) {
             // the keys do nothing to the minimap while the menu is up, so they do nothing here
             plusWasDown = down(mirror[0]);
             minusWasDown = down(mirror[1]);
@@ -2522,7 +2598,7 @@ class ShattersOverlayWindow extends JWindow {
         boolean clicked = (nowDown && !clickWasDown) || (!nowDown && pressedSinceLastLook(VK_LBUTTON));
         clickWasDown = nowDown;
         if (!gameItselfInFront()) return;   // the game's buttons cannot be clicked when it is not in front
-        if (gameMenuUp) return;             // and the menu covers them while it is up
+        if (GameMenu.up()) return;             // and the menu covers them while it is up
         // while calibrating the window takes its own clicks, and those mean something else
         if (!clicked || calibrating || !isVisible()) return;
         Point at;
@@ -2647,7 +2723,7 @@ class ShattersOverlayWindow extends JWindow {
     private void wheeled(int screenX, int screenY, int notches) {
         if (calibrating || !isVisible() || !gameItselfInFront()) return;
         // a scroll in the game's menu is the menu's, and the minimap does not move
-        if (gameMenuUp) return;
+        if (GameMenu.up()) return;
         if (!wheelIsForUs(gameBox(), getBounds(), screenX, screenY)) return;
         // away from you is a lower rung, the same direction the plus button goes
         int by = notches > 0 ? -1 : 1;

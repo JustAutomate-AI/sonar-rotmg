@@ -479,6 +479,9 @@ final class ShattersRadar {
                 // and the portal of a dungeon being hunted gets a mark of its own, which the game's
                 // minimap does not give it
                 m.drops = RealmFilter.inRealm() ? RealmFilter.portalPicks(e.objectType) : 0;
+            } else if (kind == EVENT) {
+                // and the beacon that teleports you to where a hunted potion drops most gets a ring
+                m.drops = RealmFilter.inRealm() ? RealmFilter.beaconPicks(e.objectType) : 0;
             }
             found.add(m);
         }

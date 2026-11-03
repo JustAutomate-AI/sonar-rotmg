@@ -993,7 +993,8 @@ final class RealmFilterPicker {
             Font noteFont = SonarTheme.font(12f);
             FontMetrics nfm = getFontMetrics(noteFont);
             for (String line : wrap("Counted by how many of its droppers live in each biome. Enemies are there all "
-                    + "the time; events and heroes come and go.", nfm, width, 0)) {
+                    + "the time; events and heroes come and go. On the minimap, the beacon to the top biome gets a "
+                    + "ring in this potion's colour.", nfm, width, 0)) {
                 if (g != null) {
                     g.setFont(noteFont);
                     g.setColor(SonarTheme.FAINT);

@@ -461,6 +461,11 @@ class LiveView {
      */
     private javax.swing.JComponent damageHeader() {
         javax.swing.Box row = javax.swing.Box.createHorizontalBox();
+        row.add(meterButton);
+        row.add(javax.swing.Box.createHorizontalStrut(4));
+        meterButton.setToolTipText("Show the top 10 damage per minute on the game, beside your minimap");
+        DamageMeterWindow.onChange(() -> javax.swing.SwingUtilities.invokeLater(this::syncMeter));
+        javax.swing.SwingUtilities.invokeLater(this::syncMeter);
         row.add(mvpShare);
         row.add(javax.swing.Box.createHorizontalStrut(4));
         row.add(damageShare);
@@ -603,6 +608,9 @@ class LiveView {
     private final SonarButton damageShare = new SonarButton("", false, this::shareBossResults).icon("share");
     /** The star that leaves: one player rather than the whole board. */
     private final SonarButton mvpShare = new SonarButton("", false, this::shareMvp).icon("share-star");
+    /** Shows or hides the damage meter on the game; lit while it is on. */
+    private final SonarButton meterButton = new SonarButton("", false, this::toggleMeter).icon("meter");
+    private DamageMeterWindow meter;
     /** Live or Review, the two states of the Instance page. */
     private final Segmented reviewMode = new Segmented(new String[]{"Live", "Review"}, 0, this::setReviewMode);
     /** The finished instance last opened, so Review can return to it without going through the list again. */
@@ -1034,6 +1042,80 @@ class LiveView {
     /** The overlay's switch, for the top bar to show on every page. */
     OverlaySwitch overlaySwitch() {
         return overlaySwitch;
+    }
+
+    private void toggleMeter() {
+        DamageMeterWindow.setOn(!DamageMeterWindow.isOn());
+    }
+
+    /** Starts or stops the damage meter on the game to match its setting. */
+    private void syncMeter() {
+        boolean on = DamageMeterWindow.isOn();
+        meterButton.setPrimary(on);
+        if (on && meter == null) {
+            meter = new DamageMeterWindow(this::meterBoard, this::meterMinimap);
+            meter.start();
+        } else if (!on && meter != null) {
+            meter.stop();
+            meter = null;
+        }
+    }
+
+    /**
+     * What the damage meter shows: the instance being played, never one being reviewed, top ten
+     * by damage, in the same damage per minute as the Overall list.
+     */
+    DamageMeterWindow.Board meterBoard() {
+        LiveModel m = reviewed == null ? shown() : live;
+        if (m == null || !m.tracked || m.whole == null) return null;
+        double seconds = Math.max(1, m.whole.fightMs / 1000.0);
+        long total = Math.max(1, m.whole.total);
+        java.util.List<DamageMeterWindow.Line> lines = new java.util.ArrayList<>();
+        for (LiveModel.Row r : m.whole.rows) {
+            if (r.damage <= 0) continue;
+            lines.add(new DamageMeterWindow.Line(r.name, r.cls, r.damage / seconds * 60, r.damage / (double) total, r.me));
+        }
+        return new DamageMeterWindow.Board(m.instance, m.whole.fightMs, DamageMeterWindow.topOf(lines));
+    }
+
+    /** The minimap the meter sits beside: where the overlay is when it is on, or where the detector finds it. */
+    private java.awt.Rectangle meterMinimap() {
+        if (shattersOverlay != null && shattersOverlay.isShowing()) return shattersOverlay.getBounds();
+        MinimapPlacement.Placement p = MinimapPlacement.current();
+        return p == null ? null : p.rect;
+    }
+
+    /**
+     * For the screenshots: the meter drawn by its own painting onto a picture of the game, at
+     * its default place, faded, made bigger, and while it is being moved.
+     */
+    void writeMeterPreviews(java.io.File ground, java.io.File outDir, java.awt.Rectangle minimap) {
+        try {
+            java.awt.image.BufferedImage base = javax.imageio.ImageIO.read(ground);
+            if (base == null) return;
+            outDir.mkdirs();
+            DamageMeterWindow.Board b = meterBoard();
+            Object[][] scenes = {
+                    {"meter-default.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
+                    {"meter-faded.png", DamageMeterWindow.DEFAULT_PLACE, 0.45, false},
+                    {"meter-resized.png", new double[]{-0.76, 0.0, 0.74, 0.62}, 0.85, false},
+                    {"meter-adjust.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, true},
+            };
+            for (Object[] s : scenes) {
+                java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(base.getWidth(), base.getHeight(),
+                        java.awt.image.BufferedImage.TYPE_INT_RGB);
+                java.awt.Graphics2D g = img.createGraphics();
+                g.drawImage(base, 0, 0, null);
+                java.awt.Rectangle at = DamageMeterWindow.boundsFor(minimap, (double[]) s[1]);
+                g.translate(at.x, at.y);
+                DamageMeterWindow.draw(g, at.width, at.height, b, (Double) s[2], (Boolean) s[3]);
+                g.dispose();
+                javax.imageio.ImageIO.write(img, "png", new java.io.File(outDir, (String) s[0]));
+            }
+            System.out.println("[preview] meter pictures written to " + outDir + " for " + (b == null ? 0 : b.lines.size()) + " players");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /** The realm filter's button, which sits beside the overlay's switch. */
@@ -1506,6 +1588,7 @@ class LiveView {
                         && javax.swing.SwingUtilities.getAncestorOfClass(FloatWindow.class, overlaySwitch) == null
                         && instancePage.windows().stream().noneMatch(w -> "overlay".equals(w.id))
                         && analysisPage.windows().stream().noneMatch(w -> "overlay".equals(w.id)));
+        checkPlacementAndMeter(report);
         report.accept("the realm filter's button sits in the top bar, right after it",
                 realmFilterButton.getParent() != null && realmFilterButton.getParent() == overlaySwitch.getParent());
         report.accept("and the breakdown has the full height again",
@@ -3485,6 +3568,65 @@ class LiveView {
     }
 
     /**
+     * Where the overlay and the meter go: the game's picture measured in the right pixels, a
+     * minimap found in a full-resolution picture placed on screen, a fit carried to another
+     * window size - and the damage meter itself.
+     */
+    private void checkPlacementAndMeter(java.util.function.BiConsumer<String, Boolean> report) {
+        report.accept("a windowed game on a display at 125% is placed in Java's pixels, not Windows' physical ones",
+                MinimapPlacement.toLogical(new java.awt.Rectangle(2000, 100, 800, 600), 1.25)
+                        .equals(new java.awt.Rectangle(1600, 80, 640, 480)));
+        MinimapPlacement.Client c = new MinimapPlacement.Client(new java.awt.Rectangle(300, 150, 2400, 1350),
+                new java.awt.Rectangle(200, 100, 1600, 900), 1.5);
+        report.accept("a minimap found in a full-resolution picture lands in the right place on screen",
+                c.toScreen(new java.awt.Rectangle(1800, 6, 705, 721), 1.5).equals(new java.awt.Rectangle(1400, 104, 470, 481)));
+        double[] fit = MinimapPlacement.fitOf(new java.awt.Rectangle(0, 0, 2560, 1440), new java.awt.Rectangle(2085, 5, 470, 481));
+        report.accept("a fit learned full screen at 2560x1440 predicts the minimap in a 1600x900 window",
+                MinimapPlacement.predict(new java.awt.Rectangle(100, 50, 1600, 900), fit).equals(new java.awt.Rectangle(1403, 53, 294, 301)));
+        report.accept("the game's picture is told by its size and shape",
+                MinimapPlacement.ratioName(1600, 900).equals("16:9") && MinimapPlacement.ratioName(2560, 1080).equals("21:9")
+                        && MinimapPlacement.ratioName(1280, 1024).equals("5:4") && MinimapPlacement.ratioName(1920, 1200).equals("16:10"));
+        report.accept("and a fit that puts the minimap somewhere impossible is never kept",
+                MinimapPlacement.plausible(fit) && !MinimapPlacement.plausible(new double[]{0.9, 0, 0.3, 0.3})
+                        && !MinimapPlacement.plausible(new double[]{0, 0, 0.01, 0.3}));
+
+        // the damage meter
+        java.awt.Rectangle mm = new java.awt.Rectangle(2085, 5, 470, 481);
+        java.awt.Rectangle at = DamageMeterWindow.boundsFor(mm, DamageMeterWindow.DEFAULT_PLACE);
+        report.accept("the damage meter sits just left of the minimap, top aligned, a little over half its width",
+                at.x + at.width <= mm.x && mm.x - (at.x + at.width) < 16 && at.y == mm.y && Math.abs(at.width - 263) <= 2);
+        java.awt.Rectangle moved = new java.awt.Rectangle(1700, 40, 300, 260);
+        report.accept("moved and resized, it keeps its place in minimap widths, so it follows the minimap",
+                DamageMeterWindow.boundsFor(mm, DamageMeterWindow.placeFrom(moved, mm)).equals(moved)
+                        && DamageMeterWindow.boundsFor(new java.awt.Rectangle(1000, 0, 235, 240), DamageMeterWindow.placeFrom(moved, mm)).width == 150);
+        report.accept("its opacity stays between 30% and 100%",
+                DamageMeterWindow.clampOpacity(0.1) == 0.3 && DamageMeterWindow.clampOpacity(2) == 1.0);
+        DamageMeterWindow.Board b = meterBoard();
+        boolean sorted = b != null;
+        if (b != null) for (int i = 1; i < b.lines.size(); i++) sorted &= b.lines.get(i - 1).dpm >= b.lines.get(i).dpm;
+        report.accept("the meter shows at most ten players, most damage per minute first",
+                b != null && !b.lines.isEmpty() && b.lines.size() <= 10 && sorted);
+        LiveModel whole = shown();
+        LiveModel.Row top = null;
+        for (LiveModel.Row r : whole.whole.rows) if (top == null || r.damage > top.damage) top = r;
+        double expected = top == null ? -1 : top.damage / Math.max(1, whole.whole.fightMs / 1000.0) * 60;
+        report.accept("with the same damage per minute as the Live page's Overall list",
+                b != null && !b.lines.isEmpty() && Math.abs(b.lines.get(0).dpm - expected) < 1);
+        java.awt.image.BufferedImage solid = new java.awt.image.BufferedImage(263, 215, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.image.BufferedImage faint = new java.awt.image.BufferedImage(263, 215, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g1 = solid.createGraphics();
+        DamageMeterWindow.draw(g1, 263, 215, b, 0.85, false);
+        g1.dispose();
+        java.awt.Graphics2D g2 = faint.createGraphics();
+        DamageMeterWindow.draw(g2, 263, 215, b, 0.3, false);
+        g2.dispose();
+        int a85 = solid.getRGB(131, 213) >>> 24, a30 = faint.getRGB(131, 213) >>> 24;   // plain panel, clear of bars and corners
+        report.accept("and draws solid enough to read at 85% opacity and see-through at 30%", a85 > 150 && a30 < 80 && a30 > 0);
+        report.accept("its switch sits on the damage window, lit while the meter is on",
+                meterButton.getParent() != null && javax.swing.SwingUtilities.getAncestorOfClass(FloatWindow.class, meterButton) != null);
+    }
+
+    /**
      * The realm filter: its shipped list, matched against the game's own objects, and what it
      * does to the overlay. The list comes from RealmEye and names enemies; these checks are what
      * catch a game update renaming one, since a name that stops matching just quietly rings nothing.
@@ -3696,6 +3838,33 @@ class LiveView {
             report.accept("a potion's droppers are ringed in the potion's own colour, and a dungeon's stay lime",
                     mana.colour.equals(ShattersOverlayWindow.ringTint(manaOnly)) && !mana.colour.equals(RealmFilter.LIME)
                             && RealmFilter.LIME.equals(ShattersOverlayWindow.ringTint(caveAndMana)));
+            // the beacons that teleport you to where a picked potion drops most
+            RealmFilter.Potion lifePot = RealmFilter.potion("Life");
+            java.util.Set<String> lifeBeacons = new java.util.HashSet<>(), manaBeacons = new java.util.HashSet<>();
+            for (int t : lifePot.beaconTypes) lifeBeacons.add(String.valueOf(sonar.assets.IdToAsset.getObjectIdName(t)));
+            for (int t : mana.beaconTypes) manaBeacons.add(String.valueOf(sonar.assets.IdToAsset.getObjectIdName(t)));
+            report.accept("Life's beacons are the Floral Escape's and the Sanguine Forest's, Mana's the Carboniferous'",
+                    lifeBeacons.contains("Active Beacon Floral Escape") && lifeBeacons.contains("Active Beacon Sanguine Forest")
+                            && manaBeacons.contains("Active Beacon Carboniferous") && manaBeacons.size() == 2);
+            report.accept("a beach is the Shore beacon, and the forests, plains and deserts by level share one each",
+                    RealmFilter.beaconOf("Beach").equals("shore") && RealmFilter.beaconOf("High Forest").equals("forest")
+                            && RealmFilter.beaconOf("Mid Desert").equals("desert") && RealmFilter.beaconOf("Floral Escape").equals("floral escape"));
+            int carbonBeacon = mana.beaconTypes.length > 0 ? mana.beaconTypes[0] : -1;
+            int floralBeacon = lifePot.beaconTypes.length > 0 ? lifePot.beaconTypes[0] : -1;
+            report.accept("with Mana picked its beacon is ringed and Life's are not",
+                    carbonBeacon > 0 && RealmFilter.beaconPicks(carbonBeacon) == mana.bit() && RealmFilter.beaconPicks(floralBeacon) == 0);
+            ShattersRadar.Mark beacon = ShattersRadar.markForTest(ShattersRadar.EVENT, carbonBeacon, 10, 10);
+            beacon.drops = mana.bit();
+            ShattersRadar.Mark plainBeacon = ShattersRadar.markForTest(ShattersRadar.EVENT, floralBeacon, 10, 10);
+            report.accept("a hunted potion's beacon gets a ring, another beacon does not",
+                    ShattersOverlayWindow.marksBeacon(beacon) && !ShattersOverlayWindow.marksBeacon(plainBeacon));
+            java.util.List<java.awt.Color> two = java.util.Arrays.asList(mana.colour, lifePot.colour);
+            report.accept("a beacon for one potion is that potion's colour, for two it turns from one to the other",
+                    ShattersOverlayWindow.beaconColour(java.util.Collections.singletonList(mana.colour), 3.0).equals(mana.colour)
+                            && ShattersOverlayWindow.beaconColour(two, 0.2).equals(mana.colour)
+                            && ShattersOverlayWindow.beaconColour(two, 1.6).equals(lifePot.colour));
+            report.accept("and the corner note sits at the minimap's bottom right, clear of the game's hover cards",
+                    ShattersOverlayWindow.noteX(475, 200, 1.0) == 475 - 8 - 200);
             report.accept("and the eight potions have eight different colours, Mana's gold and Life's blue",
                     colours.size() == 8 && mana.colour.getRed() > mana.colour.getBlue()
                             && RealmFilter.potion("Life").colour.getBlue() > RealmFilter.potion("Life").colour.getRed());

@@ -50,17 +50,28 @@ final class MinimapLocator {
      */
     static Rectangle find() {
         trouble = "";
-        Rectangle window = windowRect();
-        if (window == null) {
+        MinimapPlacement.Client client = MinimapPlacement.client();
+        if (client == null) {
             trouble = "the game's window was not found";
             return null;
         }
-        BufferedImage shot = capture(window);
+        return findOn(client);
+    }
+
+    /**
+     * The search in one full-resolution picture of the game's client area - the picture alone,
+     * without the title bar and borders a windowed game has - answered in Java's screen pixels.
+     */
+    static Rectangle findOn(MinimapPlacement.Client client) {
+        trouble = "";
+        BufferedImage shot = MinimapPlacement.capture(client.logical);
         if (shot == null) {
             trouble = "the game's window could not be read";
             return null;
         }
-        return findIn(shot, window.x, window.y);
+        Rectangle inPicture = findIn(shot, 0, 0);
+        if (inPicture == null) return null;
+        return client.toScreen(inPicture, shot.getWidth() / (double) Math.max(1, client.logical.width));
     }
 
     /**
@@ -161,7 +172,8 @@ final class MinimapLocator {
 
     /** Where the game's window is on screen, for anything that wants to know it is being aimed at. */
     static Rectangle gameWindow() {
-        return windowRect();
+        MinimapPlacement.Client client = MinimapPlacement.client();
+        return client != null ? client.logical : null;
     }
 
     private static Rectangle windowRect() {

@@ -857,6 +857,13 @@ public class SonarShell extends JPanel {
         String tab = System.getProperty("sonar.shot.tab");
         Timer t = new Timer(delay, e -> {
             if (System.getProperty("sonar.selftest") != null) live.selfTest();
+            String meterPreviews = System.getProperty("sonar.shot.meterpreview");
+            if (meterPreviews != null) {
+                String[] mm = System.getProperty("sonar.shot.meterpreview.minimap", "0,0,10,10").split(",");
+                live.writeMeterPreviews(new File(System.getProperty("sonar.shot.meterpreview.ground", "")), new File(meterPreviews),
+                        new Rectangle(Integer.parseInt(mm[0].trim()), Integer.parseInt(mm[1].trim()),
+                                Integer.parseInt(mm[2].trim()), Integer.parseInt(mm[3].trim())));
+            }
             String previews = System.getProperty("sonar.shot.overlaypreview");
             if (previews != null) {
                 ShattersOverlayWindow.writePreviews(new File(System.getProperty("sonar.shot.overlaypreview.ground", "")),
