@@ -1395,8 +1395,9 @@ public class GameData {
         String dungeonName = ParseDungeon.getDungeonNameByPortalType(objectType);
         if (dungeonName == null) return; // not a portal
         // a dungeon picked in the realm filter pings too - once, however it was asked for
-        if (isDungeonPing(dungeonName) || sonar.ui.RealmFilter.huntsPortal(objectType)) {
-            PingSounds.play(PingSounds.Type.DUNGEON);
+        if ((isDungeonPing(dungeonName) || sonar.ui.RealmFilter.huntsPortal(objectType))
+                && sonar.game.Sound.playPortalSound && sonar.game.Sound.portal != null) {
+            sonar.game.Sound.portal.play();
         }
     }
 

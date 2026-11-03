@@ -1072,7 +1072,30 @@ class LiveView {
     DamageMeterWindow.Board meterBoard() {
         LiveModel m = reviewed == null ? shown() : live;
         if (m == null || !m.tracked) return null;
+        if (!meterWanted(m, ShattersRadar.mapName())) return null;
         return meterBoardFor(m, DamageMeterWindow.pinned(meterRun(m)));
+    }
+
+    /**
+     * Whether the meter shows at all: only in a dungeon, and only once its boss or one of its
+     * minibosses has been hit.
+     * <p>
+     * It used to show whatever boss board it had, so the last dungeon's stayed up in the realm
+     * after you left, and a realm event or an outsized enemy brought it up mid-realm. Now the
+     * realm and the places you only wait in (the Nexus, the Vault) keep it hidden, judged by
+     * where you are now as well as by the run, and a dungeon keeps it hidden until a fight the
+     * game itself stages - its boss, or a miniboss - has taken damage.
+     */
+    static boolean meterWanted(LiveModel m, String here) {
+        if (m == null || m.passive() || LiveModel.passivePlace(here == null || here.isEmpty() ? m.instance : here)) return false;
+        if (RealmFilter.REALM.equalsIgnoreCase(m.instance == null ? "" : m.instance.trim())
+                || RealmFilter.REALM.equalsIgnoreCase(here == null ? "" : here.trim())) return false;
+        for (LiveModel.Group g : m.groups) {
+            if (!g.staged()) continue;
+            LiveModel.Target t = fightOf(g);
+            if (t != null && t.total > 0) return true;
+        }
+        return false;
     }
 
     static String meterRun(LiveModel m) {
@@ -1186,7 +1209,7 @@ class LiveView {
                 java.awt.Rectangle at = DamageMeterWindow.boundsFor(minimap, (double[]) s[1]);
                 boolean foldScene = ((String) s[0]).equals("meter-folded.png");
                 DamageMeterWindow.setFoldedForTest(foldScene);
-                if (foldScene) at = DamageMeterWindow.foldedBounds(at);
+                if (foldScene) at = DamageMeterWindow.foldedBounds(at, minimap);
                 g.translate(at.x, at.y);
                 boolean sameClass = ((String) s[0]).startsWith("same-class");
                 DamageMeterWindow.spreadColours = !((String) s[0]).equals("same-class-before.png");
@@ -3512,6 +3535,31 @@ class LiveView {
         report.accept("and a position somebody did see comes back unchanged",
                 !trouble.contains("was lost") && !trouble.contains("came back as "));
         report.accept("saving leaves nothing to complain about", InstanceHistory.lastTrouble().isEmpty());
+        boolean pack = true;
+        for (String n : new String[]{"party", "guild", "pm", "keypop", "whitebag", "orangebag", "redbag", "goldbag", "eggbag",
+                "bluebag", "trade", "custom", "join", "keyword", "portal"}) {
+            try {
+                javax.sound.sampled.AudioFormat f = javax.sound.sampled.AudioSystem.getAudioFileFormat(
+                        sonar.game.Sound.class.getResource("/sound/soft/" + n + ".wav")).getFormat();
+                pack &= f.getSampleRate() == 44100 && f.getChannels() == 1 && f.getSampleSizeInBits() == 16;
+            } catch (Exception missing) {
+                pack = false;
+            }
+        }
+        report.accept("the soft sound pack ships a sound for every ping, in the format Sonar plays", pack);
+        java.util.List<String> keys = SettingsPane.toggleKeysForTest();
+        report.accept("the portal ping and the watched-words ping have their own switches and volumes in Settings",
+                keys.contains("portalPing") && keys.contains("keywordPing"));
+        // a dodge inside the stretch a Move measures its speed on is not walking against the keys
+        java.util.List<long[]> dodge = java.util.Arrays.asList(new long[]{0, 1, 0}, new long[]{150_000_000L, -1, 0});
+        java.util.List<long[]> steady = java.util.Collections.singletonList(new long[]{0, 1, 0});
+        report.accept("a Move that spans a dodge agrees with the keys held during it, and one against every key held does not",
+                ShattersRadar.agreesOver(dodge, 60_000_000L, 200_000_000L, 8, 0)
+                        && ShattersRadar.agreesOver(dodge, 60_000_000L, 200_000_000L, -8, 0)
+                        && !ShattersRadar.agreesOver(steady, 60_000_000L, 200_000_000L, -8, 0)
+                        && !ShattersRadar.agreesOver(dodge, 160_000_000L, 200_000_000L, 8, 0)
+                        && ShattersRadar.keyedOver(dodge, 60_000_000L, 200_000_000L)
+                        && !ShattersRadar.keyedOver(java.util.Collections.singletonList(new long[]{0, 0, 0}), 0, 100));
         String race = InstanceHistory.raceForTest(1500);
         report.accept("a run saved while its day is being read neither fails nor sets the day aside" + (race.isEmpty() ? "" : " (" + race + ")"), race.isEmpty());
         String recovery = InstanceHistory.recoveryForTest();
@@ -3833,11 +3881,31 @@ class LiveView {
         report.accept("before any boss is fought it has nothing to show, so it stays off the game",
                 none.lines.isEmpty() && none.boss.isEmpty());
         java.awt.Rectangle fz = DamageMeterWindow.foldZone(263, 215);
-        java.awt.Rectangle folded = DamageMeterWindow.foldedBounds(new java.awt.Rectangle(1000, 0, 263, 215));
-        report.accept("the fold arrow sits at the header's very left, and folded the meter is that arrow alone, where its corner was",
+        java.awt.Rectangle folded = DamageMeterWindow.foldedBounds(new java.awt.Rectangle(1000, 0, 263, 215), new java.awt.Rectangle(1300, 0, 470, 480));
+        java.awt.Rectangle foldedLeft = DamageMeterWindow.foldedBounds(new java.awt.Rectangle(1800, 0, 263, 215), new java.awt.Rectangle(1300, 0, 470, 480));
+        report.accept("the fold arrow sits at the header's very left, and folded the meter is that arrow alone, docked on the minimap's side",
                 fz.x <= 6 && fz.y >= 0 && fz.y + fz.height <= DamageMeterWindow.headHeight(263)
                         && fz.x + fz.width < DamageMeterWindow.bossZone(263, 215).x
-                        && folded.x == 1000 && folded.y == 0 && folded.width < 263 / 4 && folded.height == DamageMeterWindow.headHeight(263));
+                        && folded.x + folded.width == 1263 && folded.y == 0 && folded.width < 263 / 4 && folded.height == DamageMeterWindow.headHeight(263)
+                        && foldedLeft.x == 1800);
+        // the meter stays hidden in the realm, the Nexus, and a dungeon whose boss nobody has hit yet
+        LiveModel dungeon = new LiveModel();
+        dungeon.instance = "Tomb of the Ancients";
+        dungeon.tracked = true;
+        boolean emptyHidden = !meterWanted(dungeon, "Tomb of the Ancients");
+        LiveModel.Group bossFight = new LiveModel.Group();
+        bossFight.kind = "boss";
+        bossFight.target.total = 50_000;
+        dungeon.groups.add(bossFight);
+        LiveModel tough = new LiveModel();
+        tough.instance = "Tomb of the Ancients";
+        LiveModel.Group outsized = new LiveModel.Group();
+        outsized.kind = "tough";
+        outsized.target.total = 50_000;
+        tough.groups.add(outsized);
+        report.accept("the damage meter shows only in a dungeon once its boss or a miniboss is hit - never in the realm or the Nexus",
+                emptyHidden && meterWanted(dungeon, "Tomb of the Ancients") && !meterWanted(dungeon, "Nexus")
+                        && !meterWanted(dungeon, RealmFilter.REALM) && !meterWanted(tough, "Tomb of the Ancients"));
         java.awt.Rectangle bz = DamageMeterWindow.bossZone(263, 215);
         report.accept("the boss button sits at the header's top left, after the fold arrow and clear of the switch",
                 bz.x <= 40 && bz.y >= 0 && bz.y + bz.height <= DamageMeterWindow.headHeight(263) && bz.x + bz.width < sw.x && bz.width > 263 / 3);
@@ -3970,6 +4038,32 @@ class LiveView {
         report.accept("picking Speed selects the dungeons that drop it: the Snake Pit's portal is marked in Speed's colour, the Pirate Cave's is not",
                 speed != null && speed.dungeons.containsKey("Snake Pit") && speed.dungeons.size() == 6
                         && quiet && speed != null && (marked & speed.bit()) != 0 && colour && selected);
+        // the Sprite World: Limon (BOSS) drops Dexterity and Defense, its Native Sprite Gods (MINION) Attack
+        RealmFilter.Dungeon sprite = RealmFilter.dungeon("Sprite World");
+        int spritePortal = sprite == null || sprite.portalTypes.length == 0 ? -1 : sprite.portalTypes[0];
+        RealmFilter.setForTest(java.util.Collections.emptyList());
+        RealmFilter.setPotionsForTest(java.util.Arrays.asList("Defense", "Dexterity", "Attack", "Speed"));
+        java.util.List<RealmFilter.Share> shares = RealmFilter.portalShares(spritePortal, RealmFilter.portalPicks(spritePortal));
+        RealmFilter.Potion def = RealmFilter.potion("Defense"), dex = RealmFilter.potion("Dexterity"), atk = RealmFilter.potion("Attack");
+        boolean split = shares.size() == 3 && def != null && dex != null && atk != null
+                && shares.get(0).colour.equals(def.colour) && Math.abs(shares.get(0).weight - 0.4) < 1e-9
+                && shares.get(1).colour.equals(dex.colour) && Math.abs(shares.get(1).weight - 0.4) < 1e-9
+                && shares.get(2).colour.equals(atk.colour) && Math.abs(shares.get(2).weight - 0.2) < 1e-9;
+        RealmFilter.setPotionsForTest(java.util.Collections.singletonList("Attack"));
+        java.util.List<RealmFilter.Share> alone = RealmFilter.portalShares(spritePortal, RealmFilter.portalPicks(spritePortal));
+        RealmFilter.setForTest(handPicks);
+        RealmFilter.setPotionsForTest(potionWas);
+        report.accept("the Sprite World's portal ring is 80% its boss's potions, Defense and Dexterity, and 20% the Attack its helpers drop - and whole Attack when only Attack is picked",
+                split && alone.size() == 1 && alone.get(0).weight == 1.0);
+        // a waypoint's three objects get one ring: the Teleport Beacon the game shows
+        int[] fey = RealmFilter.beaconTypesForTest("sprite forest");
+        ShattersRadar.Mark tele = new ShattersRadar.Mark(ShattersRadar.EVENT, fey[0], 100, 100), act = new ShattersRadar.Mark(ShattersRadar.EVENT, fey[1], 104, 96),
+                actual = new ShattersRadar.Mark(ShattersRadar.EVENT, fey[2], 104, 97), far = new ShattersRadar.Mark(ShattersRadar.EVENT, fey[1], 400, 400);
+        java.util.List<ShattersRadar.Mark> one = ShattersOverlayWindow.oneBeaconEach(java.util.Arrays.asList(act, actual, tele, far));
+        report.accept("the Tomb's Sarcophagus and Treasure Sarcophagus are known by the game's own names, and nothing else is taken for one",
+                ShattersRadar.sarcophagus(3369) == 1 && ShattersRadar.sarcophagus(3372) == 2 && ShattersRadar.sarcophagus(ShattersRadar.STONE_IDOL) == 0);
+        report.accept("a waypoint's Active Beacon copies are not ringed beside the Teleport Beacon the game shows, while a waypoint far off still is",
+                fey[0] > 0 && fey[1] > 0 && fey[2] > 0 && one.size() == 2 && one.contains(tele) && one.contains(far));
         report.accept("clicking a biome lists only the droppers that live there: Speed has three in the Abandoned City",
                 city.size() == 3 && allThere && speed != null && RealmFilterPicker.inBiome(speed.droppers, null).size() == speed.droppers.size());
     }

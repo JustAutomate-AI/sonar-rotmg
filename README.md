@@ -134,7 +134,7 @@ Plus a **Collection**, a **Party finder** listing, and **Daily Quests** as cards
 
 ## The rest of it
 
-- **Pings you choose** for white bags and every other bag colour, enchanted drops, dungeon calls in party chat, trades and the realm closing — each with its own sound and its own volume
+- **Pings you choose** for white bags and every other bag colour, dungeon calls, private, guild and party messages, trades, the words you watch for and the portal of a dungeon you hunt — each with its own volume and a play button to hear it, in a Soft chimes or Classic sound pack
 - **Windows you arrange.** Every page is made of windows you can move, resize and close; the layout is remembered
 - **Eight accents and several grounds**, applied to the whole interface at once
 - **Self-updating** — Sonar checks GitHub at startup and installs a new version on request

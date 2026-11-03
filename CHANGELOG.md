@@ -2,6 +2,20 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.71.0
+
+**Softer sounds with a setting for every one, a steadier overlay, and the Tomb's sarcophagi ringed**
+
+- **A new Soft chimes sound pack, and the default.** Gentle bell and mallet phrases made for Sonar, one for every ping, all at an even, comfortable loudness - the old sounds ranged from very loud to barely there. Settings has a Sound pack choice under Volume; Classic keeps the sounds Sonar had.
+- **Every ping row has a play button**, so a sound can be heard at its own loudness without switching it on.
+- **Two pings that had no settings now do.** The portal of a dungeon you hunt - picked in the realm filter, or one a picked potion drops in - has its own row under Realm pings, with its own sound where it used to play the Windows Ding. And a word from "Words to watch for" has its own row under Chat pings, where it used to borrow the private-message sound.
+- **The minimap overlay stays steered by your keys.** Your movement keys steer where Sonar thinks you are, but a Move from your client describes the last tenth of a second or so, and it was compared with the keys held when it arrived. Every quick dodge looked like walking against your keys, three in a row switched the steering off, and the whole overlay - portals and pylons most visibly - slid up to a tile and a half off. Each Move is now compared with the keys held over the time it covers.
+- **One ring per waypoint.** A realm waypoint is three objects - two "Active Beacon" copies at its middle and the "Teleport Beacon" you click, the only one the game puts on its minimap - and each got its own ring, two of them stacked in the waypoint's square at the closest zoom. Only the one the game shows is ringed now.
+- **A dungeon portal's ring is split by where the potions come from.** Potions its boss drops take 80% of the ring and those only its helpers drop the rest: with Defense, Dexterity and Attack picked, the Sprite World is 40% Defense, 40% Dexterity - Limon's - and 20% Attack, from its Native Sprite Gods. The boss is the enemy the game itself labels BOSS.
+- **The Tomb of the Ancients' sarcophagi are ringed**, which the game's minimap gives no dot: gold for each Sarcophagus, three of which wake the bosses, and teal for a Treasure Sarcophagus. Off the minimap they are held at its edge, pointing the way.
+- **The damage meter keeps out of the realm.** It stays hidden in the realm, the Nexus and the Vault, and in a dungeon until its boss or a miniboss has been hit. The last dungeon's board no longer follows you out, and an outsized enemy no longer brings it up.
+- **The folded meter docks against the minimap.** Its tab sits at the corner on the minimap's side instead of floating where the meter's far corner was; the open meter's arrow points that way, and the folded tab's points back out.
+
 ## 2.70.1
 
 **Your past runs come back, and saving a run no longer sets a day aside**

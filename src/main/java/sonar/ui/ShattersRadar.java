@@ -661,7 +661,7 @@ final class ShattersRadar {
             keyBaseY = last.pos.y;
             keyBaseAt = System.nanoTime();
         }
-        learnFromMove(data, vx, vy, inside, System.nanoTime());
+        learnFromMove(data, vx, vy, inside, dt, System.nanoTime());
         if (loggedMovesFor != data.map) {
             loggedMovesFor = data.map;
             loggedMoves = 0;
@@ -823,6 +823,45 @@ final class ShattersRadar {
         return new double[]{dx / k * speed, dy / k * speed};
     }
 
+    /*
+     * The keys held lately, oldest first, each as {nanos it began, dx, dy}.
+     *
+     * A Move's speed is measured over the last stretch of your client's own records - a tenth of
+     * a second or more - and it reaches Sonar after that stretch. The keys were compared as they
+     * were at that moment of arrival, so every dodge inside the stretch read as walking against
+     * your keys: three of those in a row and the keys were set aside, and the whole overlay went
+     * back to a tile and a half out until they agreed again. Ten times in a few minutes of play.
+     * Now a Move is compared with every set of keys held during the time it covers.
+     */
+    private static final java.util.ArrayDeque<long[]> KEY_LOG = new java.util.ArrayDeque<>();
+    /** How much earlier and later than the Move's own stretch the keys are still looked at. */
+    private static final long KEY_SLACK_NANOS = 40_000_000L;
+
+    /** Whether some keys held between {@code from} and {@code to} agree with the movement. A log with nothing in that time compares the newest keys. */
+    static boolean agreesOver(java.util.List<long[]> log, long from, long to, double vx, double vy) {
+        boolean any = false;
+        for (int i = 0; i < log.size(); i++) {
+            long began = log.get(i)[0], ended = i + 1 < log.size() ? log.get(i + 1)[0] : Long.MAX_VALUE;
+            if (ended < from || began > to) continue;
+            any = true;
+            if (keysAgree((int) log.get(i)[1], (int) log.get(i)[2], vx, vy)) return true;
+        }
+        if (any) return false;
+        if (log.isEmpty()) return keysAgree(0, 0, vx, vy);
+        long[] last = log.get(log.size() - 1);
+        return keysAgree((int) last[1], (int) last[2], vx, vy);
+    }
+
+    /** Whether any movement key was held between {@code from} and {@code to}. */
+    static boolean keyedOver(java.util.List<long[]> log, long from, long to) {
+        for (int i = 0; i < log.size(); i++) {
+            long began = log.get(i)[0], ended = i + 1 < log.size() ? log.get(i + 1)[0] : Long.MAX_VALUE;
+            if (ended < from || began > to) continue;
+            if (log.get(i)[1] != 0 || log.get(i)[2] != 0) return true;
+        }
+        return false;
+    }
+
     /** Whether the keys held agree with the way a Move says you went. Stopped while a key is held is a wall, not a disagreement. */
     static boolean keysAgree(int dx, int dy, double vx, double vy) {
         double s = Math.hypot(vx, vy);
@@ -869,6 +908,8 @@ final class ShattersRadar {
         if (dx != keysX || dy != keysY) {
             keysChangedAt = now;
             blocked = false;
+            KEY_LOG.addLast(new long[]{now, dx, dy});
+            while (KEY_LOG.size() > 24) KEY_LOG.removeFirst();
         }
         keysSteer = steer;
         keysX = dx;
@@ -879,7 +920,7 @@ final class ShattersRadar {
     }
 
     /** What a Move says about the keys: whether they agree, your walking speed, and whether something has stopped you. */
-    private static synchronized void learnFromMove(GameData data, double vx, double vy, boolean inside, long now) {
+    private static synchronized void learnFromMove(GameData data, double vx, double vy, boolean inside, int dtMs, long now) {
         if (!speedKnown) {
             try {
                 int spd = data.player.stat.get(sonar.packets.data.enums.StatType.SPEED_STAT).statValue;
@@ -890,9 +931,13 @@ final class ShattersRadar {
             }
         }
         if (!inside) return;   // a speed averaged over a whole tick says too little about a turn
-        boolean walking = (keysX != 0 || keysY != 0) && Math.hypot(vx, vy) >= 1;
-        if (walking) agreeingWalks = keysAgree(keysX, keysY, vx, vy) ? agreeingWalks + 1 : 0;
-        if (keysAgree(keysX, keysY, vx, vy)) {
+        // the keys held over the stretch this Move's speed was measured on, not only the ones held now
+        java.util.List<long[]> log = new java.util.ArrayList<>(KEY_LOG);
+        long from = now - dtMs * 1_000_000L - KEY_SLACK_NANOS, to = now;
+        boolean agree = agreesOver(log, from, to, vx, vy);
+        boolean walking = keyedOver(log, from, to) && Math.hypot(vx, vy) >= 1;
+        if (walking) agreeingWalks = agree ? agreeingWalks + 1 : 0;
+        if (agree) {
             disagreements = 0;
             if (!keysTrusted) {
                 keysTrusted = true;
@@ -1192,6 +1237,42 @@ final class ShattersRadar {
 
     static List<Mark> marks() {
         return marks;
+    }
+
+    /*
+     * The Tomb of the Ancients' sarcophagi. Each Tomb has five event rooms, each holding either a
+     * Sarcophagus guarded by priests or a Treasure Sarcophagus, and the bosses stay invulnerable
+     * until three Sarcophagi are destroyed (RealmEye). The game's minimap gives them no dot, but the
+     * server sends them like any enemy, so the overlay can ring them wherever they are - as it does
+     * the Shatters' targets.
+     */
+    private static volatile int[] sarcIds;
+
+    /** 1 for a Sarcophagus, three of which wake the Tomb's bosses; 2 for a Treasure Sarcophagus; 0 for anything else. */
+    static int sarcophagus(int type) {
+        int[] ids = sarcIds;
+        if (ids == null) sarcIds = ids = findSarcophagi();
+        return type == ids[0] ? 1 : type == ids[1] ? 2 : 0;
+    }
+
+    /** By the game's internal names, checked against its data, so an id the game moves is found again. */
+    private static int[] findSarcophagi() {
+        int[] out = {3369, 3372};
+        String[] names = {"Active Sarcophagus", "Inactive Sarcophagus"};
+        for (int i = 0; i < out.length; i++) {
+            try {
+                if (names[i].equals(sonar.assets.IdToAsset.getObjectIdName(out[i]))) continue;
+                for (int id : sonar.assets.IdToAsset.objectIds()) {
+                    if (names[i].equals(sonar.assets.IdToAsset.getObjectIdName(id))) {
+                        out[i] = id;
+                        break;
+                    }
+                }
+            } catch (RuntimeException unread) {
+                // the game data is not read yet: the known id stands
+            }
+        }
+        return out;
     }
 
     static boolean inShatters() {

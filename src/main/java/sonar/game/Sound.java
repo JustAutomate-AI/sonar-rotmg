@@ -37,8 +37,64 @@ public class Sound {
     public static boolean playTradeSound = false;
     /** "j" in party chat is how a popped dungeon is called out, so it gets a ping of its own. */
     public static boolean playJoinSound = false;
-    /** The join call reuses the party sound file, but can be set to its own loudness. */
+    /** The join call has a clip of its own, so it can be set to its own loudness. */
     public static Sound join;
+    /** A hunted dungeon's portal dropping: a dungeon picked in the realm filter, or one a picked potion drops in. */
+    public static Sound portal;
+    public static boolean playPortalSound = true;
+    /** A word from "Words to watch for" said in chat. It used to borrow the private-message sound. */
+    public static Sound keyword;
+    public static boolean playKeywordSound = true;
+
+    /**
+     * Which set of sounds plays: "soft", the chimes made for Sonar (the default), or "classic",
+     * the sounds it started with. Every alert has one in each; switching rebuilds the clips and
+     * keeps each one's own loudness.
+     */
+    public static final String PACK_KEY = "sonar.sound.pack";
+
+    public static String pack() {
+        return "classic".equals(sonar.util.PropertiesManager.getProperty(PACK_KEY)) ? "classic" : "soft";
+    }
+
+    public static synchronized void setPack(String name) {
+        sonar.util.PropertiesManager.setProperties(PACK_KEY, "classic".equals(name) ? "classic" : "soft");
+        loadPack();
+    }
+
+    /** Loads every alert's clip from the chosen pack, carrying over each one's own volume. */
+    public static synchronized void loadPack() {
+        boolean soft = "soft".equals(pack());
+        String dir = soft ? "sound/soft/" : "sound/";
+        party = swap(party, dir + "party.wav");
+        guild = swap(guild, dir + "guild.wav");
+        pm = swap(pm, dir + "pm.wav");
+        keypop = swap(keypop, dir + "keypop.wav");
+        whitebag = swap(whitebag, dir + "whitebag.wav");
+        orangebag = swap(orangebag, dir + "orangebag.wav");
+        redbag = swap(redbag, dir + "redbag.wav");
+        goldbag = swap(goldbag, dir + "goldbag.wav");
+        eggbag = swap(eggbag, dir + "eggbag.wav");
+        bluebag = swap(bluebag, dir + "bluebag.wav");
+        trade = swap(trade, dir + "trade.wav");
+        custom = swap(custom, dir + "custom.wav");
+        // its own clip, so the join call can be set louder than ordinary party chatter
+        join = swap(join, soft ? dir + "join.wav" : "sound/party.wav");
+        keyword = swap(keyword, soft ? dir + "keyword.wav" : "sound/pm.wav");
+        // a portal sound picked by hand in an older Sonar is still honoured in either pack
+        String chosen = sonar.util.PropertiesManager.getProperty("pingSound.dungeon");
+        portal = swap(portal, chosen != null && !chosen.trim().isEmpty() ? chosen.trim()
+                : soft ? dir + "portal.wav" : PingSounds.getPath(PingSounds.Type.DUNGEON));
+    }
+
+    private static Sound swap(Sound was, String file) {
+        Sound now = new Sound(file);
+        if (was != null) {
+            now.ownVolume = was.ownVolume;
+            if (was.soundClip != null) was.soundClip.close();
+        }
+        return now;
+    }
 
     /** This sound's own loudness, 0 to 100, or -1 to follow the shared volume. */
     private int ownVolume = -1;
@@ -69,20 +125,7 @@ public class Sound {
      * Loads auto clip to be played later
      */
     static {
-        party = new Sound("sound/party.wav");
-        guild = new Sound("sound/guild.wav");
-        pm = new Sound("sound/pm.wav");
-        keypop = new Sound("sound/keypop.wav");
-        whitebag = new Sound("sound/whitebag.wav");
-        orangebag = new Sound("sound/orangebag.wav");
-        redbag = new Sound("sound/redbag.wav");
-        goldbag = new Sound("sound/goldbag.wav");
-        eggbag = new Sound("sound/eggbag.wav");
-		bluebag = new Sound("sound/bluebag.wav");
-        trade = new Sound("sound/trade.wav");
-        custom = new Sound("sound/custom.wav");
-        // its own clip, so the join call can be set louder than ordinary party chatter
-        join = new Sound("sound/party.wav");
+        loadPack();
     }
 
     private static Clip loadSound(String file) {

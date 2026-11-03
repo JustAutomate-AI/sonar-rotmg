@@ -2287,6 +2287,11 @@ final class LiveModel {
      * screen, which sits empty until something is hit.
      */
     boolean passive() {
+        return passivePlace(instance);
+    }
+
+    /** The same, for a map by its name. */
+    static boolean passivePlace(String instance) {
         String name = instance == null ? "" : instance.trim().toLowerCase();
         return name.isEmpty() || PASSIVE.contains(name);
     }

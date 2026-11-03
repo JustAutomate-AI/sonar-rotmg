@@ -201,10 +201,18 @@ final class DamageMeterWindow extends JWindow {
         folded = on;
     }
 
-    /** The folded meter: the arrow alone, where the meter's top left corner was. */
-    static Rectangle foldedBounds(Rectangle meter) {
-        int head = headHeight(meter.width);
-        return new Rectangle(meter.x, meter.y, head + 10, head);
+    /** True while the meter sits on the minimap's left, so it folds away to its right, toward the minimap. */
+    static volatile boolean foldsRight = true;
+
+    /**
+     * The folded meter: the arrow alone, at the top corner on the minimap's side. It used to stay
+     * where the meter's far corner was, floating out in the game on its own; folded, it now sits
+     * against the minimap like the meter's own edge.
+     */
+    static Rectangle foldedBounds(Rectangle meter, Rectangle minimap) {
+        int head = headHeight(meter.width), w = head + 10;
+        boolean right = minimap == null || meter.getCenterX() <= minimap.getCenterX();
+        return new Rectangle(right ? meter.x + meter.width - w : meter.x, meter.y, w, head);
     }
 
     /** What a line says on its bar in the view chosen: its damage per minute or its damage, then its share. */
@@ -551,7 +559,8 @@ final class DamageMeterWindow extends JWindow {
             return;
         }
         Rectangle want = boundsFor(mm, place());
-        if (!adjusting && isFolded()) want = foldedBounds(want);
+        foldsRight = want.getCenterX() <= mm.getCenterX();
+        if (!adjusting && isFolded()) want = foldedBounds(want, mm);
         if (!adjusting && !getBounds().equals(want)) setBounds(want);
         if (!isVisible()) {
             if (adjusting) setBounds(want);
@@ -814,7 +823,8 @@ final class DamageMeterWindow extends JWindow {
                 g2.setStroke(new BasicStroke(st.borderWidth));
                 g2.draw(rounded(st.borderWidth / 2.0, st.borderWidth / 2.0, w - st.borderWidth, h - st.borderWidth, Math.min(st.radius, h / 2.0)));
             }
-            paintChevrons(g2, new Rectangle(0, 0, w, h), true, st.headInk);
+            // pointing the way it opens: away from the minimap
+            paintChevrons(g2, new Rectangle(0, 0, w, h), !foldsRight, st.headInk);
             g2.dispose();
             return;
         }
@@ -847,7 +857,8 @@ final class DamageMeterWindow extends JWindow {
             Rectangle fold = foldZone(w, h);
             g2.setColor(st.buttonBg);
             g2.fill(rounded(fold.x, fold.y, fold.width, fold.height, st.radius <= 0 ? 0 : 6));
-            paintChevrons(g2, fold, false, st.headMuted);
+            // pointing the way it folds: toward the minimap
+            paintChevrons(g2, fold, foldsRight, st.headMuted);
         }
         Rectangle titleAt = bossZone(w, h);
         if (bossBoard && !adjusting) paintBossButton(g2, titleAt, b, head, hy);

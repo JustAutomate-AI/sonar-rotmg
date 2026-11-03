@@ -181,6 +181,8 @@ public final class RealmFilter {
         int[] everyBeaconType = new int[0];
         /** The realm dungeons where it drops, easiest first, each with the enemies there that drop it. */
         Map<String, List<String>> dungeons = Collections.emptyMap();
+        /** Of those, the dungeons whose boss drops it - the game labels the enemy BOSS - rather than its helpers. */
+        final Set<String> bossDungeons = new HashSet<>();
 
         Potion(String name, String item, int index, List<Dropper> droppers, Color colour) {
             this.name = name;
@@ -443,6 +445,9 @@ public final class RealmFilter {
         Set<String> wanted = new HashSet<>();
         for (Dungeon d : list) for (Dropper x : d.droppers) wanted.add(key(x.name));
         for (Potion p : allPotions) for (Dropper x : p.droppers) wanted.add(key(x.name));
+        for (Potion p : allPotions) for (List<String> enemies : p.dungeons.values()) for (String e : enemies) wanted.add(key(e));
+        Map<Integer, String> biomes = new HashMap<>();
+        Map<Integer, Integer> ranks = new HashMap<>();
         Map<String, TreeSet<Integer>> byName = new HashMap<>();
         Map<Integer, String> idNames = new HashMap<>();
         Map<String, Integer> objects = new HashMap<>();
@@ -464,9 +469,15 @@ public final class RealmFilter {
             // "Floral Escape Beacon". It is the one on the minimap, and it was the one left out.
             int at = k.indexOf("active beacon ");
             if (at == 0 || (at == 7 && k.startsWith("actual "))) {
-                beaconsByBiome.computeIfAbsent(k.substring(at + "active beacon ".length()), x -> new TreeSet<>()).add(id);
+                String biome = k.substring(at + "active beacon ".length());
+                beaconsByBiome.computeIfAbsent(biome, x -> new TreeSet<>()).add(id);
+                biomes.put(id, biome);
+                ranks.put(id, at == 0 ? 1 : 2);
             } else if (k.startsWith("teleport beacon ")) {
-                beaconsByBiome.computeIfAbsent(k.substring("teleport beacon ".length()), x -> new TreeSet<>()).add(id);
+                String biome = k.substring("teleport beacon ".length());
+                beaconsByBiome.computeIfAbsent(biome, x -> new TreeSet<>()).add(id);
+                biomes.put(id, biome);
+                ranks.put(id, 0);
             }
             if (clazz != null && clazz.endsWith("Portal")) {
                 // the dungeon a portal leads to, as the game's own data names it
@@ -530,8 +541,120 @@ public final class RealmFilter {
                 x.ringTypes = ringsOfItsOwn(x.kind) ? x.types : new int[0];
             }
         }
+        // a potion is a boss's drop in a dungeon when one of its droppers there carries the game's
+        // BOSS label: Limon in the Sprite World, where the Native Sprite Gods that drop Attack are
+        // labelled MINION
+        for (Potion p : allPotions) {
+            p.bossDungeons.clear();
+            for (Map.Entry<String, List<String>> e : p.dungeons.entrySet()) {
+                boolean boss = false;
+                for (String enemy : e.getValue()) {
+                    for (int t : byName.getOrDefault(key(enemy), new TreeSet<>())) boss |= labelled(t, "BOSS");
+                }
+                if (boss) p.bossDungeons.add(e.getKey());
+            }
+        }
+        Map<Integer, String> leadsTo = new HashMap<>();
+        for (Dungeon d : list) for (int t : d.portalTypes) leadsTo.putIfAbsent(t, d.name);
+        portalDungeons = leadsTo;
+        beaconBiomes = biomes;
+        beaconRanks = ranks;
         resolved = true;
         rebuild();
+    }
+
+    /** Whether the game's own labels for an object include this one, whole: BOSS is not MINIBOSS. */
+    private static boolean labelled(int type, String label) {
+        String labels;
+        try {
+            labels = sonar.assets.IdToAsset.getIdLabel(type);
+        } catch (RuntimeException unknown) {
+            return false;
+        }
+        if (labels == null) return false;
+        for (String s : labels.split(",")) if (s.trim().equals(label)) return true;
+        return false;
+    }
+
+    /** The dungeon each portal leads to, by the portal's object type. */
+    private static volatile Map<Integer, String> portalDungeons = Collections.emptyMap();
+    /** Each beacon object's biome, and which of a waypoint's objects it is. */
+    private static volatile Map<Integer, String> beaconBiomes = Collections.emptyMap();
+    private static volatile Map<Integer, Integer> beaconRanks = Collections.emptyMap();
+
+    /** The biome a beacon object belongs to, or null for anything else. */
+    static String beaconBiome(int type) {
+        if (!resolved && all != null) resolveNow(all);
+        return beaconBiomes.get(type);
+    }
+
+    /**
+     * Which of a waypoint's three objects a beacon is: 0 for "Teleport Beacon", the one the game
+     * shows on its minimap and you click to travel; 1 and 2 for its two "Active Beacon" copies.
+     */
+    static int beaconRank(int type) {
+        if (!resolved && all != null) resolveNow(all);
+        Integer r = beaconRanks.get(type);
+        return r == null ? 9 : r;
+    }
+
+    /** For the self-test: a biome's beacon objects, by rank. */
+    static int[] beaconTypesForTest(String biome) {
+        if (!resolved && all != null) resolveNow(all);
+        int[] out = {-1, -1, -1};
+        for (Map.Entry<Integer, String> e : beaconBiomes.entrySet()) {
+            if (!e.getValue().equals(biome)) continue;
+            int r = beaconRank(e.getKey());
+            if (r >= 0 && r < 3 && out[r] < 0) out[r] = e.getKey();
+        }
+        return out;
+    }
+
+    /** One coloured piece of a portal's ring: its colour and its share of the circle. */
+    static final class Share {
+        final Color colour;
+        final double weight;
+
+        Share(Color colour, double weight) {
+            this.colour = colour;
+            this.weight = weight;
+        }
+    }
+
+    /** How much of a portal's ring its boss's potions take when its helpers drop a picked potion too. */
+    static final double BOSS_SHARE = 0.8;
+
+    /**
+     * A portal's ring, in pieces: a dungeon picked by hand rings it whole in lime; otherwise each
+     * picked potion that drops inside gets a piece, and when some of them come from the boss and
+     * some only from its helpers, the boss's take {@link #BOSS_SHARE} of the circle between them
+     * and the helpers' the rest - so the Sprite World, where Limon drops Dexterity and Defense and
+     * the Native Sprite Gods drop Attack, is mostly Dexterity and Defense with a slice of Attack.
+     */
+    static List<Share> portalShares(int portalType, int drops) {
+        List<Share> out = new ArrayList<>();
+        if ((drops & ((1 << POTION_BIT) - 1)) != 0 || drops == 0) {
+            out.add(new Share(ringColour(drops), 1));
+            return out;
+        }
+        if (!resolved && all != null) resolveNow(all);
+        String dungeon = portalDungeons.get(portalType);
+        List<Potion> boss = new ArrayList<>(), helpers = new ArrayList<>();
+        for (String name : potionPicks()) {
+            Potion p = potion(name);
+            if (p == null || (drops & p.bit()) == 0) continue;
+            if (dungeon != null && p.bossDungeons.contains(dungeon)) boss.add(p);
+            else helpers.add(p);
+        }
+        if (boss.isEmpty() || helpers.isEmpty()) {
+            List<Potion> one = boss.isEmpty() ? helpers : boss;
+            for (Potion p : one) out.add(new Share(p.colour, 1.0 / one.size()));
+        } else {
+            for (Potion p : boss) out.add(new Share(p.colour, BOSS_SHARE / boss.size()));
+            for (Potion p : helpers) out.add(new Share(p.colour, (1 - BOSS_SHARE) / helpers.size()));
+        }
+        if (out.isEmpty()) out.add(new Share(ringColour(drops), 1));
+        return out;
     }
 
     // ---- the picks ----

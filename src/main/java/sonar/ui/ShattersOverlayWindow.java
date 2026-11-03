@@ -757,10 +757,15 @@ class ShattersOverlayWindow extends JWindow {
         dotPx = dotFor(w, h);
         double cx = w / 2.0, cy = h / 2.0;
         boolean onlyHunted = RealmFilter.hidesOtherEvents();
-        java.util.List<ShattersRadar.Mark> portals = new java.util.ArrayList<>(), beacons = new java.util.ArrayList<>();
+        java.util.List<ShattersRadar.Mark> portals = new java.util.ArrayList<>(), beacons = new java.util.ArrayList<>(),
+                sarcs = new java.util.ArrayList<>();
         for (ShattersRadar.Mark m : ShattersRadar.live()) {
             if (marksPortal(m)) {
                 portals.add(m);
+                continue;
+            }
+            if (m.type == ShattersRadar.FOE && ShattersRadar.sarcophagus(m.id) > 0) {
+                sarcs.add(m);
                 continue;
             }
             if (marksBeacon(m)) {
@@ -778,7 +783,12 @@ class ShattersOverlayWindow extends JWindow {
         }
         // the beacons to where a hunted potion drops most, and a hunted dungeon's portal on top of
         // everything: both held at the frame's edge when outside what the minimap shows
-        for (ShattersRadar.Mark m : beacons) {
+        // the Tomb's sarcophagi, which the game's minimap gives no dot: held at the frame's edge too
+        for (ShattersRadar.Mark m : sarcs) {
+            int[] at = heldInFrame(m, w, h, tilesWide, tilesHigh, 18);
+            if (at != null) paintSarcophagus(g, m, at[0], at[1], at[2] == 1, ShattersRadar.sarcophagus(m.id));
+        }
+        for (ShattersRadar.Mark m : oneBeaconEach(beacons)) {
             int[] at = heldInFrame(m, w, h, tilesWide, tilesHigh, 16);
             if (at != null) paintBeaconRing(g, m, at[0], at[1], at[2] == 1);
         }
@@ -804,7 +814,13 @@ class ShattersOverlayWindow extends JWindow {
         if (!drawMap) return;
         dotPx = dotFor(w, h);
         double cx = w / 2.0, cy = h / 2.0;
-        for (ShattersRadar.Mark m : ShattersRadar.live()) {
+        java.util.List<ShattersRadar.Mark> marks = ShattersRadar.live(), beacons = new java.util.ArrayList<>();
+        for (ShattersRadar.Mark m : marks) if (marksBeacon(m)) beacons.add(m);
+        java.util.Set<ShattersRadar.Mark> twins = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        twins.addAll(beacons);
+        twins.removeAll(oneBeaconEach(beacons));
+        for (ShattersRadar.Mark m : marks) {
+            if (twins.contains(m)) continue;
             double[] off = ShattersRadar.offsetFromView(m, tilesWide, tilesHigh);
             if (off == null) continue;
             int x = (int) Math.round(cx + off[0] * pixelsPerTile);
@@ -850,6 +866,11 @@ class ShattersOverlayWindow extends JWindow {
         }
         if (m.type != ShattersRadar.FOE) {
             paintMark(g, m.type, m.kindId(), x, y, tilesWide);
+            return;
+        }
+        int sarc = ShattersRadar.sarcophagus(m.id);
+        if (sarc > 0) {
+            paintSarcophagus(g, m, x, y, false, sarc);
             return;
         }
         // Anything the game gives an icon is drawn as its own sprite inside a ring in the
@@ -939,6 +960,20 @@ class ShattersOverlayWindow extends JWindow {
         return out;
     }
 
+    /** A portal's ring pieces as {start, extent} degrees: from the top going clockwise, each as long as its share, with a small gap between. */
+    static double[][] shareArcs(java.util.List<RealmFilter.Share> shares) {
+        double gap = shares.size() > 1 ? 10 : 0, total = 0;
+        for (RealmFilter.Share s : shares) total += s.weight;
+        double[][] out = new double[shares.size()][];
+        double at = 90;
+        for (int i = 0; i < shares.size(); i++) {
+            double each = 360 * shares.get(i).weight / Math.max(1e-9, total);
+            out[i] = new double[]{at - gap / 2, -Math.max(2, each - gap)};
+            at -= each;
+        }
+        return out;
+    }
+
     /** A beacon's ring, across: smaller than any event's, so a realm full of beacons does not crowd the minimap. */
     static double beaconRingSize(double dotPx) {
         return 16 * dotPx / 10.0;
@@ -986,6 +1021,91 @@ class ShattersOverlayWindow extends JWindow {
             g2.fill(new java.awt.geom.Ellipse2D.Double(x - d, y - d, d * 2, d * 2));
         }
         g2.dispose();
+    }
+
+    /** A Sarcophagus's ring: gold, the three that wake the Tomb's bosses. */
+    static final Color SARCOPHAGUS = new Color(0xf5c56b);
+    /** A Treasure Sarcophagus's: teal, the loot room's. */
+    static final Color TREASURE_SARCOPHAGUS = new Color(0x5ee6c5);
+
+    /**
+     * A Tomb sarcophagus: its sprite in a ring, gold for a Sarcophagus and teal for a Treasure
+     * Sarcophagus, over a dark disc so it reads on the game's black. Held at the frame's edge,
+     * smaller and a little faded, it says which way to go.
+     */
+    private void paintSarcophagus(Graphics2D g, ShattersRadar.Mark m, int x, int y, boolean beyond, int kind) {
+        Color ring = kind == 1 ? SARCOPHAGUS : TREASURE_SARCOPHAGUS;
+        int size = (int) Math.round((beyond ? 0.68 : 0.85) * IMPORTANT_SIZE);
+        int d = size + 8;
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        if (beyond) g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(0.82f));
+        g2.setColor(SonarTheme.alpha(ring, 0.2));
+        g2.fill(new java.awt.geom.Ellipse2D.Double(x - d / 2.0 - 4, y - d / 2.0 - 4, d + 8, d + 8));
+        g2.setColor(new Color(10, 8, 20, 175));
+        g2.fill(new java.awt.geom.Ellipse2D.Double(x - d / 2.0, y - d / 2.0, d, d));
+        g2.setStroke(new BasicStroke(3f));
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.drawOval(x - d / 2 - 1, y - d / 2 - 1, d + 2, d + 2);
+        g2.setColor(ring);
+        g2.drawOval(x - d / 2, y - d / 2, d, d);
+        java.awt.image.BufferedImage face = faceOf(m.kindId());
+        if (face != null) {
+            double fit = Math.min(size * 0.8 / face.getWidth(), size * 0.8 / face.getHeight());
+            int fw = (int) Math.round(face.getWidth() * fit), fh = (int) Math.round(face.getHeight() * fit);
+            g2.drawImage(face, x - fw / 2, y - fh / 2, fw, fh, null);
+        }
+        g2.dispose();
+    }
+
+    /** How far apart a waypoint's objects can stand and still be the one waypoint, in tiles. */
+    static final double WAYPOINT_TILES = 16;
+    /** The waypoints whose doubles have been told to the log, so each is said once a map. */
+    private static final java.util.Set<String> toldTwins = new java.util.HashSet<>();
+    private static Object toldTwinsFor;
+
+    /**
+     * One ring per waypoint.
+     * <p>
+     * A realm waypoint is three objects: the two "Active Beacon" copies at its middle and the
+     * "Teleport Beacon" you click, which is the only one the game puts on its minimap. All three
+     * are the picked potions' beacons, so each got a ring of its own - two of them stacked in the
+     * waypoint's square, zoomed right in, where the game draws one. Of a biome's beacons within
+     * {@link #WAYPOINT_TILES} of each other only the one the game shows is kept, or failing that
+     * one of its copies.
+     */
+    static java.util.List<ShattersRadar.Mark> oneBeaconEach(java.util.List<ShattersRadar.Mark> beacons) {
+        if (beacons.size() < 2) return beacons;
+        java.util.List<ShattersRadar.Mark> sorted = new java.util.ArrayList<>(beacons);
+        sorted.sort(java.util.Comparator.comparingInt(m -> RealmFilter.beaconRank(m.id)));
+        java.util.List<ShattersRadar.Mark> kept = new java.util.ArrayList<>();
+        for (ShattersRadar.Mark m : sorted) {
+            String biome = RealmFilter.beaconBiome(m.id);
+            ShattersRadar.Mark twin = null;
+            if (biome != null) {
+                for (ShattersRadar.Mark k : kept) {
+                    if (biome.equals(RealmFilter.beaconBiome(k.id)) && Math.hypot(m.x - k.x, m.y - k.y) <= WAYPOINT_TILES) {
+                        twin = k;
+                        break;
+                    }
+                }
+            }
+            if (twin == null) {
+                kept.add(m);
+                continue;
+            }
+            Object map = ShattersRadar.mapName();
+            if (map != toldTwinsFor) {
+                toldTwins.clear();
+                toldTwinsFor = map;
+            }
+            if (toldTwins.add(biome)) {
+                System.out.println(String.format(java.util.Locale.ROOT,
+                        "[overlay] waypoint %s: beacon objects %d and %d stand %.1f tiles apart; ringing only %d, the one the game shows",
+                        biome, twin.id, m.id, Math.hypot(m.x - twin.x, m.y - twin.y), twin.id));
+            }
+        }
+        return kept;
     }
 
     /** Whether a mark is the portal of a dungeon being hunted, which gets a mark of its own. */
@@ -1184,7 +1304,8 @@ class ShattersOverlayWindow extends JWindow {
      * sign of it there. Held at the frame's edge, a little faded, when it is outside the view.
      */
     private void paintPortal(Graphics2D g, ShattersRadar.Mark m, int x, int y, boolean beyond) {
-        Color hue = RealmFilter.ringColour(m.drops);
+        java.util.List<RealmFilter.Share> shares = RealmFilter.portalShares(m.id, m.drops);
+        Color hue = shares.get(0).colour;
         double scale = dotPx / 10.0;
         int size = (int) Math.round(beyond ? IMPORTANT_SIZE * 0.72 : IMPORTANT_SIZE);
         int ring = size + 10;
@@ -1207,8 +1328,18 @@ class ShattersOverlayWindow extends JWindow {
         g2.setStroke(new BasicStroke(3f));
         g2.setColor(new Color(0, 0, 0, 170));
         g2.drawOval(x - ring / 2 - 1, y - ring / 2 - 1, ring + 2, ring + 2);
-        g2.setColor(hue);
-        g2.drawOval(x - ring / 2, y - ring / 2, ring, ring);
+        if (shares.size() == 1) {
+            g2.setColor(hue);
+            g2.drawOval(x - ring / 2, y - ring / 2, ring, ring);
+        } else {
+            // from the top, clockwise, the boss's potions first: each piece as long as its share
+            g2.setStroke(new BasicStroke(3f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
+            double[][] arcs = shareArcs(shares);
+            for (int i = 0; i < arcs.length; i++) {
+                g2.setColor(shares.get(i).colour);
+                g2.draw(new java.awt.geom.Arc2D.Double(x - ring / 2.0, y - ring / 2.0, ring, ring, arcs[i][0], arcs[i][1], java.awt.geom.Arc2D.OPEN));
+            }
+        }
         java.awt.image.BufferedImage face = faceOf(m.kindId());
         if (face != null) {
             double fit = Math.min(size / (double) face.getWidth(), size / (double) face.getHeight());

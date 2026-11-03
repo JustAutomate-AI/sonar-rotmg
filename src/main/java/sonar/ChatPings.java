@@ -189,14 +189,19 @@ public class ChatPings {
             for (String s : data.getChatMessagePings()) {
                 if (s.startsWith("\"") && s.endsWith("\"")) {
                     String exactMatch = s.substring(1, s.length() - 1).toLowerCase();
+                    boolean said = false;
                     for (String m : p.text.toLowerCase().split(" ")) {
                         if (exactMatch.equals(m)) {
-                            Sound.pm.play();
+                            said = true;
                             break;
                         }
                     }
+                    if (said) {
+                        if (Sound.playKeywordSound && Sound.keyword != null) Sound.keyword.play();
+                        break;
+                    }
                 } else if (p.text.toLowerCase().contains(s.toLowerCase())) {
-                    Sound.pm.play();
+                    if (Sound.playKeywordSound && Sound.keyword != null) Sound.keyword.play();
                     break;
                 }
             }

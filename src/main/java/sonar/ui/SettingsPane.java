@@ -68,7 +68,7 @@ class SettingsPane extends Pane {
      * start the sniffer to catch.
      */
     private static final java.util.Set<String> ON_BY_DEFAULT =
-            new java.util.HashSet<>(java.util.Arrays.asList("joinPing", "whiteBagSound"));
+            new java.util.HashSet<>(java.util.Arrays.asList("joinPing", "whiteBagSound", "keywordPing", "portalPing"));
 
     /**
      * Puts every ping's saved loudness and saved on/off state back at startup.
@@ -94,11 +94,20 @@ class SettingsPane extends Pane {
     private List<Toggle> all() {
         List<Toggle> every = new ArrayList<>(bags);
         every.addAll(chat);
+        every.addAll(realm);
         return every;
+    }
+
+    /** For the self-test: the key of every ping that has a switch here. */
+    static List<String> toggleKeysForTest() {
+        List<String> keys = new ArrayList<>();
+        for (Toggle t : new SettingsPane().all()) keys.add(t.key);
+        return keys;
     }
 
     private final List<Toggle> bags = new ArrayList<>();
     private final List<Toggle> chat = new ArrayList<>();
+    private final List<Toggle> realm = new ArrayList<>();
     /** Click targets worked out while painting, so the two stay in step. */
     private final List<Rectangle> zones = new ArrayList<>();
     private final List<Runnable> actions = new ArrayList<>();
@@ -117,6 +126,8 @@ class SettingsPane extends Pane {
         chat.add(new Toggle("Guild chat", "chatPingGuild", () -> Sound.playGuildSound, v -> Sound.playGuildSound = v, () -> Sound.guild));
         chat.add(new Toggle("Party chat", "chatPingParty", () -> Sound.playPartySound, v -> Sound.playPartySound = v, () -> Sound.party));
         chat.add(new Toggle("Trade request", "tradePing", () -> Sound.playTradeSound, v -> Sound.playTradeSound = v, () -> Sound.trade));
+        chat.add(new Toggle("A word you're watching for", "keywordPing", () -> Sound.playKeywordSound, v -> Sound.playKeywordSound = v, () -> Sound.keyword));
+        realm.add(new Toggle("Portal of a dungeon you hunt", "portalPing", () -> Sound.playPortalSound, v -> Sound.playPortalSound = v, () -> Sound.portal));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
@@ -150,9 +161,10 @@ class SettingsPane extends Pane {
     @Override
     int contentHeight() {
         int w = Math.max(1, width());
-        return HEAD + 56                               // sound heading + volume
+        return HEAD + 96                               // sound heading + volume + sound pack
                 + HEAD + listHeight(w, bags.size())    // loot pings
                 + HEAD + listHeight(w, chat.size())    // chat pings
+                + HEAD + listHeight(w, realm.size())   // realm pings
                 + HEAD + keywordsHeight(ChatPings.keywords().size())  // words to watch for
                 + HEAD + METER_H                       // damage meter on the game
                 + HEAD + POTS_H                        // floating pots
@@ -193,6 +205,8 @@ class SettingsPane extends Pane {
         y = paintToggles(g, width, y, bags);
         y = heading(g, width, y, "CHAT PINGS");
         y = paintToggles(g, width, y, chat);
+        y = heading(g, width, y, "REALM PINGS");
+        y = paintToggles(g, width, y, realm);
         y = heading(g, width, y, "WORDS TO WATCH FOR");
         y = paintKeywords(g, width, y);
         y = heading(g, width, y, "DAMAGE METER ON THE GAME");
@@ -508,7 +522,37 @@ class SettingsPane extends Pane {
             Sound.setVolume(volume());
             if (Sound.whitebag != null) Sound.whitebag.play();
         });
-        return y + 56;
+
+        // which set of sounds every ping plays
+        int py = y + 58;
+        g.setFont(SonarTheme.font(12.5f));
+        g.setColor(SonarTheme.TEXT);
+        g.drawString("Sound pack", 2, py + 17);
+        int px = 110;
+        String current = Sound.pack();
+        for (String[] choice : new String[][]{{"soft", "Soft chimes"}, {"classic", "Classic"}}) {
+            g.setFont(SonarTheme.bold(11.5f));
+            int cw = g.getFontMetrics().stringWidth(choice[1]) + 26;
+            boolean on = choice[0].equals(current);
+            boolean overPick = hoverX >= px && hoverX < px + cw && hoverY >= py && hoverY < py + 26;
+            g.setColor(on ? SonarTheme.alpha(SonarTheme.accent(), 0.22) : new Color(255, 255, 255, overPick ? 22 : 10));
+            g.fill(SonarTheme.round(px, py, cw, 26, 13));
+            if (on) {
+                g.setColor(SonarTheme.alpha(SonarTheme.accent(), 0.7));
+                g.draw(SonarTheme.round(px + 0.5, py + 0.5, cw - 1, 25, 12.5));
+            }
+            g.setColor(on ? SonarTheme.accent() : overPick ? SonarTheme.TEXT : SonarTheme.MUTED);
+            g.drawString(choice[1], px + 13, py + 17);
+            String pick = choice[0];
+            zone(new Rectangle(px, py, cw, 26), () -> {
+                if (!pick.equals(Sound.pack())) Sound.setPack(pick);
+                Sound.setVolume(volume());
+                if (Sound.whitebag != null) Sound.whitebag.play();
+                repaint();
+            });
+            px += cw + 8;
+        }
+        return y + 96;
     }
 
     private int paintToggles(Graphics2D g, int width, int y, List<Toggle> list) {
@@ -530,7 +574,27 @@ class SettingsPane extends Pane {
             int switchX = x + colW - 52;
             int sliderW = 78;
             int sliderX = switchX - sliderW - 14;
-            g.drawString(SonarTheme.fit(t.label, g.getFontMetrics(), sliderX - x - 24), x + 12, ty + 21);
+            int playD = 20, playX = sliderX - playD - 12, playY = ty + (ROW - PAD - playD) / 2;
+            g.drawString(SonarTheme.fit(t.label, g.getFontMetrics(), playX - x - 20), x + 12, ty + 21);
+
+            // a play button, to hear the ping at its own loudness without switching it
+            boolean overPlay = hoverX >= playX && hoverX < playX + playD && hoverY >= playY && hoverY < playY + playD;
+            g.setColor(overPlay ? SonarTheme.alpha(SonarTheme.accent(), 0.3) : new Color(255, 255, 255, 18));
+            g.fill(new java.awt.geom.Ellipse2D.Double(playX, playY, playD, playD));
+            g.setColor(overPlay ? SonarTheme.accent() : SonarTheme.MUTED);
+            java.awt.geom.Path2D tri = new java.awt.geom.Path2D.Double();
+            tri.moveTo(playX + 8, playY + 6);
+            tri.lineTo(playX + 15, playY + playD / 2.0);
+            tri.lineTo(playX + 8, playY + playD - 6);
+            tri.closePath();
+            g.fill(tri);
+            zone(new Rectangle(playX, playY, playD, playD), () -> {
+                Sound s = t.sound.get();
+                if (s != null) {
+                    s.setOwnVolume(t.volume());
+                    s.play();
+                }
+            });
 
             int vol = t.volume();
             int sliderY = ty + (ROW - PAD) / 2;
