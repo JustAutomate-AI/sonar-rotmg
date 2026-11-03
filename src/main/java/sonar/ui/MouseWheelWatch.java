@@ -22,7 +22,15 @@ package sonar.ui;
  * Windows runs a hook on the thread that installed it and only while that thread is pumping
  * messages, so this keeps a daemon thread of its own doing nothing else. A hook that dawdles
  * is skipped by Windows - and would make the whole machine's mouse feel sticky - so the
- * callback does the least it can: two reads out of the event and a hand-off.
+ * callback does the least it can: two reads out of the event and a hand-off to a thread of its
+ * own, which is the one that tells the overlay.
+ * <p>
+ * Worse than skipped: since Windows 7 a low-level hook that once answers too slowly is removed
+ * outright, without a word, and nothing can ask whether it still exists. That was the "scroll
+ * locking": the overlay sat at its closest zoom for a whole session while the game's minimap
+ * went out to the whole realm and back, because no scroll reached it any more. So a watchdog
+ * compares the hook with the left button, which can be polled: a press the hook never heard
+ * about, twice running, means the hook is gone, and it is put back.
  */
 final class MouseWheelWatch {
 
@@ -63,6 +71,12 @@ final class MouseWheelWatch {
     }
 
     private static Thread thread;
+    /** Events taken off the hook, waiting for the hand-off thread: {x, y, notches}, notches 0 for a click. */
+    private static final java.util.concurrent.LinkedBlockingQueue<int[]> events = new java.util.concurrent.LinkedBlockingQueue<>(256);
+    private static Thread handOff, watchdog;
+    /** When the hook last heard a left press, on {@link System#nanoTime()}. */
+    private static volatile long hookClickAt;
+    private static volatile int reinstalls;
     private static volatile com.sun.jna.Pointer hook;
     private static volatile Listener listener;
     /** The pump thread's Windows id, so {@link #stop()} can tell it to stop taking messages. */
@@ -114,10 +128,103 @@ final class MouseWheelWatch {
         thread = new Thread(MouseWheelWatch::pump, "sonar-wheel");
         thread.setDaemon(true);
         thread.start();
+        if (handOff == null) {
+            handOff = new Thread(MouseWheelWatch::handOff, "sonar-wheel-handoff");
+            handOff.setDaemon(true);
+            handOff.start();
+        }
+        if (watchdog == null) {
+            watchdog = new Thread(MouseWheelWatch::watch, "sonar-wheel-watchdog");
+            watchdog.setDaemon(true);
+            watchdog.start();
+        }
+    }
+
+    /** Tells the overlay, away from the hook, so the hook itself never waits on anything. */
+    private static void handOff() {
+        while (true) {
+            try {
+                int[] e = events.take();
+                Listener who = listener;
+                if (who == null) continue;
+                if (e[2] == 0) who.clicked(e[0], e[1]);
+                else who.wheel(e[0], e[1], e[2]);
+            } catch (InterruptedException stop) {
+                return;
+            } catch (Throwable ignored) {
+                // one bad event does not stop the rest
+            }
+        }
+    }
+
+    private interface Keys extends com.sun.jna.win32.StdCallLibrary {
+        Keys INSTANCE = com.sun.jna.Native.load("user32", Keys.class, com.sun.jna.win32.W32APIOptions.DEFAULT_OPTIONS);
+
+        short GetAsyncKeyState(int vKey);
+    }
+
+    /**
+     * Whether the hook has gone deaf: a press it should have heard, missed twice in a row.
+     * Pure, so the self-test can check it: {@code pressAt} is when a poll saw the button go down,
+     * {@code heardAt} when the hook last reported a press, both on one clock.
+     */
+    static boolean missed(long pressAt, long heardAt, long now, long graceNanos) {
+        return now - pressAt >= graceNanos && heardAt < pressAt - graceNanos / 2;
+    }
+
+    /** Polls the left button and puts the hook back when it has stopped hearing it. */
+    private static void watch() {
+        boolean was = false;
+        long pressAt = 0;
+        boolean pending = false;
+        int misses = 0;
+        final long grace = 400_000_000L;
+        while (true) {
+            try {
+                Thread.sleep(40);
+                if (listener == null) {
+                    was = false;
+                    pending = false;
+                    continue;
+                }
+                boolean down = (Keys.INSTANCE.GetAsyncKeyState(0x01) & 0x8000) != 0;
+                long now = System.nanoTime();
+                if (down && !was) {
+                    pressAt = now;
+                    pending = true;
+                }
+                was = down;
+                if (pending && now - pressAt >= grace) {
+                    pending = false;
+                    if (missed(pressAt, hookClickAt, now, grace)) {
+                        if (++misses >= 2) {
+                            misses = 0;
+                            reinstall();
+                        }
+                    } else {
+                        misses = 0;
+                    }
+                }
+            } catch (InterruptedException stop) {
+                return;
+            } catch (Throwable notWindows) {
+                return;
+            }
+        }
+    }
+
+    private static void reinstall() {
+        Listener who = listener;
+        if (who == null) return;
+        reinstalls++;
+        System.out.println("[wheel] the mouse hook stopped hearing the mouse - Windows removes one that answers slowly - so it is put back (" + reinstalls + ")");
+        stop();
+        start(who);
     }
 
     static synchronized void stop() {
         listener = null;
+        events.clear();
         com.sun.jna.Pointer h = hook;
         hook = null;
         if (h != null) {
@@ -153,16 +260,16 @@ final class MouseWheelWatch {
             proc = (nCode, wParam, lParam) -> {
                 if (nCode == HC_ACTION && lParam != null) {
                     long what = com.sun.jna.Pointer.nativeValue(wParam);
-                    Listener who = listener;
-                    if (who != null && (what == WM_MOUSEWHEEL || what == WM_LBUTTONDOWN)) {
+                    if (listener != null && (what == WM_MOUSEWHEEL || what == WM_LBUTTONDOWN)) {
                         try {
                             // MSLLHOOKSTRUCT: the point first, then mouseData at byte eight
                             int x = lParam.getInt(0), y = lParam.getInt(4);
                             if (what == WM_LBUTTONDOWN) {
-                                who.clicked(x, y);
+                                hookClickAt = System.nanoTime();
+                                events.offer(new int[]{x, y, 0});
                             } else {
                                 int notches = notchesFrom(lParam.getInt(8));
-                                if (notches != 0) who.wheel(x, y, notches);
+                                if (notches != 0) events.offer(new int[]{x, y, notches});
                             }
                         } catch (Throwable ignored) {
                             // never let a fault here delay the event on its way to the game
@@ -172,7 +279,12 @@ final class MouseWheelWatch {
                 return Hook.INSTANCE.CallNextHookEx(null, nCode, wParam, lParam);
             };
             hook = Hook.INSTANCE.SetWindowsHookExW(WH_MOUSE_LL, proc, null, 0);
-            if (hook == null) return;
+            if (hook == null) {
+                System.out.println("[wheel] Windows refused the mouse hook; the zoom keys and buttons still work");
+                return;
+            }
+            hookClickAt = System.nanoTime();
+            if (reinstalls == 0) System.out.println("[wheel] watching the mouse wheel for minimap zoom");
             // the hook is only called while this thread takes messages; there are none to
             // dispatch, so they are simply taken and dropped
             com.sun.jna.Memory msg = new com.sun.jna.Memory(64);

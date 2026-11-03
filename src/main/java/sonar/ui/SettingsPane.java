@@ -155,6 +155,7 @@ class SettingsPane extends Pane {
                 + HEAD + listHeight(w, chat.size())    // chat pings
                 + HEAD + keywordsHeight(ChatPings.keywords().size())  // words to watch for
                 + HEAD + METER_H                       // damage meter on the game
+                + HEAD + POTS_H                        // floating pots
                 + HEAD + 60                            // themes
                 + HEAD + SWATCH + 30                   // accent
                 + HEAD + 62                            // zoom
@@ -195,6 +196,8 @@ class SettingsPane extends Pane {
         y = paintKeywords(g, width, y);
         y = heading(g, width, y, "DAMAGE METER ON THE GAME");
         y = paintMeter(g, width, y);
+        y = heading(g, width, y, "FLOATING POTS");
+        y = paintPots(g, width, y);
         y = heading(g, width, y, "THEME");
         y = paintThemes(g, y);
         y = heading(g, width, y, "ACCENT COLOUR");
@@ -261,6 +264,41 @@ class SettingsPane extends Pane {
         g.setColor(SonarTheme.FAINT);
         g.drawString("While moving, the meter takes the mouse on the game: drag it, or any edge or corner to resize - taller shows more players - then click Done on it.", PAD, y + 12);
         return y + 24;
+    }
+
+    static final int POTS_H = 36 + 36 + 44;
+
+    /**
+     * Floating Pots: the potion an enemy drops, drawn over the game above its head. On or off,
+     * and lining it up with how the game draws its world, which is kept for each camera zoom.
+     */
+    private int paintPots(Graphics2D g, int width, int y) {
+        boolean on = FloatingPots.isOn();
+        paintSwitch(g, 2, y + 4, on);
+        g.setFont(SonarTheme.font(12.5f));
+        g.setColor(SonarTheme.TEXT);
+        g.drawString("Float the potion an enemy drops above its head, in the realm", 50, y + 18);
+        zone(new Rectangle(0, y, width, 28), () -> {
+            FloatingPots.setOn(!FloatingPots.isOn());
+            repaint();
+        });
+        y += 36;
+        boolean lining = FloatingPots.liningUp();
+        int at = PAD - 2;
+        at += step(g, at, y, lining ? "Lining up: click Done on the game" : "Line up on the game", !lining, () -> {
+            FloatingPots.lineUp();
+            repaint();
+        }) + 8;
+        step(g, at, y, "Back to the first guess", true, () -> {
+            FloatingPots.putBack();
+            repaint();
+        });
+        y += 36;
+        g.setFont(SonarTheme.font(10.5f));
+        g.setColor(SonarTheme.FAINT);
+        g.drawString("Every potion a realm enemy drops, or only your picks while the realm filter has potions picked.", PAD, y + 12);
+        g.drawString("To line up, stand still near enemies: drag the lime ring onto your character, scroll until the white rings sit on the enemies, shift + scroll to raise the pots, then Done.", PAD, y + 28);
+        return y + 44;
     }
 
     private void setOpacityAt(int x) {

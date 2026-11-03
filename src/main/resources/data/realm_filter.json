@@ -1816,7 +1816,7 @@
    ]
   }
  ],
- "potionsAbout": "Which realm enemies drop each stat potion, from the Drops From list on each potion's RealmEye page, kept to the enemies RealmEye lists on its 23 biome pages, read 2026-10-31. No realm enemy drops a Greater potion. Each potion's colour is the brightest colour of its own sprite, light grey for Defense, which has none.",
+ "potionsAbout": "Which realm enemies drop each stat potion, from the Drops From list on each potion's RealmEye page, kept to the enemies RealmEye lists on its 23 biome pages, read 2026-10-31. No realm enemy drops a Greater potion. Each potion's colour is the brightest colour of its own sprite, light grey for Defense, which has none. Each potion's dungeons are the ones where an enemy on that list lives, from the Location on each enemy's RealmEye page, read 2026-11-03.",
  "potions": [
   {
    "name": "Life",
@@ -2080,7 +2080,46 @@
      "kind": "enemy"
     }
    ],
-   "colour": "#42dee4"
+   "colour": "#42dee4",
+   "dungeons": {
+    "Woodland Labyrinth": [
+     "Murderous Megamoth"
+    ],
+    "Deadwater Docks": [
+     "Jon Bilgewater the Pirate King"
+    ],
+    "Mountain Temple": [
+     "Daichi the Fallen"
+    ],
+    "Tomb of the Ancients": [
+     "Bes",
+     "Nut",
+     "Geb",
+     "Sarcophagus"
+    ],
+    "Lair of Shaitan": [
+     "Shaitan the Advisor"
+    ],
+    "Secluded Thicket": [
+     "Xolotl the Lightning God"
+    ],
+    "High Tech Terror": [
+     "F.E.R.A.L."
+    ],
+    "The Nest": [
+     "The Beekeeper"
+    ],
+    "Fungal Cavern": [
+     "Crystal Worm Father",
+     "Crystal Worm Mother"
+    ],
+    "Crystal Cavern": [
+     "Crystal Entity"
+    ],
+    "Lost Halls": [
+     "Marble Colossus"
+    ]
+   }
   },
   {
    "name": "Mana",
@@ -2178,7 +2217,46 @@
      "kind": "enemy"
     }
    ],
-   "colour": "#efd05d"
+   "colour": "#efd05d",
+   "dungeons": {
+    "Ocean Trench": [
+     "Thessal the Mermaid Goddess"
+    ],
+    "The Crawling Depths": [
+     "Son of Arachna"
+    ],
+    "Woodland Labyrinth": [
+     "Murderous Megamoth",
+     "Swarm Tree"
+    ],
+    "Puppet Master's Encore": [
+     "The Puppet Master (Encore)"
+    ],
+    "Cnidarian Reef": [
+     "Royal Cnidarian"
+    ],
+    "Parasite Chambers": [
+     "Nightmare Colony"
+    ],
+    "Sulfurous Wetlands": [
+     "Heart of the Wetlands"
+    ],
+    "Lair of Draconis": [
+     "Ivory Wyvern"
+    ],
+    "The Third Dimension": [
+     "Tesseract Goddess"
+    ],
+    "Secluded Thicket": [
+     "El Dorado"
+    ],
+    "High Tech Terror": [
+     "F.E.R.A.L."
+    ],
+    "Lost Halls": [
+     "Marble Colossus"
+    ]
+   }
   },
   {
    "name": "Attack",
@@ -2366,7 +2444,87 @@
      "kind": "event"
     }
    ],
-   "colour": "#dd5af0"
+   "colour": "#dd5af0",
+   "dungeons": {
+    "Sprite World": [
+     "Native Sprite God"
+    ],
+    "Cave of a Thousand Treasures": [
+     "Golden Oryx Effigy",
+     "Treasure Mimic",
+     "Treasure Thief"
+    ],
+    "Ancient Ruins": [
+     "Genie"
+    ],
+    "Candyland Hunting Grounds": [
+     "Cupcake",
+     "Desire Troll",
+     "Gigacorn",
+     "Spoiled Creampuff"
+    ],
+    "Puppet Master's Theatre": [
+     "Oryx Puppet",
+     "The Puppet Master"
+    ],
+    "Cursed Library": [
+     "Corruption Phantom"
+    ],
+    "Abyss of Demons": [
+     "White Demon of the Abyss"
+    ],
+    "Manor of the Immortals": [
+     "Coffin",
+     "Lord Ruthven"
+    ],
+    "Haunted Cemetery": [
+     "Grave Caretaker",
+     "The Pumpkin Master"
+    ],
+    "Davy Jones' Locker": [
+     "Davy Jones",
+     "Sunken Treasure"
+    ],
+    "Puppet Master's Encore": [
+     "The Puppet Master (Encore)"
+    ],
+    "Cnidarian Reef": [
+     "Royal Cnidarian"
+    ],
+    "Parasite Chambers": [
+     "Blob Colony",
+     "Pterasite Colony",
+     "Swarm Colony"
+    ],
+    "Mountain Temple": [
+     "Daichi the Fallen",
+     "Old Chest"
+    ],
+    "Lair of Draconis": [
+     "Feargus the Obsidian Dragon"
+    ],
+    "Tomb of the Ancients": [
+     "Treasure Sarcophagus"
+    ],
+    "The Third Dimension": [
+     "Tesseract Goddess"
+    ],
+    "Lair of Shaitan": [
+     "Shaitan the Advisor"
+    ],
+    "Secluded Thicket": [
+     "Tezcacoatl the Great Basilisk"
+    ],
+    "Fungal Cavern": [
+     "Crystal Worm Father"
+    ],
+    "Lost Halls": [
+     "Agonized Titan",
+     "Marble Colossus",
+     "Marble Defender",
+     "Treasure Pot (Lost Halls)"
+    ]
+   }
   },
   {
    "name": "Defense",
@@ -2433,7 +2591,44 @@
      "kind": "enemy"
     }
    ],
-   "colour": "#c1c1c1"
+   "colour": "#c1c1c1",
+   "dungeons": {
+    "Sprite World": [
+     "Limon the Sprite Goddess"
+    ],
+    "Candyland Hunting Grounds": [
+     "Spoiled Creampuff",
+     "Swoll Fairy"
+    ],
+    "Toxic Sewers": [
+     "Golden Rat",
+     "Gulpord the Slime God",
+     "Natural Slime God"
+    ],
+    "Mad Lab": [
+     "Horrific Creation"
+    ],
+    "Abyss of Demons": [
+     "Abyss Idol",
+     "Archdemon Malphas"
+    ],
+    "Puppet Master's Encore": [
+     "The Puppet Master (Encore)"
+    ],
+    "Mountain Temple": [
+     "Daichi the Fallen"
+    ],
+    "Tomb of the Ancients": [
+     "Treasure Sarcophagus"
+    ],
+    "The Nest": [
+     "Mini Killer Bee Nest",
+     "The Beekeeper"
+    ],
+    "Lost Halls": [
+     "Marble Colossus"
+    ]
+   }
   },
   {
    "name": "Speed",
@@ -2491,7 +2686,31 @@
      "kind": "event"
     }
    ],
-   "colour": "#41e480"
+   "colour": "#41e480",
+   "dungeons": {
+    "Snake Pit": [
+     "Snakepit Guard",
+     "Stheno the Snake Queen"
+    ],
+    "Cave of a Thousand Treasures": [
+     "Golden Oryx Effigy",
+     "Treasure Mimic"
+    ],
+    "Magic Woods": [
+     "Fountain Spirit"
+    ],
+    "Haunted Cemetery": [
+     "Ghost Bride",
+     "Grave Caretaker",
+     "Troll Matriarch"
+    ],
+    "Mountain Temple": [
+     "Daichi the Fallen"
+    ],
+    "Tomb of the Ancients": [
+     "Treasure Sarcophagus"
+    ]
+   }
   },
   {
    "name": "Dexterity",
@@ -2571,7 +2790,30 @@
      "kind": "enemy"
     }
    ],
-   "colour": "#eb8931"
+   "colour": "#eb8931",
+   "dungeons": {
+    "The Hive": [
+     "Queen Bee"
+    ],
+    "Sprite World": [
+     "Limon the Sprite Goddess"
+    ],
+    "Cave of a Thousand Treasures": [
+     "Treasure Mimic",
+     "Treasure Thief"
+    ],
+    "Magic Woods": [
+     "Fountain Spirit"
+    ],
+    "Haunted Cemetery": [
+     "Pumpkin King"
+    ],
+    "The Nest": [
+     "Blue Soldier Bee",
+     "Red Soldier Bee",
+     "Yellow Soldier Bee"
+    ]
+   }
   },
   {
    "name": "Vitality",
@@ -2622,7 +2864,36 @@
      "kind": "enemy"
     }
    ],
-   "colour": "#ff072c"
+   "colour": "#ff072c",
+   "dungeons": {
+    "Cave of a Thousand Treasures": [
+     "Treasure Thief"
+    ],
+    "Cursed Library": [
+     "Avalon the Archivist",
+     "Corruption Phantom"
+    ],
+    "Abyss of Demons": [
+     "Archdemon Malphas",
+     "Abyss Idol"
+    ],
+    "Haunted Cemetery": [
+     "Ghost of Skuld"
+    ],
+    "The Crawling Depths": [
+     "Glowing Egg",
+     "Red Son of Arachna Giant Egg Sac"
+    ],
+    "Cnidarian Reef": [
+     "Pink Cnidarian"
+    ],
+    "Lair of Draconis": [
+     "Ivory Wyvern"
+    ],
+    "Lair of Shaitan": [
+     "Shaitan the Advisor"
+    ]
+   }
   },
   {
    "name": "Wisdom",
@@ -2745,7 +3016,56 @@
      "kind": "enemy"
     }
    ],
-   "colour": "#4a93fe"
+   "colour": "#4a93fe",
+   "dungeons": {
+    "Cave of a Thousand Treasures": [
+     "Golden Oryx Effigy"
+    ],
+    "Ancient Ruins": [
+     "Sandstone Titan",
+     "Genie"
+    ],
+    "Candyland Hunting Grounds": [
+     "Gigacorn",
+     "Desire Troll",
+     "Swoll Fairy"
+    ],
+    "Undead Lair": [
+     "Septavius the Ghost God",
+     "Spectral Skeleton"
+    ],
+    "Cursed Library": [
+     "Avalon the Archivist"
+    ],
+    "Mad Lab": [
+     "Dr. Terrible",
+     "Horrific Creation"
+    ],
+    "Haunted Cemetery": [
+     "Troll Matriarch"
+    ],
+    "Davy Jones' Locker": [
+     "Davy Jones"
+    ],
+    "Cnidarian Reef": [
+     "Blue Cnidarian"
+    ],
+    "Mountain Temple": [
+     "Daichi the Fallen",
+     "Old Chest"
+    ],
+    "Lair of Draconis": [
+     "Nikao the Azure Dragon"
+    ],
+    "Fungal Cavern": [
+     "Crystal Worm Father"
+    ],
+    "Lost Halls": [
+     "Treasure Pots",
+     "Agonized Titan",
+     "Marble Defender"
+    ]
+   }
   }
  ]
 }

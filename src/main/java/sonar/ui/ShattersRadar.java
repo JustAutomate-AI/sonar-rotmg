@@ -366,7 +366,7 @@ final class ShattersRadar {
      * walking the entity list every tick to build a list nobody looks at is work for nothing.
      */
     private static volatile List<Mark> live = Collections.emptyList();
-    private static volatile boolean drawingMap;
+    private static volatile boolean drawingMap, drawingPots;
 
     static List<Mark> live() {
         return live;
@@ -375,7 +375,13 @@ final class ShattersRadar {
     /** Told by the overlay whether its own map is being drawn, so the cost is only paid when it is. */
     static void setDrawingMap(boolean on) {
         drawingMap = on;
-        if (!on) live = Collections.emptyList();
+        if (!on && !drawingPots) live = Collections.emptyList();
+    }
+
+    /** Told by Floating Pots whether it is on: it places its pots from the same live list. */
+    static void setDrawingPots(boolean on) {
+        drawingPots = on;
+        if (!on && !drawingMap) live = Collections.emptyList();
     }
 
     /**
@@ -427,7 +433,7 @@ final class ShattersRadar {
 
     /** Builds the list of things to draw. Called while the map is being drawn, and not otherwise. */
     private static void trackLive(GameData data) {
-        if (!drawingMap) {
+        if (!drawingMap && !drawingPots) {
             live = Collections.emptyList();
             return;
         }
@@ -557,7 +563,7 @@ final class ShattersRadar {
      */
     static void serverTicked(GameData data, NewTickPacket p) {
         timeTicks(data, p);
-        if (drawingMap) trackLive(data);
+        if (drawingMap || drawingPots) trackLive(data);
     }
 
     /*

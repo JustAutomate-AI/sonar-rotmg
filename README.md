@@ -46,14 +46,16 @@ The **Realm filter** beside the overlay's switch picks up to three dungeons and 
 
 - **Every realm enemy that can drop one gets its picture back**, in a ring: lime for a dungeon, the potion's own colour for a potion. Who drops what comes from the RealmEye wiki, matched to the game's own files, biome copies and all.
 - **When a picked dungeon's portal drops, it gets a mark of its own and Sonar pings** - the game gives a portal no minimap icon at all.
-- **A potion's best biomes are ranked** by how many of its droppers live there, and the **waypoint that teleports you there is ringed** in the potion's colour.
+- **A potion's best biomes are ranked** by how many of its droppers live there, and the **waypoint that teleports you there is ringed** in the potion's colour. Click a biome to see who drops it there, and slide between your picked potions with the arrows.
+- **Picking a potion selects the dungeons that drop it**: their portals are marked and ping when they drop, ringed in the potion's colour.
+- **Floating Pots** (in Settings) floats the potion an enemy drops above its head in the game itself, so you can see it mid-fight.
 - **Switch "Show all events" off** and only the events that drop what you picked keep their pictures.
 
 ![Two minimaps: an Undead Lair portal that has just dropped, ringed and pinging, with the note "portal is up!"; and two droppers of the Potion of Mana ringed in Mana's gold](docs/screenshots/hunt-minimap.png)
 
 ### A damage meter on the game
 
-The three-bar button on the Live page's damage window puts **each boss's damage per minute beside your minimap**, the way a WoW damage meter sits at the edge of the screen: class-coloured bars, rank, damage per minute and share of the total, with a switch to overall damage. It counts the boss alone, over its own fight, and follows the boss you hit last; the boss's picture at its top left opens a picker of every boss in the run. It shows ten players at first; pull it taller to see more of the dungeon. It fades while your pointer is over your inventory, so item tooltips stay readable, and clicks go straight through it. Set how see-through it is, and move and resize it right on the game, in Settings.
+The three-bar button on the Live page's damage window puts **each boss's damage per minute beside your minimap**, the way a WoW damage meter sits at the edge of the screen: class-coloured bars on a panel fading from violet to indigo, rank with medals for the top three, damage per minute and share of the total, with a switch to overall damage. It counts the boss alone, over its own fight, and follows the boss you hit last; the boss's picture at its top left opens a picker of every boss in the run. It shows ten players at first; pull it taller to see more of the dungeon. It fades while your pointer is over your inventory, so item tooltips stay readable, and clicks go straight through it. Set how see-through it is, and move and resize it right on the game, in Settings.
 
 ### Full screen or windowed
 

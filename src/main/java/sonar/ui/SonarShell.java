@@ -869,6 +869,11 @@ public class SonarShell extends JPanel {
                 ShattersOverlayWindow.writePreviews(new File(System.getProperty("sonar.shot.overlaypreview.ground", "")),
                         new File(previews));
             }
+            String pots = System.getProperty("sonar.shot.potspreview");
+            if (pots != null) {
+                FloatingPots.writePreview(new File(System.getProperty("sonar.shot.potspreview.ground", "")), new File(pots),
+                        System.getProperty("sonar.shot.potspreview.enemies", "Djinn|Cube God").split("[|]"));
+            }
             String cards = System.getProperty("sonar.shot.cards");
             if (cards != null) live.writeExports(cards);
             JRootPane root = SwingUtilities.getRootPane(this);
@@ -918,6 +923,14 @@ public class SonarShell extends JPanel {
                 if (focus != null) p.focusOn(focus);
                 String potionFocus = System.getProperty("sonar.shot.realmfilter.potionfocus");
                 if (potionFocus != null) p.showPotions(potionFocus);
+                String biome = System.getProperty("sonar.shot.realmfilter.biome");
+                if (biome != null) p.showBiome(biome);
+                // "Attack|0.45": the slide in from Attack, caught at that point
+                String slide = System.getProperty("sonar.shot.realmfilter.slide");
+                if (slide != null && slide.contains("|")) {
+                    String[] s = slide.split("[|]");
+                    p.freezeSlide(s[0].trim(), 1, Double.parseDouble(s[1].trim()));
+                }
             });
             open.setRepeats(false);
             open.start();

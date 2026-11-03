@@ -637,13 +637,16 @@ final class DamageMeterWindow extends JWindow {
 
     private static final java.awt.image.BufferedImage MEASURE = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
 
+    /** How the meter and its picker look; see {@link MeterStyle}. */
+    static volatile MeterStyle style = MeterStyle.SHIPPED;
+
     /**
      * How tall a row is, set by the meter's width: wider, the bars and their words grow; taller,
      * more rows fit - the eleventh player, the twelfth, and on - rather than the same ten
      * stretched. At its first size it is ten rows exactly.
      */
     static double rowHeight(int w) {
-        return Math.max(12, Math.min(34, w * 0.0695));
+        return Math.max(12, Math.min(34, w * 0.0695 * style.rowScale));
     }
 
     static int headHeight(int w) {
@@ -660,11 +663,13 @@ final class DamageMeterWindow extends JWindow {
     }
 
     private static Font headFont(int head) {
-        return SonarTheme.bold((float) Math.max(9, head * 0.52));
+        MeterStyle st = style;
+        return st.font(st.headFamily, st.headWeight, (float) Math.max(9, head * st.headSize));
     }
 
     private static Font switchFont(int head) {
-        return SonarTheme.bold((float) Math.max(8, head * 0.42));
+        MeterStyle st = style;
+        return st.font(st.headFamily, Font.BOLD, (float) Math.max(8, head * 0.42));
     }
 
     /** Where the DPM / OVERALL switch sits in the header: just left of the clock. */
@@ -687,6 +692,16 @@ final class DamageMeterWindow extends JWindow {
         return new Rectangle(pad, (head - bh) / 2, Math.max(24, pill.x - pad - 6), bh);
     }
 
+    private static Shape rounded(double x, double y, double w, double h, double r) {
+        return r <= 0 ? new java.awt.geom.Rectangle2D.Double(x, y, w, h) : SonarTheme.round(x, y, w, h, r);
+    }
+
+    private static final Color[] MEDALS = {new Color(245, 197, 107), new Color(207, 214, 228), new Color(217, 146, 91)};
+
+    private static Color alpha(Color c, int a) {
+        return new Color(c.getRed(), c.getGreen(), c.getBlue(), Math.max(0, Math.min(255, a)));
+    }
+
     /**
      * The meter itself, at any size: rows share the height below the header, and the type
      * follows the rows. Static, so the screenshots draw exactly what the game gets.
@@ -698,9 +713,11 @@ final class DamageMeterWindow extends JWindow {
     /** The same, faded: {@code fade} 0 draws nothing, 1 draws it whole. */
     static void draw(Graphics2D g, int w, int h, Board b, double opacity, boolean adjusting, double fade) {
         if (fade <= 0 && !adjusting) return;
+        MeterStyle st = style;
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         opacity = clampOpacity(opacity) * Math.max(0, Math.min(1, adjusting ? 1 : fade));
         g2.setComposite(AlphaComposite.SrcOver.derive((float) opacity));
         int pad = padOf(w);
@@ -716,10 +733,22 @@ final class DamageMeterWindow extends JWindow {
             g2.fillRect(0, 0, w, h);
             g2.setComposite(AlphaComposite.SrcOver.derive((float) opacity));
         }
-        g2.setColor(new Color(PANEL.getRed(), PANEL.getGreen(), PANEL.getBlue(), 215));
-        g2.fill(SonarTheme.round(0, 0, w, h, 7));
-        g2.setColor(new Color(255, 255, 255, 30));
-        g2.draw(SonarTheme.round(0.5, 0.5, w - 1, h - 1, 7));
+        Shape body = rounded(0, 0, w, h, st.radius);
+        if (st.panel2 != null) g2.setPaint(new GradientPaint(0, 0, st.panel, st.panelDown ? 0 : w, h, st.panel2));
+        else g2.setColor(st.panel);
+        g2.fill(body);
+        Shape clip = g2.getClip();
+        g2.clip(body);
+        if (st.innerGlow != null) {
+            g2.setPaint(new GradientPaint(0, 0, st.innerGlow, 0, head * 1.6f, alpha(st.innerGlow, 0)));
+            g2.fillRect(0, 0, w, (int) (head * 1.6f) + 1);
+        }
+        if (st.headBg != null) {
+            if (st.headBg2 != null) g2.setPaint(new GradientPaint(0, 0, st.headBg, w, 0, st.headBg2));
+            else g2.setColor(st.headBg);
+            g2.fillRect(0, 0, w, head);
+        }
+        g2.setClip(clip);
 
         // the header: what is being measured, where, and for how long
         g2.setFont(headFont(head));
@@ -728,65 +757,232 @@ final class DamageMeterWindow extends JWindow {
         int clockW = hm.stringWidth(clock);
         boolean bossBoard = b != null && !b.boss.isEmpty();
         String title = bossBoard ? b.boss : b == null || b.dungeon.isEmpty() ? "No boss yet" : b.dungeon;
+        if (st.upper) title = title.toUpperCase(java.util.Locale.ROOT);
         int hy = (head - hm.getHeight()) / 2 + hm.getAscent() + 1;
         Rectangle pill = switchZone(w, h);
-        g2.setColor(SonarTheme.TEXT);
+        g2.setColor(st.headInk);
         int titleRoom = (adjusting ? doneZone(w).x : pill.x) - pad - 8;
         if (bossBoard && !adjusting) paintBossButton(g2, bossZone(w, h), b, head, hy);
         else g2.drawString(SonarTheme.fit(title, hm, Math.max(10, titleRoom)), pad + 2, hy);
         if (!adjusting) {
-            g2.setColor(SonarTheme.MUTED);
+            g2.setFont(headFont(head));
+            if (st.clockChip && !clock.isEmpty()) {
+                int ch = Math.max(12, head - 6);
+                g2.setColor(new Color(255, 255, 255, 18));
+                g2.fill(rounded(w - pad - 2 - clockW - 5, (head - ch) / 2.0, clockW + 9, ch, st.radius <= 0 ? 0 : ch / 2.0));
+            }
+            g2.setColor(st.headMuted);
             g2.drawString(clock, w - pad - 2 - clockW, hy);
             paintSwitch(g2, pill, overallView, head);
         }
-        g2.setColor(new Color(255, 255, 255, 22));
-        g2.fillRect(pad, head, w - pad * 2, 1);
+        if (st.headLine != null) {
+            if (st.headLine2 != null) g2.setPaint(new GradientPaint(pad, 0, st.headLine, w - pad, 0, st.headLine2));
+            else g2.setColor(st.headLine);
+            g2.fillRect(st.headBg != null ? 0 : pad, head, st.headBg != null ? w : w - pad * 2, 1);
+        }
 
         // the rows: longest first, a bar in the class colour, the words on it
         List<Line> lines = b == null ? Collections.emptyList() : b.lines;
         Color[] colours = barColours(lines, b == null ? "" : b.run);
         double top = lines.isEmpty() ? 1 : Math.max(1, lines.get(0).dpm);
-        float rowFont = (float) Math.max(8.5, rowH * 0.58);
-        Font nameFont = SonarTheme.bold(rowFont), numFont = SonarTheme.bold(rowFont);
+        float rowFont = (float) Math.max(8.5, rowH * st.textSize);
+        Font nameFont = st.font(st.nameFamily, st.nameWeight, rowFont), numFont = st.font(st.numFamily, st.numWeight, rowFont);
         for (int i = 0; i < rows; i++) {
             double y = head + pad + i * rowH;
+            double gy = y + st.gap / 2.0, ih = Math.max(6, rowH - st.gap);
             int barX = pad, barW = w - pad * 2;
-            double inner = Math.max(6, rowH - 2);
-            g2.setColor(TRACK);
-            g2.fill(SonarTheme.round(barX, y + 1, barW, inner, 3));
+            double r = st.bars == MeterStyle.Bars.PILL ? ih / 2 : st.barRadius;
+            boolean under = st.bars == MeterStyle.Bars.UNDER;
+            double lineH = Math.max(2, Math.round(ih * st.underHeight)), ly = gy + ih - lineH;
+            if (st.zebra && i % 2 == 0) {
+                g2.setColor(new Color(255, 255, 255, 13));
+                g2.fill(rounded(barX, gy, barW, ih, st.barRadius));
+            }
+            if (st.track != null) {
+                g2.setColor(st.track);
+                g2.fill(under ? rounded(barX, ly, barW, lineH, lineH / 2) : rounded(barX, gy, barW, ih, r));
+            }
             if (i >= lines.size()) {
                 if (adjusting && lines.isEmpty() && i == 0) {
                     g2.setFont(SonarTheme.font(rowFont));
                     g2.setColor(SonarTheme.MUTED);
                     FontMetrics fm = g2.getFontMetrics();
                     g2.drawString("No boss yet - drag to move, an edge or corner to resize", barX + 6,
-                            (float) (y + 1 + (inner - fm.getHeight()) / 2 + fm.getAscent()));
+                            (float) (gy + (ih - fm.getHeight()) / 2 + fm.getAscent()));
                 }
                 continue;
             }
             Line l = lines.get(i);
             Color bar = colours[i], cls = classColour(l.cls);
             double fill = Math.max(2, barW * Math.min(1, l.dpm / top));
-            g2.setColor(new Color(bar.getRed(), bar.getGreen(), bar.getBlue(), l.me ? 235 : 190));
-            g2.fill(SonarTheme.round(barX, y + 1, fill, inner, 3));
-            // the class, whatever the bar's own colour: a thin strip of it at the start
-            g2.setColor(cls);
-            g2.fill(SonarTheme.round(barX, y + 1, Math.min(fill, Math.max(3, inner * 0.22)), inner, 3));
-            if (l.me) {
-                g2.setColor(new Color(255, 255, 255, 150));
-                g2.setStroke(new BasicStroke(1.2f));
-                g2.draw(SonarTheme.round(barX + 0.6, y + 1.6, barW - 1.2, inner - 1.2, 3));
+            int a = l.me ? st.meAlpha : st.barAlpha;
+            switch (st.bars) {
+                case TINT: {
+                    Shape s = rounded(barX, gy, fill, ih, r);
+                    g2.setColor(alpha(bar, a));
+                    g2.fill(s);
+                    Shape keep = g2.getClip();
+                    g2.clip(rounded(barX, gy, barW, ih, r));
+                    g2.setColor(bar);
+                    g2.fill(new java.awt.geom.Rectangle2D.Double(barX, gy, 3, ih));
+                    g2.setClip(keep);
+                    break;
+                }
+                case UNDER:
+                    if (st.underFade) g2.setPaint(new GradientPaint((float) barX, 0, alpha(bar, a), (float) (barX + fill), 0, alpha(bar, a / 6)));
+                    else g2.setColor(alpha(bar, a));
+                    g2.fill(rounded(barX, ly, fill, lineH, lineH / 2));
+                    break;
+                case DUO:
+                    g2.setPaint(new GradientPaint((float) barX, 0, alpha(bar, a), (float) (barX + barW), 0,
+                            alpha(st.accent, a)));
+                    g2.fill(rounded(barX, gy, fill, ih, r));
+                    break;
+                case PILL:
+                    g2.setPaint(new GradientPaint((float) barX, 0, alpha(bar.brighter(), a), (float) (barX + fill), 0, alpha(bar, a)));
+                    g2.fill(rounded(barX, gy, Math.max(fill, ih), ih, r));
+                    break;
+                case FADE:
+                    g2.setPaint(new GradientPaint((float) barX, 0, alpha(bar, a), (float) (barX + fill), 0, alpha(bar, a / 8)));
+                    g2.fill(rounded(barX, gy, fill, ih, r));
+                    break;
+                case NEUTRAL:
+                    g2.setColor(l.me ? alpha(st.accent, st.meAlpha) : new Color(255, 255, 255, st.barAlpha));
+                    g2.fill(rounded(barX, gy, fill, ih, r));
+                    break;
+                default:
+                    g2.setColor(alpha(bar, a));
+                    g2.fill(rounded(barX, gy, fill, ih, r));
+                    if (st.gloss) {
+                        g2.setPaint(new GradientPaint(0, (float) gy, new Color(255, 255, 255, 46), 0, (float) (gy + ih * 0.6), new Color(255, 255, 255, 0)));
+                        g2.fill(rounded(barX, gy, fill, ih, r));
+                    }
             }
+            if (st.barCap) {
+                // a bright tip where the bar ends, with a soft glow round it
+                double tipX = barX + fill;
+                Color glow = bar.brighter();
+                if (under) {
+                    double d = Math.max(4, lineH * 2.1), cyL = ly + lineH / 2;
+                    for (int k = 3; k >= 1; k--) {
+                        double dd = d + k * 3;
+                        g2.setColor(alpha(glow, 22 * (4 - k)));
+                        g2.fill(new java.awt.geom.Ellipse2D.Double(tipX - dd / 2, cyL - dd / 2, dd, dd));
+                    }
+                    g2.setColor(new Color(255, 255, 255, 235));
+                    g2.fill(new java.awt.geom.Ellipse2D.Double(tipX - d / 2, cyL - d / 2, d, d));
+                } else {
+                    Shape keep = g2.getClip();
+                    g2.clip(rounded(barX, gy, barW, ih, r));
+                    for (int k = 3; k >= 1; k--) {
+                        g2.setColor(alpha(glow, 16 * (4 - k)));
+                        g2.fill(rounded(tipX - k * 3, gy, k * 6, ih, 3));
+                    }
+                    g2.setColor(new Color(255, 255, 255, 215));
+                    g2.fill(rounded(tipX - 1.5, gy + 1, 2, ih - 2, 1));
+                    g2.setClip(keep);
+                }
+            }
+            if (st.classStrip && !under) {
+                // the class, whatever the bar's own colour: a thin strip of it at the start
+                g2.setColor(cls);
+                g2.fill(rounded(barX, gy, Math.min(fill, Math.max(3, ih * 0.22)), ih, r));
+            }
+            if (l.me && st.meLine != null && !under) {
+                g2.setColor(st.meLine);
+                g2.setStroke(new BasicStroke(1.2f));
+                g2.draw(rounded(barX + 0.6, gy + 0.6, barW - 1.2, ih - 1.2, r));
+            }
+
+            // the words: rank, name, then the figures at the right
+            double textTop = gy, textH = under ? ih - lineH - 1 : ih;
             g2.setFont(numFont);
             FontMetrics nm = g2.getFontMetrics();
-            String right = valueText(l, overallView);
-            int rightW = nm.stringWidth(right);
-            float ty = (float) (y + 1 + (inner - nm.getHeight()) / 2 + nm.getAscent());
-            shadowed(g2, right, barX + barW - 6 - rightW, ty, Color.WHITE);
+            float ty = (float) (textTop + (textH - nm.getHeight()) / 2 + nm.getAscent());
+            int rightEdge = barX + barW - 6;
+            int rightW;
+            if (st.columns) {
+                String pct = Math.round(l.share * 100) + "%";
+                String val = SonarTheme.even(overallView ? l.damage : Math.round(l.dpm));
+                int pctCol = nm.stringWidth("100%");
+                text(g2, pct, rightEdge - nm.stringWidth(pct), ty, st.numInk, st);
+                text(g2, val, rightEdge - pctCol - 8 - nm.stringWidth(val), ty, st.numInk, st);
+                rightW = pctCol + 8 + nm.stringWidth(val);
+            } else {
+                String right = valueText(l, overallView);
+                rightW = nm.stringWidth(right);
+                text(g2, right, rightEdge - rightW, ty, st.numInk, st);
+            }
             g2.setFont(nameFont);
             FontMetrics fm = g2.getFontMetrics();
-            String name = (i + 1) + ".  " + l.name;
-            shadowed(g2, SonarTheme.fit(name, fm, Math.max(20, barW - rightW - 18)), barX + 6, ty, Color.WHITE);
+            ty = (float) (textTop + (textH - fm.getHeight()) / 2 + fm.getAscent());
+            double tx = barX + 6;
+            double cy = textTop + textH / 2;
+            if (st.classDot) {
+                double d = Math.max(5, ih * 0.34);
+                g2.setColor(bar);
+                g2.fill(new java.awt.geom.Ellipse2D.Double(tx, cy - d / 2, d, d));
+                tx += d + 5;
+            }
+            Color ink = l.me && st.meInk != null ? st.meInk : st.nameInk;
+            String rank = String.valueOf(i + 1);
+            String name;
+            switch (st.rank) {
+                case MUTED: {
+                    int col = fm.stringWidth("88");
+                    text(g2, rank, (float) (tx + col - fm.stringWidth(rank)), ty, st.rankInk == null ? ink : st.rankInk, st);
+                    tx += col + 7;
+                    name = l.name;
+                    break;
+                }
+                case MEDAL:
+                case CIRCLE: {
+                    double d = Math.max(9, Math.min(ih - 3, fm.getAscent() + 5));
+                    boolean medal = st.rank == MeterStyle.Rank.MEDAL;
+                    if (!medal || i < 3) {
+                        Color c1 = medal ? MEDALS[i] : st.accent, c2 = medal ? MEDALS[i].darker() : (st.accent2 != null ? st.accent2 : st.accent);
+                        g2.setPaint(new GradientPaint((float) tx, (float) (cy - d / 2), c1, (float) (tx + d), (float) (cy + d / 2), c2));
+                        g2.fill(new java.awt.geom.Ellipse2D.Double(tx, cy - d / 2, d, d));
+                        Font was = g2.getFont();
+                        g2.setFont(st.font(st.numFamily, Font.BOLD, (float) (d * 0.6)));
+                        FontMetrics bm = g2.getFontMetrics();
+                        g2.setColor(medal ? new Color(30, 22, 10) : Color.WHITE);
+                        g2.drawString(rank, (float) (tx + (d - bm.stringWidth(rank)) / 2), (float) (cy - bm.getHeight() / 2.0 + bm.getAscent()));
+                        g2.setFont(was);
+                    } else {
+                        text(g2, rank, (float) (tx + (d - fm.stringWidth(rank)) / 2), ty, st.rankInk == null ? ink : st.rankInk, st);
+                    }
+                    tx += d + 6;
+                    name = l.name;
+                    break;
+                }
+                case BADGE: {
+                    double bh = Math.max(9, Math.min(ih - 3, fm.getAscent() + 4)), bw = Math.max(bh, fm.stringWidth("88") + 6);
+                    g2.setColor(new Color(0, 0, 0, 130));
+                    g2.fill(rounded(tx - 2, cy - bh / 2, bw, bh, st.barRadius));
+                    g2.setColor(Color.WHITE);
+                    g2.drawString(rank, (float) (tx - 2 + (bw - fm.stringWidth(rank)) / 2), ty);
+                    tx += bw + 4;
+                    name = l.name;
+                    break;
+                }
+                default:
+                    name = rank + ".  " + l.name;
+            }
+            int room = (int) Math.max(20, rightEdge - rightW - 6 - tx);
+            text(g2, SonarTheme.fit(name, fm, room), (float) tx, ty, ink, st);
+            if (st.dividers && i < rows - 1 && i < lines.size() - 1) {
+                g2.setColor(new Color(255, 255, 255, 12));
+                g2.fill(new java.awt.geom.Rectangle2D.Double(barX + 4, y + rowH - 0.5, barW - 8, 1));
+            }
+        }
+
+        if (st.border != null) {
+            float bw = st.borderWidth;
+            if (st.border2 != null) g2.setPaint(new GradientPaint(0, 0, st.border, w, h, st.border2));
+            else g2.setColor(st.border);
+            g2.setStroke(new BasicStroke(bw));
+            g2.draw(rounded(bw / 2.0, bw / 2.0, w - bw, h - bw, st.radius));
         }
 
         if (adjusting) {
@@ -814,8 +1010,9 @@ final class DamageMeterWindow extends JWindow {
 
     /** The boss button at the header's left: the boss's picture and name, and an arrow for the picker. */
     private static void paintBossButton(Graphics2D g, Rectangle r, Board b, int head, int baseline) {
-        g.setColor(new Color(255, 255, 255, pickerOpen ? 44 : 16));
-        g.fill(SonarTheme.round(r.x, r.y, r.width, r.height, 6));
+        MeterStyle st = style;
+        g.setColor(pickerOpen ? st.buttonOpen : st.buttonBg);
+        g.fill(rounded(r.x, r.y, r.width, r.height, st.radius <= 0 ? 0 : 6));
         int icon = Math.max(10, r.height - 2);
         double x = r.x + 3;
         if (Glyph.object(g, b.bossType, x, r.y + (r.height - icon) / 2.0, icon)) x += icon + 3;
@@ -833,35 +1030,48 @@ final class DamageMeterWindow extends JWindow {
             arrow.lineTo(ax + aw / 2, ay + ah);
             arrow.lineTo(ax + aw, ay);
         }
-        g.setColor(pickerOpen ? RealmFilter.LIME : SonarTheme.MUTED);
+        g.setColor(pickerOpen ? (st.arrowOpen != null ? st.arrowOpen : st.accent) : st.headMuted);
         g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(arrow);
         g.setFont(headFont(head));
         FontMetrics fm = g.getFontMetrics();
-        g.setColor(SonarTheme.TEXT);
-        g.drawString(SonarTheme.fit(b.boss, fm, (int) Math.max(10, ax - 4 - x)), (float) x, baseline);
+        g.setColor(st.headInk);
+        String name = st.upper ? b.boss.toUpperCase(java.util.Locale.ROOT) : b.boss;
+        g.drawString(SonarTheme.fit(name, fm, (int) Math.max(10, ax - 4 - x)), (float) x, baseline);
     }
 
     /** The two-way switch in the header: the view shown lit, the other one quiet. */
     private static void paintSwitch(Graphics2D g, Rectangle r, boolean overallView, int head) {
+        MeterStyle st = style;
         g.setFont(switchFont(head));
         FontMetrics fm = g.getFontMetrics();
-        g.setColor(new Color(255, 255, 255, 18));
-        g.fill(SonarTheme.round(r.x, r.y, r.width, r.height, r.height));
+        double rr = st.radius <= 0 ? 0 : r.height;
+        g.setColor(st.switchTrack);
+        g.fill(rounded(r.x, r.y, r.width, r.height, rr));
         int dpmW = fm.stringWidth("DPM") + 12;
         Rectangle on = overallView ? new Rectangle(r.x + dpmW + 2, r.y, r.width - dpmW - 2, r.height) : new Rectangle(r.x, r.y, dpmW, r.height);
-        g.setColor(new Color(255, 255, 255, 46));
-        g.fill(SonarTheme.round(on.x + 1, on.y + 1, on.width - 2, on.height - 2, on.height - 2));
+        if (st.switchLit2 != null) g.setPaint(new GradientPaint(on.x, 0, st.switchLit, on.x + on.width, 0, st.switchLit2));
+        else g.setColor(st.switchLit);
+        g.fill(rounded(on.x + 1, on.y + 1, on.width - 2, on.height - 2, st.radius <= 0 ? 0 : on.height - 2));
         float ty = r.y + (r.height - fm.getHeight()) / 2f + fm.getAscent();
-        g.setColor(overallView ? SonarTheme.MUTED : SonarTheme.TEXT);
+        g.setColor(overallView ? st.switchQuiet : st.switchInk);
         g.drawString("DPM", r.x + 6, ty);
-        g.setColor(overallView ? SonarTheme.TEXT : SonarTheme.MUTED);
+        g.setColor(overallView ? st.switchInk : st.switchQuiet);
         g.drawString("OVERALL", r.x + dpmW + 7, ty);
     }
 
-    private static void shadowed(Graphics2D g, String s, float x, float y, Color ink) {
-        g.setColor(new Color(0, 0, 0, 200));
-        g.drawString(s, x + 1, y + 1);
+    /** Words in a style's way: with a drop shadow, a game-like outline, or plain. */
+    private static void text(Graphics2D g, String s, float x, float y, Color ink, MeterStyle st) {
+        if (st.outline) {
+            g.setColor(new Color(0, 0, 0, 225));
+            g.drawString(s, x - 1, y);
+            g.drawString(s, x + 1, y);
+            g.drawString(s, x, y - 1);
+            g.drawString(s, x, y + 1);
+        } else if (st.textShadow) {
+            g.setColor(new Color(0, 0, 0, 200));
+            g.drawString(s, x + 1, y + 1);
+        }
         g.setColor(ink);
         g.drawString(s, x, y);
     }
@@ -876,6 +1086,28 @@ final class DamageMeterWindow extends JWindow {
         int SetWindowLongW(com.sun.jna.Pointer hwnd, int index, int value);
 
         short GetAsyncKeyState(int vKey);
+    }
+
+    /** Whether a key is held down, whichever window has the keyboard. */
+    static boolean keyDown(int vk) {
+        try {
+            return vk != 0 && (User32.INSTANCE.GetAsyncKeyState(vk) & 0x8000) != 0;
+        } catch (Throwable notWindows) {
+            return false;
+        }
+    }
+
+    /** Lets clicks fall through a window to the game underneath. */
+    static void clickThrough(Window w) {
+        try {
+            long id = com.sun.jna.Native.getWindowID(w);
+            if (id == 0) return;
+            com.sun.jna.Pointer hwnd = new com.sun.jna.Pointer(id);
+            int style = User32.INSTANCE.GetWindowLongW(hwnd, GWL_EXSTYLE);
+            if ((style & WS_EX_TRANSPARENT) == 0) User32.INSTANCE.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_TRANSPARENT);
+        } catch (Throwable notWindows) {
+            // nothing to mark
+        }
     }
 
     /** Whether a mouse button is held down anywhere on screen, the game included. */

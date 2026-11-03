@@ -466,6 +466,8 @@ class LiveView {
         meterButton.setToolTipText("Show each boss's damage per minute on the game, beside your minimap");
         DamageMeterWindow.onChange(() -> javax.swing.SwingUtilities.invokeLater(this::syncMeter));
         javax.swing.SwingUtilities.invokeLater(this::syncMeter);
+        FloatingPots.onChange(() -> javax.swing.SwingUtilities.invokeLater(FloatingPots::sync));
+        javax.swing.SwingUtilities.invokeLater(FloatingPots::sync);
         row.add(mvpShare);
         row.add(javax.swing.Box.createHorizontalStrut(4));
         row.add(damageShare);
@@ -3664,6 +3666,18 @@ class LiveView {
      * window size - and the damage meter itself.
      */
     private void checkPlacementAndMeter(java.util.function.BiConsumer<String, Boolean> report) {
+        // a session's worth of unsure readings, all saying the overlay has missed a zoom
+        double[] ladder = {9.79, 6.46, 4.9, 3.23, 2.45, 1.62, 1.22, 0.81, 0.61, 0.4, 0.31, 0.2};
+        report.accept("five readings in a row that agree on 0.66, far from an overlay stuck at 9.79, move it to the 0.61 step",
+                Math.abs(ShattersOverlayWindow.agreedStep(new double[]{0.66, 0.66, 0.68, 0.66, 0.65}, 5, 9.79, ladder) - 0.61) < 1e-9);
+        report.accept("but readings that wander, or that agree with the overlay already, leave it alone",
+                ShattersOverlayWindow.agreedStep(new double[]{0.66, 0.9, 0.66, 0.66, 0.66}, 5, 9.79, ladder) == 0
+                        && ShattersOverlayWindow.agreedStep(new double[]{9.6, 9.6, 9.6, 9.6, 9.6}, 5, 9.79, ladder) == 0
+                        && ShattersOverlayWindow.agreedStep(new double[]{0.66, 0.66, 0.66, 0.66, 0.66}, 4, 9.79, ladder) == 0);
+        report.accept("the wheel's watchdog calls the hook deaf only for a press it never heard",
+                MouseWheelWatch.missed(1_000_000_000L, 0L, 1_500_000_000L, 400_000_000L)
+                        && !MouseWheelWatch.missed(1_000_000_000L, 1_000_050_000L, 1_500_000_000L, 400_000_000L)
+                        && !MouseWheelWatch.missed(1_000_000_000L, 0L, 1_200_000_000L, 400_000_000L));
         // back from a small window: the zoom follows the minimap's size, so events stay on it
         double[] big = ShattersOverlayWindow.ladderFor(470, 481, 2048, 2048), small = ShattersOverlayWindow.ladderFor(261, 267, 2048, 2048);
         report.accept("back from a small window to full screen, the overlay's zoom grows with the minimap - 5.44 becomes 9.79",
@@ -3848,6 +3862,92 @@ class LiveView {
                 (gone.getRGB(131, 213) >>> 24) == 0 && (gone.getRGB(60, 40) >>> 24) == 0 && aHalf > a85 / 3 && aHalf < a85 * 2 / 3 + 10);
         report.accept("its switch sits on the damage window, lit while the meter is on",
                 meterButton.getParent() != null && javax.swing.SwingUtilities.getAncestorOfClass(FloatWindow.class, meterButton) != null);
+    }
+
+    /**
+     * Floating Pots: where a tile lands on screen, which pots an enemy floats, and the camera
+     * followed through its keys - with the letters typed into chat left alone.
+     */
+    private static void checkFloatingPots(java.util.function.BiConsumer<String, Boolean> report) {
+        java.awt.Rectangle client = new java.awt.Rectangle(0, 0, 2560, 1440), mm = new java.awt.Rectangle(2080, 0, 470, 481);
+        FloatingPots.Fit guess = FloatingPots.firstGuess(client, mm);
+        report.accept("floating pots start with you in the middle of the game's world, left of the minimap's column",
+                Math.abs(guess.ax - 1040 / 2560.0) < 1e-9 && guess.ay == 0.5);
+        FloatingPots.Fit f = new FloatingPots.Fit(0.4, 0.5, 1 / 24.0, 1.0);
+        java.awt.geom.Point2D.Double p = FloatingPots.screenOf(102, 49, 100, 50, client, f);
+        report.accept("a tile two right and one up of you lands 120 pixels right and 60 up at 60 pixels a tile",
+                Math.abs(p.x - (1024 + 120)) < 1e-6 && Math.abs(p.y - (720 - 60)) < 1e-6);
+        FloatingPots.Fit back = FloatingPots.Fit.parse(f.toString());
+        report.accept("a lined-up fit is kept and read back the same",
+                back != null && Math.abs(back.ax - f.ax) < 1e-4 && Math.abs(back.k - f.k) < 1e-5 && Math.abs(back.lift - f.lift) < 1e-3);
+
+        FloatingPots.Camera cam = new FloatingPots.Camera();
+        cam.zoomIn = 0x50;
+        cam.zoomOut = 0x4F;
+        cam.rotateLeft = 0x51;
+        cam.rotateRight = 0x45;
+        cam.reset = 0x5A;
+        cam.center = 0x43;
+        cam.zoom = 1;
+        cam.press(0x0D);                       // chat opens
+        boolean typed = !cam.press(0x43) && !cam.press(0x51) && !cam.press(0x50) && cam.offset == 0 && !cam.rotated && cam.zoom == 1;
+        cam.press(0x0D);                       // and is sent
+        boolean centre = cam.press(0x43) && cam.offset == 1;
+        boolean turned = cam.press(0x51) && cam.rotated && cam.press(0x5A) && !cam.rotated;
+        cam.press(0x4F);
+        boolean floor = cam.zoom == 0 && !cam.press(0x4F) && cam.zoom == 0;
+        report.accept("the camera follows its own keys - center player, turn and reset, zoom with a floor - but not letters typed into chat",
+                typed && centre && turned && floor);
+
+        RealmFilter.Potion speed = RealmFilter.potion("Speed");
+        int djinn = -1;
+        if (speed != null) for (RealmFilter.Dropper d : speed.droppers) if (d.name.equals("Djinn") && d.types.length > 0) djinn = d.types[0];
+        java.util.List<String> was = new java.util.ArrayList<>(RealmFilter.potionPicks());
+        RealmFilter.setPotionsForTest(java.util.Collections.emptyList());
+        boolean speedFloats = false;
+        for (RealmFilter.Potion pot : FloatingPots.potsOf(djinn)) if (pot.name.equals("Speed")) speedFloats = true;
+        RealmFilter.setPotionsForTest(java.util.Collections.singletonList("Life"));
+        boolean lifeOnly = FloatingPots.potsOf(djinn).isEmpty();
+        ShattersRadar.Mark near = ShattersRadar.markForTest(ShattersRadar.FOE, djinn, 102, 50);
+        ShattersRadar.Mark panel = ShattersRadar.markForTest(ShattersRadar.FOE, djinn, 125, 50);
+        RealmFilter.setPotionsForTest(java.util.Collections.emptyList());
+        java.util.List<FloatingPots.Pot> laid = FloatingPots.layout(java.util.Arrays.asList(near, panel), 100, 50, client, mm, f, 0);
+        RealmFilter.setPotionsForTest(was);
+        report.accept("a Djinn floats Speed with no potions picked, and nothing while only Life is picked",
+                djinn > 0 && speedFloats && lifeOnly);
+        report.accept("its pot sits just right of it and above, and none is drawn over the inventory's column",
+                laid.size() == 1 && laid.get(0).x > 1024 + 120 - 30 && laid.get(0).y + laid.get(0).size <= 720 - 60 + 2);
+
+        // the realm filter's potion panel: the arrows and the biomes
+        java.util.List<String> three = java.util.Arrays.asList("Attack", "Defense", "Speed");
+        report.accept("the potion arrows step through the picked potions and wrap round",
+                "Speed".equals(RealmFilterPicker.stepPotion(three, "Defense", 1))
+                        && "Attack".equals(RealmFilterPicker.stepPotion(three, "Speed", 1))
+                        && "Attack".equals(RealmFilterPicker.stepPotion(three, "Defense", -1))
+                        && "Attack".equals(RealmFilterPicker.stepPotion(three, "Life", 1))
+                        && "Speed".equals(RealmFilterPicker.stepPotion(three, "Life", -1))
+                        && RealmFilterPicker.stepPotion(java.util.Collections.singletonList("Speed"), "Speed", 1) == null);
+        java.util.List<RealmFilter.Dropper> city = speed == null ? java.util.Collections.emptyList()
+                : RealmFilterPicker.inBiome(speed.droppers, "Abandoned City");
+        boolean allThere = !city.isEmpty();
+        for (RealmFilter.Dropper d : city) allThere &= d.biomes.contains("Abandoned City");
+        RealmFilter.Dungeon pit = RealmFilter.dungeon("Snake Pit");
+        int pitPortal = pit == null || pit.portalTypes.length == 0 ? -1 : pit.portalTypes[0];
+        java.util.List<String> handPicks = new java.util.ArrayList<>(RealmFilter.picks()), potionWas = new java.util.ArrayList<>(RealmFilter.potionPicks());
+        RealmFilter.setForTest(java.util.Collections.emptyList());
+        RealmFilter.setPotionsForTest(java.util.Collections.emptyList());
+        boolean quiet = RealmFilter.portalPicks(pitPortal) == 0;
+        RealmFilter.setPotionsForTest(java.util.Collections.singletonList("Speed"));
+        int marked = RealmFilter.portalPicks(pitPortal);
+        boolean colour = speed != null && RealmFilter.ringColour(marked).equals(speed.colour);
+        boolean selected = !RealmFilter.potionsFrom("Snake Pit").isEmpty() && RealmFilter.potionsFrom("Pirate Cave").isEmpty();
+        RealmFilter.setForTest(handPicks);
+        RealmFilter.setPotionsForTest(potionWas);
+        report.accept("picking Speed selects the dungeons that drop it: the Snake Pit's portal is marked in Speed's colour, the Pirate Cave's is not",
+                speed != null && speed.dungeons.containsKey("Snake Pit") && speed.dungeons.size() == 6
+                        && quiet && speed != null && (marked & speed.bit()) != 0 && colour && selected);
+        report.accept("clicking a biome lists only the droppers that live there: Speed has three in the Abandoned City",
+                city.size() == 3 && allThere && speed != null && RealmFilterPicker.inBiome(speed.droppers, null).size() == speed.droppers.size());
     }
 
     /**
@@ -4437,6 +4537,7 @@ class LiveView {
         checkMarksGrowWithTheView(report);
         checkMarkRanks(report);
         checkRealmFilter(report);
+        checkFloatingPots(report);
         checkKeptAsLearned(report);
         checkZoomIsMeasured(report);
         checkDeadAreNotDrawn(report);

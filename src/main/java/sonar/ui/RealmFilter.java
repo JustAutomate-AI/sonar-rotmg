@@ -177,6 +177,8 @@ public final class RealmFilter {
         final Color colour;
         /** The realm's beacons, the waypoints that teleport you, to the biomes where it drops most. */
         int[] beaconTypes = new int[0];
+        /** The realm dungeons where it drops, easiest first, each with the enemies there that drop it. */
+        Map<String, List<String>> dungeons = Collections.emptyMap();
 
         Potion(String name, String item, int index, List<Dropper> droppers, Color colour) {
             this.name = name;
@@ -315,6 +317,7 @@ public final class RealmFilter {
     private static final class RawPotion {
         String name, item, colour;
         List<RawPotionDropper> droppers;
+        Map<String, List<String>> dungeons;
     }
 
     private static final class RawPotionDropper {
@@ -362,7 +365,9 @@ public final class RealmFilter {
                             if (x == null || x.name == null) continue;
                             drops.add(new Dropper(x.name, x.biomes == null ? Collections.emptyList() : x.biomes, kindOf(x.kind)));
                         }
-                        pots.add(new Potion(r.name, r.item, pots.size(), drops, colourOf(r.colour)));
+                        Potion pot = new Potion(r.name, r.item, pots.size(), drops, colourOf(r.colour));
+                        if (r.dungeons != null) pot.dungeons = Collections.unmodifiableMap(new LinkedHashMap<>(r.dungeons));
+                        pots.add(pot);
                     }
                     allPotions = Collections.unmodifiableList(pots);
                 }
@@ -733,6 +738,14 @@ public final class RealmFilter {
             }
         }
         Map<Integer, Integer> beacons = new HashMap<>();
+        // a picked potion's dungeons have their portals marked, in the potion's own bit and colour
+        if (list != null) for (Potion pot : allPotions) {
+            if (!potionPicks.contains(pot.name)) continue;
+            for (Dungeon d : list) {
+                if (!pot.dungeons.containsKey(d.name)) continue;
+                for (int t : d.portalTypes) portals.merge(t, pot.bit(), (a, b) -> a | b);
+            }
+        }
         for (Potion pot : allPotions) {
             if (!potionPicks.contains(pot.name)) continue;
             for (int t : pot.beaconTypes) beacons.merge(t, pot.bit(), (a, b) -> a | b);
@@ -813,7 +826,7 @@ public final class RealmFilter {
 
     /** Which picks a portal leads to, one bit per pick; 0 for anything else. */
     static int portalPicks(int objectType) {
-        if (picks().isEmpty()) return 0;
+        if (picks().isEmpty() && potionPicks().isEmpty()) return 0;
         if (!resolved && all != null) resolveNow(all);
         Integer p = portalIndex.get(objectType);
         return p == null ? 0 : p;
@@ -843,6 +856,22 @@ public final class RealmFilter {
             if (pic != null) m |= pic;
         }
         return m;
+    }
+
+    /**
+     * The picked potions a dungeon drops, in the order they were picked. Picking a potion selects
+     * its dungeons this way: their portals are marked when one drops, ringed in the potion's
+     * colour. Their droppers are not ringed - a potion drops in up to twenty-one dungeons, and
+     * ringing all of their droppers would ring most of the realm - so that stays with the three
+     * dungeons picked by hand.
+     */
+    static List<Potion> potionsFrom(String dungeon) {
+        List<Potion> out = new ArrayList<>();
+        for (String name : potionPicks()) {
+            Potion p = potion(name);
+            if (p != null && p.dungeons.containsKey(dungeon)) out.add(p);
+        }
+        return out;
     }
 
     /** Whether the radar is in the realm, the only place realm enemies are. */

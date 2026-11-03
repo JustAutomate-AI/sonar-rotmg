@@ -199,28 +199,42 @@ final class BossPickerWindow extends JWindow {
         return new String[]{SonarTheme.fit(first.toString(), fm, width), SonarTheme.fit(rest, fm, width)};
     }
 
-    private static final Color PANEL = new Color(12, 10, 20);
+    private static Shape rounded(double x, double y, double w, double h, double r) {
+        return r <= 0 ? new java.awt.geom.Rectangle2D.Double(x, y, w, h) : SonarTheme.round(x, y, w, h, r);
+    }
 
-    /** The picker at any size. Static, so the screenshots draw exactly what the game gets. */
+    /** The picker at any size, in the meter's style. Static, so the screenshots draw exactly what the game gets. */
     static void draw(Graphics2D g, int w, int h, DamageMeterWindow.Board b, int hover) {
+        MeterStyle st = DamageMeterWindow.style;
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g2.setColor(PANEL);
-        g2.fill(SonarTheme.round(0, 0, w, h, 8));
-        g2.setColor(new Color(255, 255, 255, 40));
-        g2.draw(SonarTheme.round(0.5, 0.5, w - 1, h - 1, 8));
+        g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+        double pr = st.pickerRadius();
+        Shape body = rounded(0, 0, w, h, pr);
+        if (st.pickerPanel2 != null) g2.setPaint(new GradientPaint(0, 0, st.pickerPanel, st.panelDown ? 0 : w, h, st.pickerPanel2));
+        else g2.setColor(st.pickerPanel);
+        g2.fill(body);
+        if (st.headBg != null) {
+            Shape clip = g2.getClip();
+            g2.clip(body);
+            if (st.headBg2 != null) g2.setPaint(new GradientPaint(0, 0, st.headBg, w, 0, st.headBg2));
+            else g2.setColor(st.headBg);
+            g2.fillRect(0, 0, w, HEAD);
+            g2.setClip(clip);
+        }
 
         int n = tiles(b);
-        g2.setFont(SonarTheme.bold(12f));
+        g2.setFont(st.font(st.headFamily, Font.BOLD, 12f));
         FontMetrics hm = g2.getFontMetrics();
         float hy = (HEAD - hm.getHeight()) / 2f + hm.getAscent() + 1;
-        g2.setColor(SonarTheme.TEXT);
-        g2.drawString("Show damage on", PAD + 1, hy);
+        g2.setColor(st.headBg != null ? st.headInk : SonarTheme.TEXT);
+        g2.drawString(st.upper ? "SHOW DAMAGE ON" : "Show damage on", PAD + 1, hy);
         String count = (n - 1) == 1 ? "1 boss" : (n - 1) + " bosses";
-        g2.setFont(SonarTheme.font(11f));
+        if (st.upper) count = count.toUpperCase(java.util.Locale.ROOT);
+        g2.setFont(st.font(st.headFamily, Font.PLAIN, 11f));
         FontMetrics cm = g2.getFontMetrics();
-        g2.setColor(SonarTheme.MUTED);
+        g2.setColor(st.headBg != null ? st.headMuted : SonarTheme.MUTED);
         g2.drawString(count, w - PAD - 1 - cm.stringWidth(count), hy);
 
         for (int i = 0; i < n; i++) {
@@ -228,18 +242,19 @@ final class BossPickerWindow extends JWindow {
             int s = r.width;
             boolean picked = b != null && (i == 0 ? b.auto : !b.auto && b.choices.get(i - 1).key.equals(b.shownKey));
             boolean followed = b != null && i > 0 && b.auto && b.choices.get(i - 1).key.equals(b.shownKey);
-            g2.setColor(new Color(255, 255, 255, i == hover ? 30 : 12));
-            g2.fill(SonarTheme.round(r.x, r.y, s, s, 8));
+            g2.setColor(i == hover ? st.tileHover : st.tileBg);
+            g2.fill(rounded(r.x, r.y, s, s, st.tileRadius));
             if (picked || followed) {
-                g2.setColor(picked ? RealmFilter.LIME : new Color(255, 255, 255, 90));
+                if (picked && st.accent2 != null) g2.setPaint(new GradientPaint(r.x, r.y, st.accent, r.x + s, r.y + s, st.accent2));
+                else g2.setColor(picked ? st.accent : new Color(255, 255, 255, 90));
                 g2.setStroke(new BasicStroke(picked ? 2f : 1.2f));
-                g2.draw(SonarTheme.round(r.x + 1, r.y + 1, s - 2, s - 2, 8));
+                g2.draw(rounded(r.x + 1, r.y + 1, s - 2, s - 2, st.tileRadius));
             }
             String caption;
             if (i == 0) {
-                g2.setFont(SonarTheme.bold((float) Math.max(10, s * 0.22)));
+                g2.setFont(st.font(st.headFamily, Font.BOLD, (float) Math.max(10, s * 0.22)));
                 FontMetrics am = g2.getFontMetrics();
-                g2.setColor(RealmFilter.LIME);
+                g2.setColor(st.accent);
                 g2.drawString("AUTO", r.x + (s - am.stringWidth("AUTO")) / 2f, r.y + (s - am.getHeight()) / 2f + am.getAscent());
                 caption = "Latest boss";
             } else {
@@ -253,12 +268,19 @@ final class BossPickerWindow extends JWindow {
                 }
                 caption = c.name;
             }
-            g2.setFont(SonarTheme.font(10f));
+            g2.setFont(st.font(st.nameFamily, Font.PLAIN, 10f));
             FontMetrics fm = g2.getFontMetrics();
             g2.setColor(picked ? SonarTheme.TEXT : SonarTheme.MUTED);
             String[] two = twoLines(caption, fm, s);
             for (int k = 0; k < two.length; k++)
                 g2.drawString(two[k], r.x + (s - fm.stringWidth(two[k])) / 2f, r.y + s + 2 + fm.getAscent() + k * (fm.getAscent() + 1));
+        }
+        if (st.border != null) {
+            float bw = Math.max(1, st.borderWidth);
+            if (st.border2 != null) g2.setPaint(new GradientPaint(0, 0, st.border, w, h, st.border2));
+            else g2.setColor(st.headBg == null && st.border.getAlpha() < 40 ? new Color(255, 255, 255, 40) : st.border);
+            g2.setStroke(new BasicStroke(bw));
+            g2.draw(rounded(bw / 2.0, bw / 2.0, w - bw, h - bw, pr));
         }
         g2.dispose();
     }

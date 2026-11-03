@@ -2,6 +2,17 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.67.0
+
+**Floating Pots, a new look for the damage meter, a smarter potion finder, and the minimap overlay following your zoom again**
+
+- **The minimap overlay follows your zoom again.** Scrolling the minimap could leave the overlay stuck at its closest zoom for a whole session, so its enemies and events were drawn at the wrong scale - which is also why Show all events looked broken. Windows silently removes a mouse hook that ever answers too slowly, and the wheel was watched by one. The hook now hands every event off at once, a watchdog puts it back the moment it stops hearing clicks, and when the overlay's own zoom check reads the same zoom again and again, far from the overlay's, it now trusts it.
+- **Floating Pots**, a new switch in Settings. Over the game itself, every realm enemy that can drop a stat potion floats that potion's sprite just above its head - or only your picks while the realm filter has potions picked - so you can see it mid-fight without looking at the minimap. Each pot is a tiny window that moves with its enemy and takes no clicks. Line it up once on the game from Settings: drag the lime ring onto your character, scroll until the white rings sit on the enemies, shift and scroll to raise the pots, then Done. It is kept for each camera zoom, follows the game's own zoom, rotate and center-player keys, and stands aside while the camera is turned.
+- **A new look for the damage meter and its boss picker: Indigo.** A panel fading from dark violet to deep blue with a soft glow along its top and a shaded frame, bars that start solid and fade out, gold, silver and bronze for the top three, hairlines between rows and the clock on a chip.
+- **Slide between your picked potions.** In the realm filter's potion panel, arrows and a dot for each picked potion turn the page from one to the next, with a short sliding animation.
+- **Click a biome to see who drops the potion there.** Each of a potion's best biomes is now a button that lists only the enemies there that drop it; Show all brings the rest back.
+- **Picking a potion selects the dungeons that drop it.** Their portals are marked and ping when they drop, ringed in the potion's colour, they are tagged with the potion on the Dungeons tab, and each potion lists the dungeons where it drops and who drops it there, from RealmEye. Their portal droppers are not ringed - Attack alone drops in twenty-one dungeons - so that stays with the up to three dungeons you pick by hand.
+
 ## 2.66.0
 
 **A boss meter with a picker of every boss, out of the way of item tooltips, and more players when taller**

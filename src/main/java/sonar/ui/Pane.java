@@ -226,6 +226,13 @@ abstract class Pane extends JComponent {
         return scrollTarget;
     }
 
+    /** Glides the content so this point of it, in its own units, comes to the top. */
+    void glideTo(double contentY) {
+        scrollTarget = Math.max(0, contentY * zoom);
+        clampScroll();
+        repaint();
+    }
+
     private void sample(MouseEvent e) {
         int i = samples % sampleAt.length;
         sampleAt[i] = System.nanoTime();

@@ -217,6 +217,48 @@ class ShattersOverlayWindow extends JWindow {
 
     private int agreeingMeasurements;
 
+    /** How many unsure readings in a row must agree before they are believed. */
+    static final int AGREE = 5;
+    private final double[] recentReadings = new double[AGREE];
+    private int readingCount;
+
+    /**
+     * The step to move the overlay to when the unsure readings keep saying the same thing, or 0.
+     * <p>
+     * A single reading has to be clearly better than every other scale to be taken, because
+     * black ground agrees with black ground at any zoom. That was right for one reading and
+     * wrong for forty: a whole session's log said 0.66 again and again, a little short of sure
+     * each time, while the overlay sat at 9.79 - so nothing ever corrected it. Five in a row
+     * within six percent of one another, each at least a little better than chance, and more
+     * than one step of the game's zoom away from the overlay, now move it to the nearest step.
+     */
+    double agreedReading(double reading, double sure, double current, double[] rungs) {
+        if (reading <= 0 || sure < 1.08) {
+            readingCount = 0;
+            return 0;
+        }
+        recentReadings[readingCount % AGREE] = reading;
+        readingCount++;
+        return agreedStep(recentReadings, Math.min(readingCount, AGREE), current, rungs);
+    }
+
+    /** Pure, for the self-test: the nearest step when the last {@code n} readings agree and are far from {@code current}. */
+    static double agreedStep(double[] readings, int n, double current, double[] rungs) {
+        if (n < AGREE || rungs == null || rungs.length == 0) return 0;
+        double lo = Double.MAX_VALUE, hi = 0, sum = 0;
+        for (int i = 0; i < AGREE; i++) {
+            lo = Math.min(lo, readings[i]);
+            hi = Math.max(hi, readings[i]);
+            sum += readings[i];
+        }
+        if (hi / lo > 1.06) return 0;
+        double mean = sum / AGREE;
+        if (Math.abs(Math.log(mean / current)) < Math.log(1.8)) return 0;
+        double best = rungs[0];
+        for (double r : rungs) if (Math.abs(Math.log(r / mean)) < Math.abs(Math.log(best / mean))) best = r;
+        return Math.abs(Math.log(best / current)) < 1e-6 ? 0 : best;
+    }
+
     private volatile boolean syncing;
 
     /**
@@ -257,15 +299,33 @@ class ShattersOverlayWindow extends JWindow {
             } finally {
                 setHiddenFromCapture(false);
             }
-            final double scale = got;
+            double scale = got;
             syncing = false;
             System.out.println(String.format(java.util.Locale.ROOT,
                     "[zoom] measured %.2f px/tile (%.2fx sure) - %s; overlay at %.2f; ladder %s; frame %dx%d; best [%s]",
                     MinimapSync.lastScale(), MinimapSync.lastConfidence(), MinimapSync.state(),
                     pixelsPerTile, java.util.Arrays.toString(round2(candidates)), w, h, MinimapMatch.lastCurve));
-            if (scale <= 0) return;
+            if (scale <= 0) {
+                // not sure enough on its own; but the same answer again and again, far from the
+                // overlay, is sure enough - it is what a missed zoom looks like from here
+                double agreed = agreedReading(MinimapSync.lastScale(), MinimapSync.lastConfidence(), pixelsPerTile, candidates);
+                if (agreed <= 0) return;
+                System.out.println(String.format(java.util.Locale.ROOT,
+                        "[zoom] %d readings in a row agree on %.2f px/tile; the overlay was at %.2f, so it moves to that step",
+                        AGREE, MinimapSync.lastScale(), pixelsPerTile));
+                scale = agreed;
+            }
+            final double use = scale;
+            if (use != got) {
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    pixelsPerTile = clampScale(use);
+                    agreeingMeasurements = 0;
+                    repaint();
+                });
+                return;
+            }
             javax.swing.SwingUtilities.invokeLater(() -> {
-                boolean same = Math.abs(scale - pixelsPerTile) / Math.max(scale, pixelsPerTile) < 0.005;
+                boolean same = Math.abs(use - pixelsPerTile) / Math.max(use, pixelsPerTile) < 0.005;
                 if (same) {
                     if (++agreeingMeasurements >= 3 && syncTimer.getDelay() != SETTLED_MS) {
                         syncTimer.setDelay(SETTLED_MS);
@@ -278,7 +338,7 @@ class ShattersOverlayWindow extends JWindow {
                     syncTimer.setDelay(5000);
                     syncTimer.restart();
                 }
-                pixelsPerTile = clampScale(scale);
+                pixelsPerTile = clampScale(use);
                 repaint();
             });
         }, "sonar-minimap-sync");
@@ -1114,6 +1174,7 @@ class ShattersOverlayWindow extends JWindow {
      * sign of it there. Held at the frame's edge, a little faded, when it is outside the view.
      */
     private void paintPortal(Graphics2D g, ShattersRadar.Mark m, int x, int y, boolean beyond) {
+        Color hue = RealmFilter.ringColour(m.drops);
         double scale = dotPx / 10.0;
         int size = (int) Math.round(beyond ? IMPORTANT_SIZE * 0.72 : IMPORTANT_SIZE);
         int ring = size + 10;
@@ -1127,7 +1188,7 @@ class ShattersOverlayWindow extends JWindow {
             double phase = ((age / period) + k * 0.5) % 1.0;
             double r = ring / 2.0 + phase * 22 * scale;
             g2.setStroke(new BasicStroke((float) (1 + 2.5 * (1 - phase))));
-            g2.setColor(SonarTheme.alpha(RealmFilter.LIME, (1 - phase) * 0.85 * strength));
+            g2.setColor(SonarTheme.alpha(hue, (1 - phase) * 0.85 * strength));
             g2.draw(new java.awt.geom.Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
         }
         // a dark disc behind it, so the portal reads over any ground
@@ -1136,7 +1197,7 @@ class ShattersOverlayWindow extends JWindow {
         g2.setStroke(new BasicStroke(3f));
         g2.setColor(new Color(0, 0, 0, 170));
         g2.drawOval(x - ring / 2 - 1, y - ring / 2 - 1, ring + 2, ring + 2);
-        g2.setColor(RealmFilter.LIME);
+        g2.setColor(hue);
         g2.drawOval(x - ring / 2, y - ring / 2, ring, ring);
         java.awt.image.BufferedImage face = faceOf(m.kindId());
         if (face != null) {
@@ -1211,7 +1272,6 @@ class ShattersOverlayWindow extends JWindow {
             if (!counted) continue;
             for (int i = 0; i < counts.length; i++) {
                 RealmFilter.Target t = targets.get(i);
-                if (portals && !t.dungeon) continue;
                 if ((m.drops & t.bit) != 0) counts[i]++;
             }
         }
