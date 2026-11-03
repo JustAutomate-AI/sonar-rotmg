@@ -381,6 +381,11 @@ final class ShattersRadar {
         if (!on && !drawingPots) live = Collections.emptyList();
     }
 
+    /** Whether anything is drawing from the live list: the minimap overlay or Floating Pots. */
+    static boolean tracking() {
+        return drawingMap || drawingPots;
+    }
+
     /** Told by Floating Pots whether it is on: it places its pots from the same live list. */
     static void setDrawingPots(boolean on) {
         drawingPots = on;
@@ -649,7 +654,14 @@ final class ShattersRadar {
         // carried on from a Move whose own records show the heading.
         double s = steadiness(vx, vy);
         steadiness = inside ? s : 0;
+        recordError(drawPlayerX(), drawPlayerY(), last.pos.x, last.pos.y, vx, vy);
         setPlayer(last.pos.x, last.pos.y, vx, vy);
+        if (keysSteer) {
+            keyBaseX = last.pos.x;
+            keyBaseY = last.pos.y;
+            keyBaseAt = System.nanoTime();
+        }
+        learnFromMove(data, vx, vy, inside, System.nanoTime());
         if (loggedMovesFor != data.map) {
             loggedMovesFor = data.map;
             loggedMoves = 0;
@@ -760,13 +772,163 @@ final class ShattersRadar {
     static double drawPlayerX() {
         if (Float.isNaN(playerX)) return playerX;
         long now = System.nanoTime();
+        if (keysSteer) return keyBaseX + keyVX * keyAhead(now) + corrX * easing(now);
         return playerX + playerVX * ahead(now) + corrX * easing(now);
     }
 
     static double drawPlayerY() {
         if (Float.isNaN(playerY)) return playerY;
         long now = System.nanoTime();
+        if (keysSteer) return keyBaseY + keyVY * keyAhead(now) + corrY * easing(now);
         return playerY + playerVY * ahead(now) + corrY * easing(now);
+    }
+
+    /*
+     * Your keys steering where you are.
+     *
+     * Between Moves you used to be carried on at the last Move's speed and heading, which is
+     * exact walking straight and a tile out for a moment at every dodge - and every mark is drawn
+     * against you, so the whole map shook. The keys say you turned the moment you turn: while
+     * they are known, you are carried on at your walking speed in the direction they point, from
+     * the last Move, and each Move only corrects what is left, eased out as before. Your speed is
+     * learned from Moves while a key is held (a wall or a paralysis reads as not moving, and the
+     * prediction stops with you). Keys that keep disagreeing with where the Moves say you went -
+     * a turned camera, a push, a game Windows hides from Sonar - hand back to the Moves alone.
+     */
+    private static volatile boolean keysSteer, keysTrusted = true, blocked, speedKnown;
+    private static volatile int keysX, keysY, disagreements;
+    private static volatile double keyVX, keyVY, keyBaseX, keyBaseY, walkSpeed = 6.5;
+    private static volatile long keyBaseAt, keysChangedAt;
+    /** The longest the keys carry you on without a Move, in nanoseconds. */
+    private static final long KEY_AHEAD_MAX = 300_000_000L;
+
+    private static double keyAhead(long now) {
+        return Math.max(0, Math.min(now - keyBaseAt, KEY_AHEAD_MAX)) / 1e9;
+    }
+
+    /** Your velocity, tiles a second, for the keys held: a diagonal is as fast as a straight line. */
+    static double[] keyVelocity(int dx, int dy, double speed) {
+        if (dx == 0 && dy == 0) return new double[]{0, 0};
+        double k = Math.hypot(dx, dy);
+        return new double[]{dx / k * speed, dy / k * speed};
+    }
+
+    /** Whether the keys held agree with the way a Move says you went. Stopped while a key is held is a wall, not a disagreement. */
+    static boolean keysAgree(int dx, int dy, double vx, double vy) {
+        double s = Math.hypot(vx, vy);
+        if (dx == 0 && dy == 0) return s < 2.0;
+        if (s < 1.0) return true;
+        return (dx * vx + dy * vy) / (Math.hypot(dx, dy) * s) > 0.5;
+    }
+
+    /** A walking speed learned a little at a time, within what the game allows: up to 9.6 tiles a second, half as fast again while Speedy. */
+    static double learnSpeed(double was, double measured) {
+        return Math.max(2, Math.min(16, was * 0.7 + measured * 0.3));
+    }
+
+    /** Told every ten milliseconds which movement keys are held, and whether they can be trusted at all. */
+    static synchronized void movementKeys(boolean live, int dx, int dy) {
+        boolean steer = live && keysTrusted && SMOOTH && !Float.isNaN(playerX);
+        if (steer == keysSteer && dx == keysX && dy == keysY) return;
+        long now = System.nanoTime();
+        double wasX = drawPlayerX(), wasY = drawPlayerY();
+        if (steer && keysSteer) {
+            // the same keys mode, a turn: carried on to now the old way, then the new
+            double t = keyAhead(now);
+            keyBaseX += keyVX * t;
+            keyBaseY += keyVY * t;
+            keyBaseAt = now;
+        } else if (steer) {
+            // the keys take over from exactly where you are drawn
+            keyBaseX = wasX;
+            keyBaseY = wasY;
+            keyBaseAt = now;
+            corrX = corrY = 0;
+            corrAt = now;
+        } else if (!Double.isNaN(wasX)) {
+            // back to the Moves alone, easing out whatever separates the two
+            keysSteer = false;
+            corrX = wasX - (playerX + playerVX * ahead(now));
+            corrY = wasY - (playerY + playerVY * ahead(now));
+            corrAt = now;
+        }
+        if (dx != keysX || dy != keysY) {
+            keysChangedAt = now;
+            blocked = false;
+        }
+        keysSteer = steer;
+        keysX = dx;
+        keysY = dy;
+        double[] v = keyVelocity(dx, dy, blocked ? 0 : walkSpeed);
+        keyVX = v[0];
+        keyVY = v[1];
+    }
+
+    /** What a Move says about the keys: whether they agree, your walking speed, and whether something has stopped you. */
+    private static synchronized void learnFromMove(GameData data, double vx, double vy, boolean inside, long now) {
+        if (!speedKnown) {
+            try {
+                int spd = data.player.stat.get(sonar.packets.data.enums.StatType.SPEED_STAT).statValue;
+                walkSpeed = Math.max(2, Math.min(16, 4 + 5.6 * spd / 75.0));
+                speedKnown = true;
+            } catch (Throwable unknown) {
+                // learned from walking instead
+            }
+        }
+        if (!inside) return;   // a speed averaged over a whole tick says too little about a turn
+        if (keysAgree(keysX, keysY, vx, vy)) {
+            disagreements = 0;
+            if (!keysTrusted) {
+                keysTrusted = true;
+                System.out.println("[move] your keys and your movement agree again: the keys steer the overlay");
+            }
+        } else if (++disagreements >= 3 && keysTrusted) {
+            keysTrusted = false;
+            System.out.println("[move] your keys and the way you moved disagree (a turned camera, a push, or keys Sonar cannot see): the Moves alone place you until they agree");
+        }
+        if (keysX == 0 && keysY == 0 || now - keysChangedAt < 150_000_000L) return;
+        double speed = Math.hypot(vx, vy);
+        if (speed < 0.3 * walkSpeed) {
+            blocked = true;
+        } else {
+            blocked = false;
+            walkSpeed = learnSpeed(walkSpeed, speed);
+            speedKnown = true;
+        }
+        double[] v = keyVelocity(keysX, keysY, blocked ? 0 : walkSpeed);
+        keyVX = v[0];
+        keyVY = v[1];
+    }
+
+    /*
+     * How far the overlay had you from where you were, measured at every Move while you walk,
+     * and told to the log every ten seconds: the number to compare with the keys on and off.
+     */
+    private static final double[] errSum = new double[2], errMax = new double[2];
+    private static final int[] errCount = new int[2];
+    private static long errSince;
+
+    private static synchronized void recordError(double drawnX, double drawnY, double x, double y, double vx, double vy) {
+        if (Double.isNaN(drawnX) || Double.isNaN(drawnY) || Math.hypot(vx, vy) < 1) return;
+        double e = Math.hypot(drawnX - x, drawnY - y);
+        if (e > TELEPORT) return;
+        int mode = keysSteer ? 1 : 0;
+        errSum[mode] += e;
+        errMax[mode] = Math.max(errMax[mode], e);
+        errCount[mode]++;
+        long now = System.nanoTime();
+        if (errSince == 0) errSince = now;
+        if (now - errSince < 10_000_000_000L) return;
+        for (int m = 0; m < 2; m++) {
+            if (errCount[m] == 0) continue;
+            System.out.println(String.format(java.util.Locale.ROOT,
+                    "[move] %s: over %d Moves while walking the overlay had you %.2f tiles off on average, %.2f at worst%s",
+                    m == 1 ? "keys steering" : "Moves only", errCount[m], errSum[m] / errCount[m], errMax[m],
+                    m == 1 ? String.format(java.util.Locale.ROOT, " (walking speed %.1f tiles/s)", walkSpeed) : ""));
+            errSum[m] = errMax[m] = 0;
+            errCount[m] = 0;
+        }
+        errSince = now;
     }
 
     /** How far a mark is from the player, in tiles, as {east, south}; null until the player is placed. */

@@ -161,9 +161,11 @@ final class FloatingPots {
      * left alone.
      */
     static final class Camera {
-        int zoom, offset;
-        boolean rotated, chatting;
+        volatile int zoom, offset;
+        volatile boolean rotated, chatting;
         int zoomIn, zoomOut, rotateLeft, rotateRight, reset, center;
+        /** The movement keys: up, down, left and right as the game has them bound. */
+        int up = 0x57, down = 0x53, left = 0x41, right = 0x44;
         static final int MOST_ZOOM = 6;
 
         /** One key going down; true when the camera changed. */
@@ -228,8 +230,29 @@ final class FloatingPots {
         camera.rotateRight = key(reg, "Key.RotateRight", 0x45);
         camera.reset = key(reg, "Key.ResetCameraAngle", 0x5A);
         camera.center = key(reg, "Key.CenterPlayer", 0x43);
+        camera.up = key(reg, "Key.Up", 0x57);
+        camera.down = key(reg, "Key.Down", 0x53);
+        camera.left = key(reg, "Key.Left", 0x41);
+        camera.right = key(reg, "Key.Right", 0x44);
         cameraRead = true;
         System.out.println("[pots] camera zoom " + camera.zoom + ", center mode " + camera.offset + (camera.rotated ? ", turned" : "")
+                + "; lined up here: " + linedUp(camera.zoom, camera.offset));
+    }
+
+    /** Reads the camera's settings and keys the first time anything needs them. */
+    static void ensureCamera() {
+        if (!cameraRead) {
+            synchronized (FloatingPots.class) {
+                if (!cameraRead) readCamera();
+            }
+        }
+    }
+
+    /** A camera key changed something: the fit being lined up starts again from the saved one. */
+    static void cameraChanged() {
+        Runner r = running;
+        if (r != null) r.working = null;
+        System.out.println("[pots] camera key: zoom " + camera.zoom + ", center mode " + camera.offset + (camera.rotated ? ", turned (pots aside until reset)" : "")
                 + "; lined up here: " + linedUp(camera.zoom, camera.offset));
     }
 
@@ -384,7 +407,6 @@ final class FloatingPots {
         private final Timer frame = new Timer(15, e -> frame());
         private final Map<Integer, PotWindow> showing = new HashMap<>();
         private final List<PotWindow> spare = new ArrayList<>();
-        private final boolean[] down = new boolean[9];
         private LineUpWindow board;
         /** The fit being lined up, until Done; null to start from the saved one. */
         volatile Fit working;
@@ -416,12 +438,11 @@ final class FloatingPots {
         private void frame() {
             long now = System.currentTimeMillis();
             if (!cameraRead || now > nextCameraRead) {
-                if (!cameraRead) readCamera();
+                ensureCamera();
                 nextCameraRead = now + 60_000;
             }
             MinimapPlacement.Placement p = MinimapPlacement.current();
             boolean front = MinimapPlacement.gameInFront();
-            if (front) pollKeys();
             if (p == null || p.client == null || !front) {
                 hideAll();
                 return;
@@ -454,19 +475,6 @@ final class FloatingPots {
             }
             showing.clear();
             showing.putAll(next);
-        }
-
-        private void pollKeys() {
-            int[] keys = camera.keys();
-            for (int i = 0; i < keys.length; i++) {
-                boolean d = DamageMeterWindow.keyDown(keys[i]);
-                if (d && !down[i] && camera.press(keys[i])) {
-                    working = null;
-                    System.out.println("[pots] camera key: zoom " + camera.zoom + ", center mode " + camera.offset + (camera.rotated ? ", turned (pots aside until reset)" : "")
-                            + "; lined up here: " + linedUp(camera.zoom, camera.offset));
-                }
-                down[i] = d;
-            }
         }
 
         private void lineUpFrame(Rectangle client, Rectangle mm, Fit f) {

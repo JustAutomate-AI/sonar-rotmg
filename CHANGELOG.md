@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.69.0
+
+**The minimap holds still while you dodge: your movement keys steer it**
+
+- **Your movement keys now steer the overlay's idea of where you are.** Everything on the minimap overlay is drawn against you, and Sonar learns where you are from your client five times a second. Between those it used to carry you on the way you were last going - exact walking straight, and up to a tile out for a moment every time you dodged, so the whole map shook. Now the moment you press or let go of a movement key you are carried on that way, at your own walking speed, learned as you walk and seeded from your Speed stat; your client's updates only correct what is left. Floating Pots, where a tile is far bigger on screen, gains the most.
+- **It reads your own bindings** from the game's settings, only while the game is the window in front, and records nothing. Letters typed into chat are ignored; a wall or a paralysis stops the prediction with you; and if your keys and your movement keep disagreeing - a turned camera, a push, or the game run as administrator - it hands back to the old way until they agree. `sonar.movekeys=false` switches it off.
+- **Every ten seconds of walking, the log says how far off the overlay had you**, on average and at worst, so the steadiness can be measured rather than guessed.
+
 ## 2.68.1
 
 **The beacon you click to travel gets its ring**

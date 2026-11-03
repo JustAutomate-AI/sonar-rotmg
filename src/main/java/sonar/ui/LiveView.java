@@ -468,6 +468,7 @@ class LiveView {
         javax.swing.SwingUtilities.invokeLater(this::syncMeter);
         FloatingPots.onChange(() -> javax.swing.SwingUtilities.invokeLater(FloatingPots::sync));
         javax.swing.SwingUtilities.invokeLater(FloatingPots::sync);
+        GameInput.start();
         row.add(mvpShare);
         row.add(javax.swing.Box.createHorizontalStrut(4));
         row.add(damageShare);
@@ -3666,6 +3667,16 @@ class LiveView {
      * window size - and the damage meter itself.
      */
     private void checkPlacementAndMeter(java.util.function.BiConsumer<String, Boolean> report) {
+        // your movement keys steering the overlay's idea of where you are
+        double[] east = ShattersRadar.keyVelocity(1, 0, 6), northEast = ShattersRadar.keyVelocity(1, -1, 6);
+        report.accept("D walks east at your speed, and W with D walks north-east no faster",
+                east[0] == 6 && east[1] == 0 && Math.abs(Math.hypot(northEast[0], northEast[1]) - 6) < 1e-9 && northEast[1] < 0);
+        report.accept("keys and movement agree when you walk the way they point, or stand at a wall; not when you walk with nothing held",
+                ShattersRadar.keysAgree(1, 0, 6, 0.5) && ShattersRadar.keysAgree(0, -1, 0, 0) && !ShattersRadar.keysAgree(1, 0, -6, 0)
+                        && !ShattersRadar.keysAgree(0, 0, 6, 0) && ShattersRadar.keysAgree(0, 0, 0.5, 0));
+        report.accept("the walking speed is learned a little at a time and stays within the game's range",
+                Math.abs(ShattersRadar.learnSpeed(6, 8) - 6.6) < 1e-9 && ShattersRadar.learnSpeed(6, 100) <= 16
+                        && ShattersRadar.learnSpeed(14, 14.4) > 14 && ShattersRadar.learnSpeed(2, 0) >= 2);
         // the game run as administrator hides its input from Sonar, which must say so
         report.accept("with the game running as administrator and Sonar not, the overlay says it cannot see the zoom; with the same rights it does not",
                 Elevation.blind(true, false) && Elevation.blind(true, null) && !Elevation.blind(true, true)
