@@ -96,11 +96,28 @@ final class InstanceHistory {
     private InstanceHistory() {
     }
 
+    /** Where the day files live; the self-test points this at a folder of its own. */
+    private static volatile File folderForTest;
+
     private static File folder() {
-        File f = sonar.DataDir.file("history");
+        File f = folderForTest != null ? folderForTest : sonar.DataDir.file("history");
         f.mkdirs();
         return f;
     }
+
+    /**
+     * How long a file held open by something else is waited for, in steps, before giving up.
+     * <p>
+     * Windows will not let a file be opened while it is being replaced, nor replaced while it
+     * is open. Sonar's own pages used to read today's file while a finished run was being saved
+     * into it, and every such read failed with "the process cannot access the file because it
+     * is being used by another process" - which was taken to mean the file was broken, so it
+     * was set aside and the day carried on from the backup one save older. Seventy days' files
+     * were set aside that way in one afternoon, every one of them perfectly readable. Reading
+     * and saving now take turns (every path below holds this class's lock), and what is left -
+     * a virus scanner or the search indexer glancing at a file just written - is waited out.
+     */
+    private static final int BUSY_TRIES = 12, BUSY_STEP_MS = 60;
 
     /**
      * A day's instances, written compressed.
@@ -267,15 +284,18 @@ final class InstanceHistory {
         }
         // the version being replaced is kept, one step back, in case this one is ever unreadable
         if (target.isFile()) {
-            java.nio.file.Files.copy(target.toPath(), backupFor(date).toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            whileBusy(() -> java.nio.file.Files.copy(target.toPath(), backupFor(date).toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING));
         }
-        try {
-            java.nio.file.Files.move(temp.toPath(), target.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-        } catch (java.nio.file.AtomicMoveNotSupportedException noAtomic) {
-            java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        }
+        whileBusy(() -> {
+            try {
+                java.nio.file.Files.move(temp.toPath(), target.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException noAtomic) {
+                java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return null;
+        });
         File plain = plainFileFor(date);
         if (plain.isFile()) plain.delete();
         System.out.println("[history] saved " + day.size() + " instance" + (day.size() == 1 ? "" : "s") + " for " + date);
@@ -293,7 +313,39 @@ final class InstanceHistory {
         }
     }
 
-    private static List<Entry> readDay(LocalDate date) {
+    /** Thrown while a file is held open by something else: it is not broken, only busy. */
+    static final class Busy extends java.io.IOException {
+        Busy(String what, Throwable why) {
+            super(what, why);
+        }
+    }
+
+    private interface FileStep {
+        Object run() throws java.io.IOException;
+    }
+
+    /** Does one file operation, waiting out a file that something else has open for a moment. */
+    private static void whileBusy(FileStep step) throws java.io.IOException {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                step.run();
+                return;
+            } catch (java.nio.file.FileSystemException held) {
+                if (attempt >= BUSY_TRIES) throw held;
+                pause(attempt);
+            }
+        }
+    }
+
+    private static void pause(int attempt) {
+        try {
+            Thread.sleep((long) BUSY_STEP_MS * Math.min(attempt, 4));
+        } catch (InterruptedException stop) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static synchronized List<Entry> readDay(LocalDate date) {
         try {
             return readDayOrThrow(date);
         } catch (Unreadable e) {
@@ -305,54 +357,278 @@ final class InstanceHistory {
      * The day's instances, from its file or, if that will not read, from the copy kept one save
      * back. Throws rather than answering "nothing" when neither reads, because "nothing" is
      * what a save then writes over the file - and that is how whole days were lost.
+     * <p>
+     * A file that is only busy - open in something else past every wait - is not broken, so it
+     * is neither set aside nor written over: the read throws and the save waits for next time.
+     * A day whose file is missing but whose backup is there reads the backup, which used to be
+     * taken for an empty day. And copies set aside by the old mistake are folded back in.
      */
-    static List<Entry> readDayOrThrow(LocalDate date) throws Unreadable {
-        File f = fileFor(date);
-        if (!f.isFile() && !plainFileFor(date).isFile()) return new ArrayList<>();
-        List<Entry> got = readFile(f.isFile() ? f : plainFileFor(date), f.isFile());
-        if (got != null) return got;
-        File bak = backupFor(date);
-        List<Entry> fromBackup = bak.isFile() ? readFile(bak, true) : null;
+    static synchronized List<Entry> readDayOrThrow(LocalDate date) throws Unreadable {
+        File f = fileFor(date), plain = plainFileFor(date), bak = backupFor(date);
+        List<Entry> got;
+        try {
+            if (f.isFile()) got = readFile(f, true);
+            else if (plain.isFile()) got = readFile(plain, false);
+            // the day's own file gone but its backup there: that is the latest whole copy, not an empty day
+            else if (bak.isFile()) got = readFile(bak, true);
+            else got = new ArrayList<>();
+        } catch (Busy busy) {
+            lastTrouble = busy.getMessage();
+            System.out.println("[history] " + busy.getMessage() + "; left as it is");
+            throw new Unreadable(f.getName(), busy);
+        }
+        if (got != null) return recovered(date, got);
+        List<Entry> fromBackup;
+        try {
+            fromBackup = bak.isFile() ? readFile(bak, true) : null;
+        } catch (Busy busy) {
+            fromBackup = null;
+        }
         // the file that would not read is set aside under its own name, never written over
         File aside = new File(f.getParentFile(), f.getName() + ".unreadable-" + System.currentTimeMillis());
         boolean moved = f.isFile() && f.renameTo(aside);
         System.out.println("[history] " + f.getName() + " would not read; set aside as " + aside.getName()
                 + (moved ? "" : " (could not be moved)") + (fromBackup != null ? ", using the backup with "
                 + fromBackup.size() + " instances" : ", and there is no readable backup"));
-        if (fromBackup != null) return fromBackup;
+        if (fromBackup != null) return recovered(date, fromBackup);
         if (!moved) throw new Unreadable(f.getName(), null);
-        return new ArrayList<>();
+        return recovered(date, new ArrayList<>());
     }
 
-    /** One file's instances, or null if it exists and cannot be read. */
-    private static List<Entry> readFile(File f, boolean compressed) {
-        try {
-            String json;
-            if (compressed) {
-                try (java.io.InputStream in = new java.util.zip.GZIPInputStream(new java.io.FileInputStream(f))) {
-                    java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
-                    byte[] chunk = new byte[16384];
-                    for (int read; (read = in.read(chunk)) > 0; ) buffer.write(chunk, 0, read);
-                    json = new String(buffer.toByteArray(), StandardCharsets.UTF_8);
-                }
-            } else {
-                json = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+    /** Which instance an entry is, so copies of one day can be merged without doubling anything. */
+    private static String keyOf(Entry e) {
+        return e.name + "|" + e.startedAt + "|" + e.durationMs + "|" + e.total;
+    }
+
+    /** Days already checked for set-aside copies by this run of Sonar. */
+    private static final java.util.Set<LocalDate> RECOVERED = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    /**
+     * Folds the day's set-aside copies back into it.
+     * <p>
+     * Every copy the old mistake set aside is a whole, readable version of the day as it stood,
+     * and some hold runs the day carried on without - it went on from the backup one save
+     * older. Each instance in them that the day lacks is added back, the day is saved, and the
+     * copies move to {@code history/recovered}, kept there as long as the day files are.
+     */
+    private static List<Entry> recovered(LocalDate date, List<Entry> day) {
+        if (!RECOVERED.add(date)) return day;
+        String gz = fileFor(date).getName() + ".unreadable-", json = plainFileFor(date).getName() + ".unreadable-";
+        File[] aside = folder().listFiles((d, n) -> n.startsWith(gz) || n.startsWith(json));
+        if (aside == null || aside.length == 0) return day;
+        java.util.Arrays.sort(aside, java.util.Comparator.comparing(File::getName));
+        java.util.Set<String> have = new java.util.HashSet<>();
+        for (Entry e : day) have.add(keyOf(e));
+        List<Entry> merged = new ArrayList<>(day);
+        List<File> used = new ArrayList<>();
+        int added = 0;
+        for (File a : aside) {
+            List<Entry> got;
+            try {
+                got = readFile(a, a.getName().startsWith(gz));
+            } catch (Busy busy) {
+                RECOVERED.remove(date);
+                continue;
             }
-            Type type = new TypeToken<ArrayList<Entry>>() {
-            }.getType();
-            List<Entry> list = GSON.fromJson(json, type);
-            if (list == null) return new ArrayList<>();
-            list.removeIf(e -> e == null); // a crash mid-write or hand-edited file can leave null entries
-            return list;
-        } catch (Exception ex) {
-            lastTrouble = "reading " + f.getName() + ": " + ex.getClass().getSimpleName() + ": " + ex.getMessage();
-            System.out.println("[history] " + lastTrouble);
-            return null;
+            if (got == null) continue; // really broken: left where it is
+            for (Entry e : got) {
+                if (have.add(keyOf(e))) {
+                    merged.add(e);
+                    added++;
+                }
+            }
+            used.add(a);
+        }
+        if (used.isEmpty()) return day;
+        merged.sort(java.util.Comparator.comparingLong(e -> e.startedAt));
+        try {
+            if (added > 0 || !fileFor(date).isFile()) writeDay(date, merged);
+        } catch (java.io.IOException e) {
+            // not saved: the copies stay where they are, and the next read tries again
+            RECOVERED.remove(date);
+            return merged;
+        }
+        File into = new File(folder(), "recovered");
+        into.mkdirs();
+        for (File a : used) {
+            if (!a.renameTo(new File(into, a.getName()))) System.out.println("[history] could not move " + a.getName() + " into recovered");
+        }
+        System.out.println("[history] " + date + ": folded " + used.size() + " set-aside cop" + (used.size() == 1 ? "y" : "ies")
+                + " back in, which brought back " + added + " instance" + (added == 1 ? "" : "s"));
+        return merged;
+    }
+
+    /**
+     * One file's instances, or null if it exists and cannot be read. Throws {@link Busy} when
+     * something else has it open past every wait - a file that is busy is not a broken one.
+     */
+    private static List<Entry> readFile(File f, boolean compressed) throws Busy {
+        for (int attempt = 1; ; attempt++) {
+            byte[] bytes;
+            try {
+                bytes = readBytes(f, compressed);
+            } catch (java.io.FileNotFoundException | java.nio.file.FileSystemException held) {
+                // Windows says "not found" for a file it will not open because another has it
+                if (attempt >= BUSY_TRIES) {
+                    throw new Busy("reading " + f.getName() + ": still in use after " + attempt + " tries (" + held.getMessage() + ")", held);
+                }
+                pause(attempt);
+                continue;
+            } catch (Exception broken) {
+                // cut short or not gzip at all: broken, not busy
+                lastTrouble = "reading " + f.getName() + ": " + broken.getClass().getSimpleName() + ": " + broken.getMessage();
+                System.out.println("[history] " + lastTrouble);
+                return null;
+            }
+            try {
+                Type type = new TypeToken<ArrayList<Entry>>() {
+                }.getType();
+                List<Entry> list = GSON.fromJson(new String(bytes, StandardCharsets.UTF_8), type);
+                if (list == null) return new ArrayList<>();
+                list.removeIf(e -> e == null); // a crash mid-write or hand-edited file can leave null entries
+                return list;
+            } catch (Exception ex) {
+                lastTrouble = "reading " + f.getName() + ": " + ex.getClass().getSimpleName() + ": " + ex.getMessage();
+                System.out.println("[history] " + lastTrouble);
+                return null;
+            }
         }
     }
 
+    private static byte[] readBytes(File f, boolean compressed) throws java.io.IOException {
+        if (!compressed) return Files.readAllBytes(f.toPath());
+        try (java.io.InputStream in = new java.util.zip.GZIPInputStream(new java.io.FileInputStream(f))) {
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[16384];
+            for (int read; (read = in.read(chunk)) > 0; ) buffer.write(chunk, 0, read);
+            return buffer.toByteArray();
+        }
+    }
+
+    // ------------------------------------------------------------------ self-test
+
+    /** Saves and reads one day at once from two threads for a while: no read may fail, no file may be set aside. */
+    static String raceForTest(long ms) {
+        File was = folderForTest;
+        File dir = null;
+        try {
+            dir = Files.createTempDirectory("sonar-history-race").toFile();
+            folderForTest = dir;
+            LocalDate date = LocalDate.of(2026, 1, 2);
+            List<Entry> seed = new ArrayList<>();
+            for (int i = 0; i < 40; i++) seed.add(testEntry("Run " + i, 1_000L * i));
+            writeDay(date, seed);
+            java.util.concurrent.atomic.AtomicBoolean stop = new java.util.concurrent.atomic.AtomicBoolean();
+            java.util.concurrent.atomic.AtomicInteger writes = new java.util.concurrent.atomic.AtomicInteger(),
+                    reads = new java.util.concurrent.atomic.AtomicInteger(), failed = new java.util.concurrent.atomic.AtomicInteger();
+            Thread writer = new Thread(() -> {
+                while (!stop.get()) {
+                    try {
+                        writeDay(date, new ArrayList<>(seed));
+                        writes.incrementAndGet();
+                    } catch (Exception e) {
+                        failed.incrementAndGet();
+                    }
+                }
+            });
+            Thread reader = new Thread(() -> {
+                while (!stop.get()) {
+                    try {
+                        if (readDayOrThrow(date).size() != seed.size()) failed.incrementAndGet();
+                        reads.incrementAndGet();
+                        RECOVERED.remove(date);
+                    } catch (Exception e) {
+                        failed.incrementAndGet();
+                    }
+                }
+            });
+            writer.start();
+            reader.start();
+            Thread.sleep(ms);
+            stop.set(true);
+            writer.join();
+            reader.join();
+            String[] aside = dir.list((d, n) -> n.contains(".unreadable-"));
+            if (writes.get() < 5 || reads.get() < 5) return "too few saves (" + writes + ") or reads (" + reads + ") to say";
+            if (failed.get() > 0) return failed + " of " + (writes.get() + reads.get()) + " saves and reads failed";
+            if (aside != null && aside.length > 0) return aside.length + " files were set aside";
+            return "";
+        } catch (Exception e) {
+            return e.getClass().getSimpleName() + ": " + e.getMessage();
+        } finally {
+            folderForTest = was;
+            deleteTestFolder(dir);
+        }
+    }
+
+    /**
+     * A day left the way the old mistake left it - no file of its own, a backup one save old,
+     * and a set-aside copy holding one run more - must read whole, save itself, and tidy the copy.
+     */
+    static String recoveryForTest() {
+        File was = folderForTest;
+        File dir = null;
+        try {
+            dir = Files.createTempDirectory("sonar-history-recover").toFile();
+            folderForTest = dir;
+            LocalDate date = LocalDate.of(2026, 1, 3);
+            List<Entry> two = new ArrayList<>(), three = new ArrayList<>();
+            two.add(testEntry("Oryx's Sanctuary", 1_000));
+            two.add(testEntry("The Shatters", 2_000));
+            three.addAll(two);
+            three.add(testEntry("Lost Halls", 3_000));
+            writeDay(date, three);
+            File aside = new File(dir, fileFor(date).getName() + ".unreadable-1");
+            if (!fileFor(date).renameTo(aside)) return "could not set up the set-aside copy";
+            writeDay(date, two);
+            if (!fileFor(date).renameTo(backupFor(date))) return "could not set up the backup";
+            RECOVERED.remove(date);
+            List<Entry> got = readDayOrThrow(date);
+            if (got.size() != 3) return "the day read " + got.size() + " instances, not 3";
+            if (!fileFor(date).isFile()) return "the day was not saved back";
+            if (aside.isFile()) return "the set-aside copy was left behind";
+            if (!new File(new File(dir, "recovered"), aside.getName()).isFile()) return "the set-aside copy was not kept in recovered";
+            RECOVERED.remove(date);
+            if (readDayOrThrow(date).size() != 3) return "the saved day did not read back whole";
+            // and the plain case: no file of its own, only the backup
+            LocalDate next = LocalDate.of(2026, 1, 4);
+            writeDay(next, two);
+            if (!fileFor(next).renameTo(backupFor(next))) return "could not set up the second backup";
+            if (readDayOrThrow(next).size() != 2) return "a day with only its backup read as empty";
+            return "";
+        } catch (Exception e) {
+            return e.getClass().getSimpleName() + ": " + e.getMessage();
+        } finally {
+            folderForTest = was;
+            deleteTestFolder(dir);
+        }
+    }
+
+    private static Entry testEntry(String name, long startedAt) {
+        Entry e = new Entry();
+        e.name = name;
+        e.startedAt = startedAt;
+        e.durationMs = 60_000;
+        e.total = 1_000_000 + startedAt;
+        return e;
+    }
+
+    /** Removes a folder the self-test made for itself in the temp directory, and nothing else. */
+    private static void deleteTestFolder(File dir) {
+        if (dir == null || !dir.getName().startsWith("sonar-history-")) return;
+        File[] inside = dir.listFiles();
+        if (inside != null) for (File f : inside) {
+            if (f.isDirectory()) {
+                File[] deeper = f.listFiles();
+                if (deeper != null) for (File g : deeper) g.delete();
+            }
+            f.delete();
+        }
+        dir.delete();
+    }
+
     /** The finished instances recorded on one day, as Past entries the Live/Instance/Players pages already know how to review. */
-    static List<LiveModel.Past> load(LocalDate date) {
+    static synchronized List<LiveModel.Past> load(LocalDate date) {
         List<LiveModel.Past> list = new ArrayList<>();
         for (Entry e : readDay(date)) list.add(toPast(e));
         return list;
@@ -405,7 +681,7 @@ final class InstanceHistory {
     }
 
     /** Deletes day files older than the kept window. Call once at startup. */
-    static void prune() {
+    static synchronized void prune() {
         // KEEP_DAYS counts today itself, so the oldest kept day is KEEP_DAYS-1 days back; this must
         // match the oldest day LiveView's stepper allows navigating to
         LocalDate cutoff = LocalDate.now().minusDays(KEEP_DAYS - 1L);
@@ -417,6 +693,12 @@ final class InstanceHistory {
             } catch (Exception ignored) {
                 // not a date-named file; leave it alone
             }
+        }
+        // copies folded back in are kept as long as the days they came from, then go the same way
+        File[] recovered = new File(folder(), "recovered").listFiles();
+        if (recovered != null) {
+            long oldest = System.currentTimeMillis() - KEEP_DAYS * 24L * 3600_000L;
+            for (File f : recovered) if (f.isFile() && f.lastModified() < oldest) f.delete();
         }
         compressOld();
     }

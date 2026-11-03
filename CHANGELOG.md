@@ -2,6 +2,16 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.70.1
+
+**Your past runs come back, and saving a run no longer sets a day aside**
+
+- **Runs that had dropped out of History are back.** Windows will not open a file while it is being replaced, nor replace it while it is open. Sonar's pages could read today's runs at the very moment a finished run was being saved, and the read that Windows refused was taken for a broken file: the day was set aside and carried on from the backup one save older. On one PC that happened 70 times in two weeks, and History showed 2 runs out of 89.
+- **Every copy that was set aside is folded back in** the first time its day is read, so the runs it held return. The copies are kept in `history/recovered` for 30 days.
+- **Reading and saving now take turns**, so they can no longer collide inside Sonar, and the save that used to fail outright when they did now goes through.
+- **A file another program has open for a moment** - a virus scan, the search indexer - is waited out instead of being set aside. Only a file that is really broken is still set aside.
+- **A day whose own file is missing reads its backup** instead of showing as empty.
+
 ## 2.70.0
 
 **A new boss picture in Neon edge, smoother Floating Pots, and a meter that folds away**

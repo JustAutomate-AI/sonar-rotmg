@@ -3512,6 +3512,10 @@ class LiveView {
         report.accept("and a position somebody did see comes back unchanged",
                 !trouble.contains("was lost") && !trouble.contains("came back as "));
         report.accept("saving leaves nothing to complain about", InstanceHistory.lastTrouble().isEmpty());
+        String race = InstanceHistory.raceForTest(1500);
+        report.accept("a run saved while its day is being read neither fails nor sets the day aside" + (race.isEmpty() ? "" : " (" + race + ")"), race.isEmpty());
+        String recovery = InstanceHistory.recoveryForTest();
+        report.accept("a day set aside by mistake is read whole again and its copy folded back in" + (recovery.isEmpty() ? "" : " (" + recovery + ")"), recovery.isEmpty());
     }
 
     /**
