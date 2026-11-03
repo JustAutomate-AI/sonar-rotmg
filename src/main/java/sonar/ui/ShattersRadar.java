@@ -208,6 +208,9 @@ final class ShattersRadar {
          */
         int drops;
 
+        /** For a beacon: which picked potions drop most in the biome it leads to. */
+        int best;
+
         /** The icon the game's own minimap gives this object, from its XML; null for none. */
         String piece;
 
@@ -488,6 +491,7 @@ final class ShattersRadar {
             } else if (kind == EVENT) {
                 // and the beacon that teleports you to where a hunted potion drops most gets a ring
                 m.drops = RealmFilter.inRealm() ? RealmFilter.beaconPicks(e.objectType) : 0;
+                m.best = m.drops == 0 ? 0 : RealmFilter.beaconBest(e.objectType);
             }
             found.add(m);
         }

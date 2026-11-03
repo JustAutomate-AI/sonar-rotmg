@@ -177,6 +177,8 @@ public final class RealmFilter {
         final Color colour;
         /** The realm's beacons, the waypoints that teleport you, to the biomes where it drops most. */
         int[] beaconTypes = new int[0];
+        /** And the beacons to every biome where any of its droppers lives. */
+        int[] everyBeaconType = new int[0];
         /** The realm dungeons where it drops, easiest first, each with the enemies there that drop it. */
         Map<String, List<String>> dungeons = Collections.emptyMap();
 
@@ -515,6 +517,9 @@ public final class RealmFilter {
             TreeSet<Integer> beacons = new TreeSet<>();
             for (String b : p.topBiomes()) beacons.addAll(beaconsByBiome.getOrDefault(beaconOf(b), new TreeSet<>()));
             p.beaconTypes = beacons.stream().mapToInt(Integer::intValue).toArray();
+            TreeSet<Integer> every = new TreeSet<>();
+            for (BiomeCount c : p.bestBiomes()) every.addAll(beaconsByBiome.getOrDefault(beaconOf(c.biome), new TreeSet<>()));
+            p.everyBeaconType = every.stream().mapToInt(Integer::intValue).toArray();
             for (Dropper x : p.droppers) {
                 TreeSet<Integer> found = byName.getOrDefault(key(x.name), new TreeSet<>());
                 x.types = found.stream().mapToInt(Integer::intValue).toArray();
@@ -719,6 +724,8 @@ public final class RealmFilter {
     private static volatile Map<Integer, Integer> portalIndex = Collections.emptyMap();
     /** And the beacons to the biomes where the picked potions drop most. */
     private static volatile Map<Integer, Integer> beaconIndex = Collections.emptyMap();
+    /** And of those, the beacons to the biome where each picked potion drops most. */
+    private static volatile Map<Integer, Integer> bestBeaconIndex = Collections.emptyMap();
 
     private static void rebuild() {
         List<String> p = picks;
@@ -737,7 +744,7 @@ public final class RealmFilter {
                 }
             }
         }
-        Map<Integer, Integer> beacons = new HashMap<>();
+        Map<Integer, Integer> beacons = new HashMap<>(), best = new HashMap<>();
         // a picked potion's dungeons have their portals marked, in the potion's own bit and colour
         if (list != null) for (Potion pot : allPotions) {
             if (!potionPicks.contains(pot.name)) continue;
@@ -748,7 +755,8 @@ public final class RealmFilter {
         }
         for (Potion pot : allPotions) {
             if (!potionPicks.contains(pot.name)) continue;
-            for (int t : pot.beaconTypes) beacons.merge(t, pot.bit(), (a, b) -> a | b);
+            for (int t : pot.everyBeaconType) beacons.merge(t, pot.bit(), (a, b) -> a | b);
+            for (int t : pot.beaconTypes) best.merge(t, pot.bit(), (a, b) -> a | b);
             for (Dropper x : pot.droppers) {
                 for (int t : x.ringTypes) rings.merge(t, pot.bit(), (a, b) -> a | b);
                 for (int t : x.types) pictures.merge(t, pot.bit(), (a, b) -> a | b);
@@ -758,6 +766,15 @@ public final class RealmFilter {
         pictureIndex = pictures;
         portalIndex = portals;
         beaconIndex = beacons;
+        bestBeaconIndex = best;
+    }
+
+    /** Which picked potions drop most in the biome a beacon leads to, one bit per potion. */
+    static int beaconBest(int objectType) {
+        if (potionPicks().isEmpty()) return 0;
+        if (!resolved && all != null) resolveNow(all);
+        Integer b = bestBeaconIndex.get(objectType);
+        return b == null ? 0 : b;
     }
 
     /** Which picked potions a beacon leads toward, one bit per potion; 0 for any other object. */

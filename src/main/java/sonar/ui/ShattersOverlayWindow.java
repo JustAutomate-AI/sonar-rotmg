@@ -924,46 +924,63 @@ class ShattersOverlayWindow extends JWindow {
         return c != 0 ? c : System.nanoTime();
     }
 
-    /** The colour of a beacon's ring at a moment: its potion's, or each of its potions' in turn, blending from one to the next. */
-    static Color beaconColour(java.util.List<Color> colours, double seconds) {
-        if (colours.isEmpty()) return RealmFilter.LIME;
-        if (colours.size() == 1) return colours.get(0);
-        double phase = (seconds / 1.4) % colours.size();
-        int i = (int) phase;
-        double f = phase - i, blend = f < 0.7 ? 0 : (f - 0.7) / 0.3;
-        return SonarTheme.mix(colours.get(i), colours.get((i + 1) % colours.size()), blend);
+    /**
+     * The arcs of a beacon's ring, one for each picked potion that drops in its biome: equal
+     * shares of the circle, from the top going clockwise, a small gap between them when there are
+     * several. Each is {start, extent} in the degrees {@link java.awt.geom.Arc2D} takes.
+     */
+    static double[][] beaconArcs(int n) {
+        if (n <= 1) return new double[][]{{90, -360}};
+        double gap = 16, each = 360.0 / n;
+        double[][] out = new double[n][];
+        for (int i = 0; i < n; i++) out[i] = new double[]{90 - i * each - gap / 2, -(each - gap)};
+        return out;
+    }
+
+    /** A beacon's ring, across: smaller than any event's, so a realm full of beacons does not crowd the minimap. */
+    static double beaconRingSize(double dotPx) {
+        return 16 * dotPx / 10.0;
     }
 
     /**
-     * A ring around the game's own beacon star, the waypoint that teleports you to the biome where
-     * a picked potion drops most, in that potion's colour. The ring breathes so it catches the eye
-     * across a whole realm, and where one beacon serves several picked potions it turns through
-     * their colours. The game draws the star itself; held at the frame's edge, the ring gets a dot
-     * of its colour in the middle instead.
+     * A ring around the game's own beacon star, the waypoint that teleports you to a biome where a
+     * picked potion drops, split into equal arcs in the colours of every picked potion that drops
+     * there. Smaller than an event's ring, so the minimap stays clear. The beacon to the biome
+     * where a potion drops most has a thicker ring that breathes, so the best one stands out across
+     * a realm of them. The game draws the star itself; held at the frame's edge, the ring gets a
+     * dot of its first colour in the middle instead.
      */
     private void paintBeaconRing(Graphics2D g, ShattersRadar.Mark m, int x, int y, boolean beyond) {
         java.util.List<Color> colours = RealmFilter.potionColours(m.drops);
         if (colours.isEmpty()) return;
-        double t = now() / 1e9;
-        Color c = beaconColour(colours, t);
+        boolean best = m.best != 0;
         double scale = dotPx / 10.0;
-        double r = 15 * scale;
-        double breath = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI / 1.6);
+        double r = beaconRingSize(dotPx) / 2;
+        double[][] arcs = beaconArcs(colours.size());
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         if (beyond) g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(0.85f));
-        double glow = r + (3 + 4 * breath) * scale;
-        g2.setStroke(new BasicStroke((float) (2.5 * scale)));
-        g2.setColor(SonarTheme.alpha(c, 0.20 + 0.25 * breath));
-        g2.draw(new java.awt.geom.Ellipse2D.Double(x - glow, y - glow, glow * 2, glow * 2));
-        g2.setStroke(new BasicStroke((float) Math.max(2.5, 3 * scale) + 2f));
+        float width = (float) Math.max(1.8, (best ? 2.6 : 2.0) * scale);
+        if (best) {
+            double breath = 0.5 + 0.5 * Math.sin(now() / 1e9 * 2 * Math.PI / 1.6);
+            double glow = r + (1.5 + 2.5 * breath) * scale;
+            g2.setStroke(new BasicStroke((float) (1.6 * scale), BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
+            for (int i = 0; i < arcs.length; i++) {
+                g2.setColor(SonarTheme.alpha(colours.get(i), 0.18 + 0.24 * breath));
+                g2.draw(new java.awt.geom.Arc2D.Double(x - glow, y - glow, glow * 2, glow * 2, arcs[i][0], arcs[i][1], java.awt.geom.Arc2D.OPEN));
+            }
+        }
+        g2.setStroke(new BasicStroke(width + 2f));
         g2.setColor(new Color(0, 0, 0, 170));
         g2.draw(new java.awt.geom.Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
-        g2.setStroke(new BasicStroke((float) Math.max(2.5, 3 * scale)));
-        g2.setColor(c);
-        g2.draw(new java.awt.geom.Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
+        g2.setStroke(new BasicStroke(width, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
+        for (int i = 0; i < arcs.length; i++) {
+            g2.setColor(colours.get(i));
+            g2.draw(new java.awt.geom.Arc2D.Double(x - r, y - r, r * 2, r * 2, arcs[i][0], arcs[i][1], java.awt.geom.Arc2D.OPEN));
+        }
         if (beyond) {
-            double d = 4 * scale;
+            double d = 3 * scale;
+            g2.setColor(colours.get(0));
             g2.fill(new java.awt.geom.Ellipse2D.Double(x - d, y - d, d * 2, d * 2));
         }
         g2.dispose();
@@ -1031,17 +1048,25 @@ class ShattersOverlayWindow extends JWindow {
             java.awt.image.BufferedImage stars = starsGround.isFile() ? javax.imageio.ImageIO.read(starsGround) : base;
             ShattersRadar.Mark floral = beaconMark(life, "Floral Escape"), sanguine = beaconMark(life, "Sanguine Forest"),
                     carbon = beaconMark(mana, "Carboniferous");
+            // the Carboniferous has droppers of both: Life's three and Mana's seven, Mana's best
+            carbon.drops = life.bit() | mana.bit();
+            floral.best = life.bit();
+            sanguine.best = life.bit();
+            carbon.best = mana.bit();
             clockForPreview = 1_000_000_000L;
             writeBeaconScene(w, stars, new java.io.File(outDir, "beacons.png"), new ShattersRadar.Mark[]{floral, sanguine, carbon},
                     new int[][]{{210, 197}, {426, 246}, {330, 380}});
-            // Attack and Wisdom both drop most in the Abandoned City: its beacon turns from one colour to the other
-            RealmFilter.setPotionsForTest(java.util.Arrays.asList("Attack", "Wisdom"));
+            // four picked potions all drop in the Abandoned City, and most there: its ring in four equal arcs
+            RealmFilter.setPotionsForTest(java.util.Arrays.asList("Attack", "Defense", "Speed", "Wisdom"));
             ShattersRadar.Mark city = beaconMark(RealmFilter.potion("Attack"), "Abandoned City");
-            city.drops = RealmFilter.potion("Attack").bit() | RealmFilter.potion("Wisdom").bit();
-            clockForPreview = 200_000_000L;
-            writeBeaconScene(w, stars, new java.io.File(outDir, "beacon-attack.png"), new ShattersRadar.Mark[]{city}, new int[][]{{183, 240}});
-            clockForPreview = 1_600_000_000L;
-            writeBeaconScene(w, stars, new java.io.File(outDir, "beacon-wisdom.png"), new ShattersRadar.Mark[]{city}, new int[][]{{183, 240}});
+            int four = RealmFilter.potion("Attack").bit() | RealmFilter.potion("Defense").bit() | RealmFilter.potion("Speed").bit() | RealmFilter.potion("Wisdom").bit();
+            city.drops = four;
+            city.best = four;
+            // and Attack and Wisdom drop in the Runic Tundra too, though not most there: a plain split ring
+            ShattersRadar.Mark tundra = beaconMarkEvery(RealmFilter.potion("Attack"), "Runic Tundra");
+            tundra.drops = RealmFilter.potion("Attack").bit() | RealmFilter.potion("Wisdom").bit();
+            clockForPreview = 400_000_000L;
+            writeBeaconScene(w, stars, new java.io.File(outDir, "beacon-split.png"), new ShattersRadar.Mark[]{city, tundra}, new int[][]{{183, 240}, {330, 300}});
             clockForPreview = 0;
             System.out.println("[preview] overlay pictures written to " + outDir);
         } catch (Exception e) {
@@ -1055,6 +1080,18 @@ class ShattersOverlayWindow extends JWindow {
     }
 
     /** A biome's beacon as a mark, for a picked potion. */
+    /** The same, for a biome that is not the potion's best. */
+    private static ShattersRadar.Mark beaconMarkEvery(RealmFilter.Potion p, String biome) {
+        int type = 0;
+        for (int t : p.everyBeaconType) {
+            String n = sonar.assets.IdToAsset.getObjectIdName(t);
+            if (n != null && n.toLowerCase(java.util.Locale.ROOT).endsWith(RealmFilter.beaconOf(biome))) type = t;
+        }
+        ShattersRadar.Mark m = ShattersRadar.markForTest(ShattersRadar.EVENT, type, 0, 0);
+        m.drops = p.bit();
+        return m;
+    }
+
     private static ShattersRadar.Mark beaconMark(RealmFilter.Potion p, String biome) {
         int type = 0;
         for (int t : p.beaconTypes) {

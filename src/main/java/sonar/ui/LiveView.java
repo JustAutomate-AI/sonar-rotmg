@@ -4174,16 +4174,23 @@ class LiveView {
             int floralBeacon = lifePot.beaconTypes.length > 0 ? lifePot.beaconTypes[0] : -1;
             report.accept("with Mana picked its beacon is ringed and Life's are not",
                     carbonBeacon > 0 && RealmFilter.beaconPicks(carbonBeacon) == mana.bit() && RealmFilter.beaconPicks(floralBeacon) == 0);
+            int deepBeacon = -1;
+            for (int t : mana.everyBeaconType) if (sonar.assets.IdToAsset.getObjectIdName(t).toLowerCase(java.util.Locale.ROOT).endsWith("deep sea abyss")) deepBeacon = t;
+            report.accept("and every biome its droppers live in gets a ringed beacon, the Deep Sea Abyss too, with the Carboniferous marked as its best",
+                    deepBeacon > 0 && RealmFilter.beaconPicks(deepBeacon) == mana.bit() && RealmFilter.beaconBest(deepBeacon) == 0
+                            && RealmFilter.beaconBest(carbonBeacon) == mana.bit());
             ShattersRadar.Mark beacon = ShattersRadar.markForTest(ShattersRadar.EVENT, carbonBeacon, 10, 10);
             beacon.drops = mana.bit();
             ShattersRadar.Mark plainBeacon = ShattersRadar.markForTest(ShattersRadar.EVENT, floralBeacon, 10, 10);
             report.accept("a hunted potion's beacon gets a ring, another beacon does not",
                     ShattersOverlayWindow.marksBeacon(beacon) && !ShattersOverlayWindow.marksBeacon(plainBeacon));
-            java.util.List<java.awt.Color> two = java.util.Arrays.asList(mana.colour, lifePot.colour);
-            report.accept("a beacon for one potion is that potion's colour, for two it turns from one to the other",
-                    ShattersOverlayWindow.beaconColour(java.util.Collections.singletonList(mana.colour), 3.0).equals(mana.colour)
-                            && ShattersOverlayWindow.beaconColour(two, 0.2).equals(mana.colour)
-                            && ShattersOverlayWindow.beaconColour(two, 1.6).equals(lifePot.colour));
+            double[][] whole = ShattersOverlayWindow.beaconArcs(1), split = ShattersOverlayWindow.beaconArcs(3);
+            boolean equal = split.length == 3 && Math.abs(split[0][1] - split[1][1]) < 1e-9 && Math.abs(split[1][1] - split[2][1]) < 1e-9
+                    && Math.abs(split[0][0] - split[1][0] - 120) < 1e-9 && Math.abs(split[0][0] - 90 + 8) < 1e-9;
+            report.accept("a beacon for one potion is a whole ring in its colour, for three it is three equal arcs from the top",
+                    whole.length == 1 && whole[0][1] == -360 && equal);
+            report.accept("and a beacon's ring is smaller than the smallest event ring",
+                    ShattersOverlayWindow.beaconRingSize(10) < ShattersOverlayWindow.miniSize(10) + 6);
             report.accept("and the corner note sits at the minimap's bottom right, clear of the game's hover cards",
                     ShattersOverlayWindow.noteX(475, 200, 1.0) == 475 - 8 - 200);
             report.accept("and the eight potions have eight different colours, Mana's gold and Life's blue",

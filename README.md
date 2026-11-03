@@ -46,7 +46,7 @@ The **Realm filter** beside the overlay's switch picks up to three dungeons and 
 
 - **Every realm enemy that can drop one gets its picture back**, in a ring: lime for a dungeon, the potion's own colour for a potion. Who drops what comes from the RealmEye wiki, matched to the game's own files, biome copies and all.
 - **When a picked dungeon's portal drops, it gets a mark of its own and Sonar pings** - the game gives a portal no minimap icon at all.
-- **A potion's best biomes are ranked** by how many of its droppers live there, and the **waypoint that teleports you there is ringed** in the potion's colour. Click a biome to see who drops it there, and slide between your picked potions with the arrows.
+- **A potion's best biomes are ranked** by how many of its droppers live there, and **every waypoint to a biome where it drops is ringed** - split into equal arcs in the colours of every picked potion that drops there, the best biome's ring breathing. Click a biome to see who drops it there, and slide between your picked potions with the arrows.
 - **Picking a potion selects the dungeons that drop it**: their portals are marked and ping when they drop, ringed in the potion's colour.
 - **Floating Pots** (in Settings) floats the potion an enemy drops above its head in the game itself, so you can see it mid-fight.
 - **Switch "Show all events" off** and only the events that drop what you picked keep their pictures.

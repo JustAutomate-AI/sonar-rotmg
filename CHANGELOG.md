@@ -2,6 +2,14 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.68.0
+
+**Every waypoint to a picked potion's biomes is ringed, in all of its potions' colours**
+
+- **Every beacon to a biome where a picked potion drops now gets a ring**, not only the one to the biome where it drops most. With Attack picked, that is thirteen biomes' beacons instead of one.
+- **A beacon shared by several picked potions is split into equal arcs**, one in each potion's colour, from the top going clockwise in the order you picked them, instead of turning from one colour to the next.
+- **The rings are smaller than the events' rings**, so a realm full of beacons leaves the minimap clear. The beacon to the biome where a potion drops most keeps a slightly thicker ring that breathes.
+
 ## 2.67.1
 
 **The minimap overlay says so when Windows hides your zoom from it**
