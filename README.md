@@ -174,7 +174,7 @@ That passes only if the file you have is the file that workflow produced from th
 
 [INSTALL.md](INSTALL.md) has the details and the fixes for known problems.
 
-> The screenshots on this page are Sonar's demo mode, apart from the realm minimap picture, which was taken in a live realm and shows no names. The damage figures are the shape of a real Oryx's Sanctuary run; the names are placeholders, because no real player should end up in a screenshot without being asked.
+> The screenshots on this page are Sonar's demo mode, apart from the minimap pictures, which were taken in live realms and show no names. On the minimap overlay's own pictures, the rings, the portal mark and the damage meter were drawn by Sonar's own painting code onto those saved minimap pictures. The damage figures are the shape of a real Oryx's Sanctuary run; the names are placeholders, because no real player should end up in a screenshot without being asked.
 
 ## Licence
 
