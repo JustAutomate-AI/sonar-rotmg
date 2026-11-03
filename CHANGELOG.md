@@ -2,6 +2,12 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.68.1
+
+**The beacon you click to travel gets its ring**
+
+- **Rings now go on the teleport beacons**, the ones on the minimap that you hover and click to travel - the game's card calls one the "Abandoned City Beacon". Each biome's beacon is several objects in the game's data, and Sonar matched only the two that sit behind it, so the beacon you actually see never got a ring, in any biome. All eighteen biomes' teleport beacons are matched now.
+
 ## 2.68.0
 
 **Every waypoint to a picked potion's biomes is ringed, in all of its potions' colours**

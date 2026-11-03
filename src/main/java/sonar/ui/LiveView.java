@@ -4164,9 +4164,11 @@ class LiveView {
             java.util.Set<String> lifeBeacons = new java.util.HashSet<>(), manaBeacons = new java.util.HashSet<>();
             for (int t : lifePot.beaconTypes) lifeBeacons.add(String.valueOf(sonar.assets.IdToAsset.getObjectIdName(t)));
             for (int t : mana.beaconTypes) manaBeacons.add(String.valueOf(sonar.assets.IdToAsset.getObjectIdName(t)));
-            report.accept("Life's beacons are the Floral Escape's and the Sanguine Forest's, Mana's the Carboniferous'",
+            report.accept("Life's beacons are the Floral Escape's and the Sanguine Forest's, Mana's the Carboniferous' - the teleport beacon with them",
                     lifeBeacons.contains("Active Beacon Floral Escape") && lifeBeacons.contains("Active Beacon Sanguine Forest")
-                            && manaBeacons.contains("Active Beacon Carboniferous") && manaBeacons.size() == 2);
+                            && lifeBeacons.contains("Teleport Beacon Floral Escape")
+                            && manaBeacons.contains("Active Beacon Carboniferous") && manaBeacons.contains("Teleport Beacon Carboniferous")
+                            && manaBeacons.size() == 3);
             report.accept("a beach is the Shore beacon, and the forests, plains and deserts by level share one each",
                     RealmFilter.beaconOf("Beach").equals("shore") && RealmFilter.beaconOf("High Forest").equals("forest")
                             && RealmFilter.beaconOf("Mid Desert").equals("desert") && RealmFilter.beaconOf("Floral Escape").equals("floral escape"));
@@ -4176,6 +4178,17 @@ class LiveView {
                     carbonBeacon > 0 && RealmFilter.beaconPicks(carbonBeacon) == mana.bit() && RealmFilter.beaconPicks(floralBeacon) == 0);
             int deepBeacon = -1;
             for (int t : mana.everyBeaconType) if (sonar.assets.IdToAsset.getObjectIdName(t).toLowerCase(java.util.Locale.ROOT).endsWith("deep sea abyss")) deepBeacon = t;
+            RealmFilter.Potion speedPot = RealmFilter.potion("Speed");
+            int teleport = -1;
+            if (speedPot != null) for (int t : speedPot.everyBeaconType)
+                if (sonar.assets.IdToAsset.getObjectIdName(t).toLowerCase(java.util.Locale.ROOT).equals("teleport beacon abandoned city")) teleport = t;
+            java.util.List<String> potsBefore = new java.util.ArrayList<>(RealmFilter.potionPicks());
+            RealmFilter.setPotionsForTest(java.util.Collections.singletonList("Speed"));
+            boolean teleportRinged = teleport > 0 && speedPot != null && RealmFilter.beaconPicks(teleport) == speedPot.bit()
+                    && RealmFilter.beaconBest(teleport) == speedPot.bit();
+            RealmFilter.setPotionsForTest(potsBefore);
+            report.accept("the beacon you click to travel - the Abandoned City's teleport beacon - is ringed for Speed, its best biome",
+                    teleportRinged);
             report.accept("and every biome its droppers live in gets a ringed beacon, the Deep Sea Abyss too, with the Carboniferous marked as its best",
                     deepBeacon > 0 && RealmFilter.beaconPicks(deepBeacon) == mana.bit() && RealmFilter.beaconBest(deepBeacon) == 0
                             && RealmFilter.beaconBest(carbonBeacon) == mana.bit());

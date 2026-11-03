@@ -459,10 +459,14 @@ public final class RealmFilter {
             }
             String k = key(idName);
             if (!k.isEmpty()) objects.merge(k, id, Math::min);
-            // the biome beacons, "Active Beacon Floral Escape" and its "Actual" copy
+            // the biome beacons: "Active Beacon Floral Escape" and its "Actual" copy, and the one you
+            // hover and click to travel, "Teleport Beacon Floral Escape" - the game's card calls it the
+            // "Floral Escape Beacon". It is the one on the minimap, and it was the one left out.
             int at = k.indexOf("active beacon ");
             if (at == 0 || (at == 7 && k.startsWith("actual "))) {
                 beaconsByBiome.computeIfAbsent(k.substring(at + "active beacon ".length()), x -> new TreeSet<>()).add(id);
+            } else if (k.startsWith("teleport beacon ")) {
+                beaconsByBiome.computeIfAbsent(k.substring("teleport beacon ".length()), x -> new TreeSet<>()).add(id);
             }
             if (clazz != null && clazz.endsWith("Portal")) {
                 // the dungeon a portal leads to, as the game's own data names it
