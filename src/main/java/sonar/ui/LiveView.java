@@ -1073,7 +1073,7 @@ class LiveView {
         java.util.List<DamageMeterWindow.Line> lines = new java.util.ArrayList<>();
         for (LiveModel.Row r : m.whole.rows) {
             if (r.damage <= 0) continue;
-            lines.add(new DamageMeterWindow.Line(r.name, r.cls, r.damage / seconds * 60, r.damage / (double) total, r.me));
+            lines.add(new DamageMeterWindow.Line(r.name, r.cls, r.damage / seconds * 60, r.damage / (double) total, r.damage, r.me));
         }
         return new DamageMeterWindow.Board(m.instance, m.whole.fightMs, DamageMeterWindow.topOf(lines));
     }
@@ -1100,7 +1100,14 @@ class LiveView {
                     {"meter-faded.png", DamageMeterWindow.DEFAULT_PLACE, 0.45, false},
                     {"meter-resized.png", new double[]{-0.76, 0.0, 0.74, 0.62}, 0.85, false},
                     {"meter-adjust.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, true},
+                    {"same-class-before.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
+                    {"same-class-after.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
+                    {"overall.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
             };
+            // the same board with everyone on one class, as a run often is
+            java.util.List<DamageMeterWindow.Line> one = new java.util.ArrayList<>();
+            if (b != null) for (DamageMeterWindow.Line l : b.lines) one.add(new DamageMeterWindow.Line(l.name, "Wizard", l.dpm, l.share, l.damage, l.me));
+            DamageMeterWindow.Board oneClass = new DamageMeterWindow.Board(b == null ? "" : b.dungeon + " ", b == null ? 0 : b.elapsedMs, one);
             for (Object[] s : scenes) {
                 java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(base.getWidth(), base.getHeight(),
                         java.awt.image.BufferedImage.TYPE_INT_RGB);
@@ -1108,7 +1115,13 @@ class LiveView {
                 g.drawImage(base, 0, 0, null);
                 java.awt.Rectangle at = DamageMeterWindow.boundsFor(minimap, (double[]) s[1]);
                 g.translate(at.x, at.y);
-                DamageMeterWindow.draw(g, at.width, at.height, b, (Double) s[2], (Boolean) s[3]);
+                boolean sameClass = ((String) s[0]).startsWith("same-class");
+                DamageMeterWindow.spreadColours = !((String) s[0]).equals("same-class-before.png");
+                boolean wasOverall = DamageMeterWindow.showsOverall();
+                DamageMeterWindow.setOverallForTest(((String) s[0]).equals("overall.png"));
+                DamageMeterWindow.draw(g, at.width, at.height, sameClass ? oneClass : b, (Double) s[2], (Boolean) s[3]);
+                DamageMeterWindow.setOverallForTest(wasOverall);
+                DamageMeterWindow.spreadColours = true;
                 g.dispose();
                 javax.imageio.ImageIO.write(img, "png", new java.io.File(outDir, (String) s[0]));
             }
@@ -3573,6 +3586,11 @@ class LiveView {
      * window size - and the damage meter itself.
      */
     private void checkPlacementAndMeter(java.util.function.BiConsumer<String, Boolean> report) {
+        // back from a small window: the zoom follows the minimap's size, so events stay on it
+        double[] big = ShattersOverlayWindow.ladderFor(470, 481, 2048, 2048), small = ShattersOverlayWindow.ladderFor(261, 267, 2048, 2048);
+        report.accept("back from a small window to full screen, the overlay's zoom grows with the minimap - 5.44 becomes 9.79",
+                Math.abs(ShattersOverlayWindow.rescaledZoom(small[0], 261, 470) - big[0]) < 0.05
+                        && Math.abs(ShattersOverlayWindow.rescaledZoom(big[2], 470, 261) - small[2]) < 0.05);
         report.accept("a windowed game on a display at 125% is placed in Java's pixels, not Windows' physical ones",
                 MinimapPlacement.toLogical(new java.awt.Rectangle(2000, 100, 800, 600), 1.25)
                         .equals(new java.awt.Rectangle(1600, 80, 640, 480)));
@@ -3599,6 +3617,48 @@ class LiveView {
         report.accept("moved and resized, it keeps its place in minimap widths, so it follows the minimap",
                 DamageMeterWindow.boundsFor(mm, DamageMeterWindow.placeFrom(moved, mm)).equals(moved)
                         && DamageMeterWindow.boundsFor(new java.awt.Rectangle(1000, 0, 235, 240), DamageMeterWindow.placeFrom(moved, mm)).width == 150);
+        // a group all of one class still gets a colour per player
+        java.util.List<DamageMeterWindow.Line> wizards = new java.util.ArrayList<>();
+        for (int i = 0; i < 10; i++) wizards.add(new DamageMeterWindow.Line("Player" + i, "Wizard", 1000 - i * 50, 0.1, false));
+        java.awt.Color[] spread = DamageMeterWindow.barColours(wizards, "test run");
+        double closest = 360;
+        for (int i = 0; i < spread.length; i++) for (int j = i + 1; j < spread.length; j++) {
+            float hi = java.awt.Color.RGBtoHSB(spread[i].getRed(), spread[i].getGreen(), spread[i].getBlue(), null)[0] * 360;
+            float hj = java.awt.Color.RGBtoHSB(spread[j].getRed(), spread[j].getGreen(), spread[j].getBlue(), null)[0] * 360;
+            double d = Math.abs(hi - hj);
+            closest = Math.min(closest, Math.min(d, 360 - d));
+        }
+        report.accept("ten players of one class get ten colours, a twelfth of the colour wheel apart or more", closest >= 28);
+        java.util.List<DamageMeterWindow.Line> mixed = new java.util.ArrayList<>(wizards.subList(0, 3));
+        mixed.add(new DamageMeterWindow.Line("Lone", "Knight", 500, 0.1, false));
+        java.awt.Color[] mixedColours = DamageMeterWindow.barColours(mixed, "test run");
+        report.accept("a player whose class is theirs alone keeps the class colour exactly, and so does the first of a shared one",
+                mixedColours[3].equals(DamageMeterWindow.classColour("Knight")) && mixedColours[0].equals(DamageMeterWindow.classColour("Wizard")));
+        java.util.List<DamageMeterWindow.Line> reordered = new java.util.ArrayList<>(wizards);
+        java.util.Collections.reverse(reordered);
+        java.awt.Color[] again = DamageMeterWindow.barColours(reordered, "test run");
+        report.accept("and each keeps their colour as the ranks change", again[0].equals(spread[9]) && again[9].equals(spread[0]));
+        // resizing from every edge and corner, and the two views
+        report.accept("every corner and edge of the meter resizes it, and its middle moves it",
+                DamageMeterWindow.edgesAt(2, 2, 260, 210) == (DamageMeterWindow.LEFT | DamageMeterWindow.TOP)
+                        && DamageMeterWindow.edgesAt(258, 208, 260, 210) == (DamageMeterWindow.RIGHT | DamageMeterWindow.BOTTOM)
+                        && DamageMeterWindow.edgesAt(2, 208, 260, 210) == (DamageMeterWindow.LEFT | DamageMeterWindow.BOTTOM)
+                        && DamageMeterWindow.edgesAt(258, 2, 260, 210) == (DamageMeterWindow.RIGHT | DamageMeterWindow.TOP)
+                        && DamageMeterWindow.edgesAt(130, 2, 260, 210) == DamageMeterWindow.TOP
+                        && DamageMeterWindow.edgesAt(130, 100, 260, 210) == 0);
+        java.awt.Rectangle start = new java.awt.Rectangle(1000, 100, 260, 210);
+        report.accept("pulling the top left corner keeps the bottom right where it was, and it never shrinks past 120 by 80",
+                DamageMeterWindow.resized(start, DamageMeterWindow.LEFT | DamageMeterWindow.TOP, -40, -30).equals(new java.awt.Rectangle(960, 70, 300, 240))
+                        && DamageMeterWindow.resized(start, DamageMeterWindow.LEFT | DamageMeterWindow.TOP, 500, 500).equals(new java.awt.Rectangle(1140, 230, 120, 80))
+                        && DamageMeterWindow.resized(start, 0, 15, -5).equals(new java.awt.Rectangle(1015, 95, 260, 210)));
+        DamageMeterWindow.Line shown = new DamageMeterWindow.Line("A", "Wizard", 55_000, 0.21, 1_234_567, false);
+        report.accept("the meter's switch turns it between damage per minute and the overall damage dealt",
+                DamageMeterWindow.valueText(shown, false).startsWith(SonarTheme.even(55_000))
+                        && DamageMeterWindow.valueText(shown, true).startsWith(SonarTheme.even(1_234_567))
+                        && DamageMeterWindow.valueText(shown, true).endsWith("21%"));
+        java.awt.Rectangle sw = DamageMeterWindow.switchZone(263, 215);
+        report.accept("and the switch sits in the header, left of the clock",
+                sw.y >= 0 && sw.y + sw.height <= DamageMeterWindow.headHeight(215) && sw.x > 263 / 3 && sw.x + sw.width < 263 - 20);
         report.accept("its opacity stays between 30% and 100%",
                 DamageMeterWindow.clampOpacity(0.1) == 0.3 && DamageMeterWindow.clampOpacity(2) == 1.0);
         DamageMeterWindow.Board b = meterBoard();

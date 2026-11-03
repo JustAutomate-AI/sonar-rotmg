@@ -2338,9 +2338,7 @@ class ShattersOverlayWindow extends JWindow {
     String alignToMinimap() {
         Rectangle found = MinimapLocator.find();
         if (found == null) return "Could not find your minimap - " + MinimapLocator.trouble() + ".";
-        setBounds(found);
-        saveBounds();
-        saveHome();
+        rehome(found);
         MinimapPlacement.learn(found);
         // the same instance keeps the zoom it had when the overlay was last on; the game has not
         // moved its zoom just because the overlay was switched off and on
@@ -2493,11 +2491,36 @@ class ShattersOverlayWindow extends JWindow {
         placedSerial = p.serial;
         MinimapSync.forgetWhere();      // the minimap has moved with the window
         lastFix = p.how();
-        if (getBounds().equals(p.rect)) return;
-        setBounds(p.rect);
-        saveBounds();
-        if (p.found) saveHome();
+        rehome(p.rect);
         repaint();
+    }
+
+    /**
+     * Puts the overlay on the minimap at these bounds and keeps them as its home, carrying the
+     * zoom across when the size changed.
+     * <p>
+     * The zoom ladder is read off the home's size, and the home used to be saved only when the
+     * minimap was found outright. Back from a small window to full screen, the minimap was
+     * placed from its last fit instead, the home stayed the small window's, and the overlay sat
+     * at the small window's zoom on the full-size minimap - 5.44 pixels a tile where 9.79 was
+     * right - so every event landed outside the frame and none was drawn. Now every placement is
+     * the home, and the same rung of the game's zoom shows the same ground at any size, so the
+     * zoom is scaled by the change in width.
+     */
+    private void rehome(Rectangle r) {
+        Rectangle home = savedHome();
+        int fromW = home != null && home.width > 0 ? home.width : getWidth();
+        if (!getBounds().equals(r)) {
+            setBounds(r);
+            saveBounds();
+        }
+        if (home == null || !home.equals(r)) saveHome();
+        if (fromW > 0 && fromW != r.width) pixelsPerTile = rescaledZoom(pixelsPerTile, fromW, r.width);
+    }
+
+    /** The same zoom for a minimap that was {@code fromW} wide and is now {@code toW}. */
+    static double rescaledZoom(double pixelsPerTile, int fromW, int toW) {
+        return clampScale(pixelsPerTile * toW / (double) Math.max(1, fromW));
     }
 
     // ---- stepping the zoom while the game has the keyboard ----

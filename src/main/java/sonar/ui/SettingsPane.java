@@ -259,7 +259,7 @@ class SettingsPane extends Pane {
         y += 36;
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
-        g.drawString("While moving, the meter takes the mouse on the game: drag it, or its corner to resize, then click Done on it.", PAD, y + 12);
+        g.drawString("While moving, the meter takes the mouse on the game: drag it, or any edge or corner to resize, then click Done on it.", PAD, y + 12);
         return y + 24;
     }
 

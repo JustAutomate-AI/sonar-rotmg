@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.65.0
+
+**Events back on the minimap after windowed mode, and a damage meter you can switch, resize and tell apart**
+
+- **Events show again after switching between windowed and full screen.** Back at full screen the overlay kept the small window's zoom - 5.44 pixels a tile where 9.79 was right - so every event landed outside the frame and none was drawn. The overlay now keeps every placement as the minimap's home and carries its zoom across when the minimap changes size. An overlay left in that state by 2.64.0 puts itself right the first time it is placed.
+- **Every player on the damage meter has a colour of their own.** A group all on one class was ten bars of the same colour. A player whose class is theirs alone keeps the class colour; players who share one are spread around it, so ten of one class are ten colours, each kept for the whole run. A thin strip of the class colour starts every bar.
+- **A DPM / OVERALL switch on the meter.** Click it in the meter's header to see the overall damage dealt instead of damage per minute; the choice is remembered. Only the switch takes clicks - through a small window of its own that never takes the keyboard - and the rest of the meter still lets every click through to the game.
+- **The meter resizes from every edge and corner.** In "Move and resize on the game", pull any edge or corner; the middle moves it. Its rounded corners used to let a press through to the game - Windows passes a click on a fully transparent pixel to whatever is underneath - so while it is being moved the whole meter now catches the mouse.
+
 ## 2.64.0
 
 **A damage meter on the game, waypoints to your potion's best biome, and the overlay stays on the minimap in windowed mode**
