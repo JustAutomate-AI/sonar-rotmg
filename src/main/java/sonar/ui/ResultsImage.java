@@ -147,7 +147,7 @@ final class ResultsImage {
      * shown instead. A run with four million damage on record should never
      * produce a page that says nothing happened.
      */
-    private static List<LiveModel.Target> importantFights(LiveModel m) {
+    static List<LiveModel.Target> importantFights(LiveModel m) {
         // only the fights the game itself stages, in the order they were fought - a Shatters run
         // is the Bridge Sentinel, the Twilight Archmage and the Forgotten King, not those three
         // plus every obelisk, generator and add that turned up along the way
@@ -285,6 +285,15 @@ final class ResultsImage {
      * @param only the single fight to draw, or null for every important fight in the run.
      */
     static BufferedImage renderByBoss(LiveModel m, LiveModel.Target only) {
+        List<LiveModel.Target> fights = only == null ? importantFights(m) : java.util.Collections.singletonList(only);
+        return SpotlightImage.render(m, fights, only != null || bossesKnown(m), only != null);
+    }
+
+    /**
+     * The per-boss page as it was drawn before the Spotlight picture (2.70.0). Nothing calls it;
+     * it stays a release or two as the way back, should the new picture go wrong on a real run.
+     */
+    static BufferedImage renderByBossClassic(LiveModel m, LiveModel.Target only) {
         colW = COL_W;
         boolean classified = "potential".equals(m.leechMethod);
         List<LiveModel.Target> fights = only == null

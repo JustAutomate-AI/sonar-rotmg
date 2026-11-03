@@ -2,6 +2,20 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.70.0
+
+**A new boss picture in Neon edge, smoother Floating Pots, and a meter that folds away**
+
+- **The boss picture you share is redrawn.** The run's top player comes first - portrait, gear, run damage, best fight, biggest hit, and the top player of every fight. Then each fight gets a panel of its own: a strip showing who did its damage, a key for the top five, and the ranking in three columns. Every bar is the same class colour as that player's piece of the strip, names sit on it in white with a soft shadow, and the numbers line up in their own font.
+- **Minibosses list their top 20; bosses list everyone.** A Sanctuary run no longer spreads two Archbishop lists of forty-odd players across the page.
+- **Neon edge is the look, and Neon arcade is a switch.** Settings has a new Shared pictures section: turn on Neon arcade for the same page with a grid floor, pixel headings, scanlines and lit panels.
+- **Nobody is an empty square any more.** A player whose look Sonar never saw, or whose look will not draw, is shown as their class instead.
+- **The picture's fonts now ship inside Sonar** (Chakra Petch, IBM Plex Mono and Press Start 2P, all under the SIL Open Font License, with their licence texts), so it looks the same on every PC.
+- **Floating Pots move with their enemies more smoothly.** They now step at your display's own rate, the way the minimap overlay does, instead of every 31 milliseconds, and they bob less. They also step aside while your pointer is over the inventory, where the game opens its item tooltips.
+- **Floating Pots no longer stay hidden after a rotate key.** If you press a rotate key but then walk the way your keys point, Sonar takes it that the camera did not turn, as when rotation is switched off in the game, and brings the pots back. Every five seconds in the realm the log says which enemies near you drop your potions and why each was drawn or not.
+- **The damage meter folds away.** A small arrow at its top left folds it into a tab in that corner; click the tab to bring it back. It stays folded across restarts, and Move and resize unfolds it.
+- **The minimap overlay fades out over your inventory**, as the meter already did, so an item tooltip that reaches up over the minimap reads cleanly.
+
 ## 2.69.0
 
 **The minimap holds still while you dodge: your movement keys steer it**

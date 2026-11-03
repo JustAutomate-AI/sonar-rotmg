@@ -59,15 +59,27 @@ final class GameInput {
                 int[] keys = cam.keys();
                 for (int i = 0; i < keys.length; i++) {
                     boolean d = DamageMeterWindow.keyDown(keys[i]);
-                    if (d && !down[i] && cam.press(keys[i])) FloatingPots.cameraChanged();
+                    boolean wasTurned = cam.rotated;
+                    if (d && !down[i] && cam.press(keys[i])) {
+                        if (cam.rotated && !wasTurned) ShattersRadar.forgetAgreeingWalks();
+                        FloatingPots.cameraChanged();
+                    }
                     down[i] = d;
                 }
-                boolean live = moveKeysWanted() && !cam.chatting && !cam.rotated && !Elevation.gameAboveUs();
+                boolean readable = !cam.chatting && !Elevation.gameAboveUs();
                 int dx = 0, dy = 0;
-                if (live) {
+                if (readable) {
                     dx = (DamageMeterWindow.keyDown(cam.right) ? 1 : 0) - (DamageMeterWindow.keyDown(cam.left) ? 1 : 0);
                     dy = (DamageMeterWindow.keyDown(cam.down) ? 1 : 0) - (DamageMeterWindow.keyDown(cam.up) ? 1 : 0);
                 }
+                // a rotate key was pressed, but you have walked the way your keys point twice since:
+                // the camera is not turned (rotation may be switched off in the game), so it is put back
+                if (cam.rotated && ShattersRadar.agreeingWalks() >= 2) {
+                    cam.rotated = false;
+                    System.out.println("[pots] you walked the way your keys point after a rotate key: the camera is not turned, so the pots are back");
+                    FloatingPots.cameraChanged();
+                }
+                boolean live = moveKeysWanted() && readable && !cam.rotated;
                 ShattersRadar.movementKeys(live, dx, dy);
                 if (live && !said) {
                     said = true;

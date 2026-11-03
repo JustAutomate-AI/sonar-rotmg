@@ -367,7 +367,9 @@ class ShattersOverlayWindow extends JWindow {
         long nowNs = System.nanoTime();
         double since = popupFadeAt == 0 ? 0 : (nowNs - popupFadeAt) / 1e9;
         popupFadeAt = nowNs;
-        popupFade = fadeToward(popupFade, System.currentTimeMillis() < hoverUntil ? POPUP_ALPHA : 1f, since);
+        long nowMs = System.currentTimeMillis();
+        popupFade = fadeToward(popupFade, nowMs < itemsUntil ? 0f : nowMs < hoverUntil ? POPUP_ALPHA : 1f, since);
+        if (popupFade <= 0.01f) return;
         if (popupFade < 0.999f) g.setComposite(java.awt.AlphaComposite.SrcOver.derive(popupFade));
         if (calibrating) {
             g.setColor(new Color(255, 255, 255, 70));
@@ -2758,6 +2760,9 @@ class ShattersOverlayWindow extends JWindow {
     private static final long POPUP_HOLD_MS = 300;
     private static final int POPUP_REACH = 14;               // pixels from a player's mark
     private volatile long hoverUntil;
+    /** Until when the overlay keeps out of the way of an item tooltip, the pointer having been over the inventory. */
+    private volatile long itemsUntil;
+    private static final long ITEMS_HOLD_MS = 250;
     private float popupFade = 1f;
     private long popupFadeAt;
 
@@ -2779,6 +2784,9 @@ class ShattersOverlayWindow extends JWindow {
         }
         if (at == null) return;
         Rectangle box = getBounds();
+        // over the inventory under the minimap, where the game opens its item tooltips - which
+        // reach up over the minimap, under everything this draws
+        if (DamageMeterWindow.overItems(at, box)) itemsUntil = System.currentTimeMillis() + ITEMS_HOLD_MS;
         if (!box.contains(at)) return;
         if (nearSomebody(at.x - box.x, at.y - box.y, POPUP_REACH)) hoverUntil = System.currentTimeMillis() + POPUP_HOLD_MS;
     }

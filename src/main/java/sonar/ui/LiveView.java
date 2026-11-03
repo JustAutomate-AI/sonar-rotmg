@@ -1161,6 +1161,7 @@ class LiveView {
                     {"taller.png", new double[]{-0.575, 0.0, 0.56, 0.62}, 0.85, false},
                     {"boss-picker.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
                     {"boss-picked.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
+                    {"meter-folded.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
             };
             // the same run with another boss picked: the second biggest, when it is not the one followed
             LiveModel pm = reviewed == null ? shown() : live;
@@ -1183,6 +1184,9 @@ class LiveView {
                 java.awt.Graphics2D g = img.createGraphics();
                 g.drawImage(base, 0, 0, null);
                 java.awt.Rectangle at = DamageMeterWindow.boundsFor(minimap, (double[]) s[1]);
+                boolean foldScene = ((String) s[0]).equals("meter-folded.png");
+                DamageMeterWindow.setFoldedForTest(foldScene);
+                if (foldScene) at = DamageMeterWindow.foldedBounds(at);
                 g.translate(at.x, at.y);
                 boolean sameClass = ((String) s[0]).startsWith("same-class");
                 DamageMeterWindow.spreadColours = !((String) s[0]).equals("same-class-before.png");
@@ -1200,6 +1204,7 @@ class LiveView {
                     gp.dispose();
                 }
                 DamageMeterWindow.pickerOpen = false;
+                DamageMeterWindow.setFoldedForTest(false);
                 DamageMeterWindow.setOverallForTest(wasOverall);
                 DamageMeterWindow.spreadColours = true;
                 g.dispose();
@@ -2634,6 +2639,7 @@ class LiveView {
         Wardrobe.resetForTest();
 
         checkBossTotal(report);
+        checkSpotlight(report);
         checkNearMe(report);
         checkOverlayPlacement(report);
         checkGraveyard(report);
@@ -3822,9 +3828,15 @@ class LiveView {
         DamageMeterWindow.Board none = meterBoardFor(noBoss, null);
         report.accept("before any boss is fought it has nothing to show, so it stays off the game",
                 none.lines.isEmpty() && none.boss.isEmpty());
+        java.awt.Rectangle fz = DamageMeterWindow.foldZone(263, 215);
+        java.awt.Rectangle folded = DamageMeterWindow.foldedBounds(new java.awt.Rectangle(1000, 0, 263, 215));
+        report.accept("the fold arrow sits at the header's very left, and folded the meter is that arrow alone, where its corner was",
+                fz.x <= 6 && fz.y >= 0 && fz.y + fz.height <= DamageMeterWindow.headHeight(263)
+                        && fz.x + fz.width < DamageMeterWindow.bossZone(263, 215).x
+                        && folded.x == 1000 && folded.y == 0 && folded.width < 263 / 4 && folded.height == DamageMeterWindow.headHeight(263));
         java.awt.Rectangle bz = DamageMeterWindow.bossZone(263, 215);
-        report.accept("the boss button sits at the header's top left, clear of the switch",
-                bz.x <= 6 && bz.y >= 0 && bz.y + bz.height <= DamageMeterWindow.headHeight(263) && bz.x + bz.width < sw.x && bz.width > 263 / 3);
+        report.accept("the boss button sits at the header's top left, after the fold arrow and clear of the switch",
+                bz.x <= 40 && bz.y >= 0 && bz.y + bz.height <= DamageMeterWindow.headHeight(263) && bz.x + bz.width < sw.x && bz.width > 263 / 3);
         java.awt.Rectangle meterAt = new java.awt.Rectangle(1000, 0, 263, 215);
         java.awt.Rectangle pk = BossPickerWindow.boundsFor(meterAt, 6);
         boolean tilesFit = true, tilesApart = true;
@@ -4934,6 +4946,58 @@ class LiveView {
      * pixel the same, then the boss total is moved and it must not. Reading
      * the drawn digits instead would only ever test the test.
      */
+    /**
+     * The shared per-boss picture: its fonts ship inside Sonar, a miniboss lists its top twenty
+     * while a boss lists everyone, a player with no skin on record still has a face, and the
+     * Neon arcade setting changes the picture while Neon edge stays the default.
+     */
+    private static void checkSpotlight(java.util.function.BiConsumer<String, Boolean> report) {
+        report.accept("the shared picture's fonts ship inside Sonar",
+                SpotlightImage.face("ChakraPetch-SemiBold.ttf") != null && SpotlightImage.face("ChakraPetch-Bold.ttf") != null
+                        && SpotlightImage.face("IBMPlexMono-SemiBold.ttf") != null && SpotlightImage.face("PressStart2P-Regular.ttf") != null);
+        LiveModel.Target mini = new LiveModel.Target(), boss = new LiveModel.Target();
+        mini.name = "Archbishop Leucoryx";
+        mini.miniboss = true;
+        boss.name = "Oryx the Mad God 3";
+        for (int i = 0; i < 30; i++) {
+            LiveModel.Row a = new LiveModel.Row(), b = new LiveModel.Row();
+            a.id = b.id = i;
+            a.name = b.name = "Username" + (i + 1);
+            a.cls = b.cls = "Wizard";
+            a.damage = b.damage = 100_000 - i * 1000;
+            mini.rows.add(a);
+            boss.rows.add(b);
+        }
+        java.util.List<SpotlightImage.Fight> fs = SpotlightImage.fights(java.util.Arrays.asList(mini, boss));
+        report.accept("on the shared picture a miniboss lists its top 20 and a boss lists everyone",
+                fs.size() == 2 && fs.get(0).rows.size() == 20 && fs.get(0).capped && fs.get(1).rows.size() == 30 && !fs.get(1).capped);
+        java.awt.image.BufferedImage face = new java.awt.image.BufferedImage(48, 48, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D fg = face.createGraphics();
+        LiveModel.Row noSkin = new LiveModel.Row();
+        noSkin.cls = "Wizard";
+        noSkin.skin = -1;
+        SpotlightImage.portrait(fg, noSkin, 0, 0, 48);
+        fg.dispose();
+        int solid = 0;
+        for (int y = 0; y < 48; y++) for (int x = 0; x < 48; x++) if ((face.getRGB(x, y) >>> 24) > 200) solid++;
+        report.accept("a player with no skin on record is drawn as their class, not an empty square", solid > 40);
+        String was = System.getProperty(SpotlightImage.LOOK_KEY);
+        try {
+            System.setProperty(SpotlightImage.LOOK_KEY, "edge");
+            java.awt.image.BufferedImage edge = bossPage(400_000, 9_000_000);
+            System.setProperty(SpotlightImage.LOOK_KEY, "arcade");
+            java.awt.image.BufferedImage arcade = bossPage(400_000, 9_000_000);
+            System.clearProperty(SpotlightImage.LOOK_KEY);
+            boolean defaultEdge = sonar.util.PropertiesManager.getProperty(SpotlightImage.LOOK_KEY) != null
+                    || SpotlightImage.look() == SpotlightImage.Look.EDGE;
+            report.accept("Neon edge is the default look and the arcade setting changes the picture",
+                    edge != null && arcade != null && defaultEdge && !samePixels(edge, arcade));
+        } finally {
+            if (was != null) System.setProperty(SpotlightImage.LOOK_KEY, was);
+            else System.clearProperty(SpotlightImage.LOOK_KEY);
+        }
+    }
+
     private static void checkBossTotal(java.util.function.BiConsumer<String, Boolean> report) {
         java.awt.image.BufferedImage a = bossPage(400_000, 9_000_000);
         java.awt.image.BufferedImage b = bossPage(400_000, 1_000_000);

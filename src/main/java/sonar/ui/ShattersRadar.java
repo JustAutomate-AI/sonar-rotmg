@@ -796,6 +796,16 @@ final class ShattersRadar {
      * a turned camera, a push, a game Windows hides from Sonar - hand back to the Moves alone.
      */
     private static volatile boolean keysSteer, keysTrusted = true, blocked, speedKnown;
+    /** Moves in a row where you walked the way your keys point; 0 after any that did not. */
+    private static volatile int agreeingWalks;
+
+    static int agreeingWalks() {
+        return agreeingWalks;
+    }
+
+    static void forgetAgreeingWalks() {
+        agreeingWalks = 0;
+    }
     private static volatile int keysX, keysY, disagreements;
     private static volatile double keyVX, keyVY, keyBaseX, keyBaseY, walkSpeed = 6.5;
     private static volatile long keyBaseAt, keysChangedAt;
@@ -826,7 +836,11 @@ final class ShattersRadar {
         return Math.max(2, Math.min(16, was * 0.7 + measured * 0.3));
     }
 
-    /** Told every ten milliseconds which movement keys are held, and whether they can be trusted at all. */
+    /**
+     * Told every ten milliseconds which movement keys are held, and whether they may steer. They
+     * are kept even when they may not, so a Move can still say whether they agree with it - which
+     * is how a camera that was never really turned is told from one that was.
+     */
     static synchronized void movementKeys(boolean live, int dx, int dy) {
         boolean steer = live && keysTrusted && SMOOTH && !Float.isNaN(playerX);
         if (steer == keysSteer && dx == keysX && dy == keysY) return;
@@ -876,6 +890,8 @@ final class ShattersRadar {
             }
         }
         if (!inside) return;   // a speed averaged over a whole tick says too little about a turn
+        boolean walking = (keysX != 0 || keysY != 0) && Math.hypot(vx, vy) >= 1;
+        if (walking) agreeingWalks = keysAgree(keysX, keysY, vx, vy) ? agreeingWalks + 1 : 0;
         if (keysAgree(keysX, keysY, vx, vy)) {
             disagreements = 0;
             if (!keysTrusted) {

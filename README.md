@@ -93,7 +93,11 @@ Boss segments laid out in proportion to how long each fight took, top contributo
 
 <img src="docs/screenshots/mvpcard.png" alt="A shareable MVP card for a finished boss fight" width="560">
 
-One click copies a finished run straight to your clipboard as an image, ready to paste into Discord — the full roster, or a card for whoever led the final boss, with their loadout. Built for the way these runs actually get organised, where somebody always asks where they stood.
+One click copies a finished run straight to your clipboard as an image, ready to paste into Discord — the full roster, each boss's ranking, or a card for whoever led the final boss, with their loadout. Built for the way these runs actually get organised, where somebody always asks where they stood.
+
+<img src="docs/screenshots/boss-picture.png" alt="The boss picture: the run's top player, then a fight with its share strip and ranking" width="720">
+
+The boss picture puts the run's top player first, then gives every fight a panel of its own: a strip showing who did its damage and the ranking under it, each bar in the same class colour as that player's piece of the strip. Minibosses list their top 20 and bosses list everyone. It comes in Neon edge, or Neon arcade from Settings.
 
 Drawn at **three times the resolution**, because a picture posted in a Discord gets read by zooming in on it — and the game's own art is drawn at a whole multiple of its own pixels, so an item is still an item and an enchant gem is still a gem when you do.
 

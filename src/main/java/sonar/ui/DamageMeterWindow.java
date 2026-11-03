@@ -176,6 +176,37 @@ final class DamageMeterWindow extends JWindow {
     /** True while the boss picker is open, for the button's arrow. */
     static volatile boolean pickerOpen;
 
+    private static final String FOLDED = "sonar.meter.folded";
+    private static volatile Boolean folded;
+
+    /** Whether the meter is folded away into the small arrow at its top left. */
+    static boolean isFolded() {
+        Boolean f = folded;
+        if (f == null) {
+            f = "true".equals(sonar.util.PropertiesManager.getProperty(FOLDED));
+            folded = f;
+        }
+        return f;
+    }
+
+    static void setFolded(boolean on) {
+        folded = on;
+        sonar.util.PropertiesManager.setProperties(FOLDED, String.valueOf(on));
+        DamageMeterWindow m = running;
+        if (m != null) m.tick();
+    }
+
+    /** For the screenshots: folded or not, without saving it. */
+    static void setFoldedForTest(boolean on) {
+        folded = on;
+    }
+
+    /** The folded meter: the arrow alone, where the meter's top left corner was. */
+    static Rectangle foldedBounds(Rectangle meter) {
+        int head = headHeight(meter.width);
+        return new Rectangle(meter.x, meter.y, head + 10, head);
+    }
+
     /** What a line says on its bar in the view chosen: its damage per minute or its damage, then its share. */
     static String valueText(Line l, boolean overallView) {
         return SonarTheme.even(overallView ? l.damage : Math.round(l.dpm)) + "   " + Math.round(l.share * 100) + "%";
@@ -226,6 +257,7 @@ final class DamageMeterWindow extends JWindow {
     /** Lets it take the mouse on the game to be moved and resized, until Done is clicked on it. */
     static void adjust() {
         if (!isOn()) setOn(true);
+        if (isFolded()) setFolded(false);
         DamageMeterWindow m = running;
         if (m != null) m.setAdjusting(true);
     }
@@ -282,6 +314,7 @@ final class DamageMeterWindow extends JWindow {
         this.minimap = minimap;
         switchWindow = spot(DamageMeterWindow::toggleOverall);
         bossWindow = spot(this::togglePicker);
+        foldWindow = spot(() -> setFolded(!isFolded()));
         picker = new BossPickerWindow(key -> {
             Board b = shown;
             if (b != null) pin(b.run, key);
@@ -358,7 +391,7 @@ final class DamageMeterWindow extends JWindow {
      * only these small spots take clicks, and they never take the keyboard from the game: they
      * cannot be focused and are marked never to activate.
      */
-    private final JWindow switchWindow, bossWindow;
+    private final JWindow switchWindow, bossWindow, foldWindow;
     private final BossPickerWindow picker;
 
     private static JWindow spot(Runnable onClick) {
@@ -417,8 +450,10 @@ final class DamageMeterWindow extends JWindow {
     private void placeSpots() {
         // faded, it takes no clicks at all: an invisible switch must not catch a shot
         boolean on = isVisible() && !adjusting && fade >= 1;
-        boolean bossy = on && shown != null && !shown.boss.isEmpty();
-        place(switchWindow, on ? switchZone(getWidth(), getHeight()) : null);
+        boolean open = on && !isFolded();
+        boolean bossy = open && shown != null && !shown.boss.isEmpty();
+        place(foldWindow, on ? (isFolded() ? new Rectangle(0, 0, getWidth(), getHeight()) : foldZone(getWidth(), getHeight())) : null);
+        place(switchWindow, open ? switchZone(getWidth(), getHeight()) : null);
         place(bossWindow, bossy ? bossZone(getWidth(), getHeight()) : null);
         if (bossy) picker.follow(getBounds(), shown, bossWindow.getBounds());
         else picker.close();
@@ -483,6 +518,8 @@ final class DamageMeterWindow extends JWindow {
         switchWindow.dispose();
         bossWindow.setVisible(false);
         bossWindow.dispose();
+        foldWindow.setVisible(false);
+        foldWindow.dispose();
         setVisible(false);
         dispose();
     }
@@ -514,6 +551,7 @@ final class DamageMeterWindow extends JWindow {
             return;
         }
         Rectangle want = boundsFor(mm, place());
+        if (!adjusting && isFolded()) want = foldedBounds(want);
         if (!adjusting && !getBounds().equals(want)) setBounds(want);
         if (!isVisible()) {
             if (adjusting) setBounds(want);
@@ -684,12 +722,43 @@ final class DamageMeterWindow extends JWindow {
         return new Rectangle(w - pad - 2 - clockW - 8 - pw, (head - ph) / 2, pw, ph);
     }
 
-    /** Where the boss button sits in the header: from the left edge up to the switch. */
-    static Rectangle bossZone(int w, int h) {
+    /** The fold arrow at the header's very left. */
+    static Rectangle foldZone(int w, int h) {
         int head = headHeight(w), pad = padOf(w);
-        Rectangle pill = switchZone(w, h);
         int bh = Math.max(12, head - 4);
-        return new Rectangle(pad, (head - bh) / 2, Math.max(24, pill.x - pad - 6), bh);
+        return new Rectangle(pad, (head - bh) / 2, bh, bh);
+    }
+
+    /** Where the boss button sits in the header: from the fold arrow up to the switch. */
+    static Rectangle bossZone(int w, int h) {
+        int head = headHeight(w);
+        Rectangle pill = switchZone(w, h), fold = foldZone(w, h);
+        int bh = Math.max(12, head - 4);
+        int x = fold.x + fold.width + 4;
+        return new Rectangle(x, (head - bh) / 2, Math.max(24, pill.x - x - 6), bh);
+    }
+
+    /** A double chevron, pointing right for unfolding and left for folding away. */
+    private static void paintChevrons(Graphics2D g, Rectangle r, boolean right, Color ink) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setColor(ink);
+        g2.setStroke(new BasicStroke(Math.max(1.5f, r.height / 10f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        double s = r.height * 0.22, cy = r.y + r.height / 2.0, cx = r.x + r.width / 2.0, gap = s * 1.1;
+        for (int k = 0; k < 2; k++) {
+            double x0 = cx - gap / 2 + k * gap - s / 2;
+            java.awt.geom.Path2D p = new java.awt.geom.Path2D.Double();
+            if (right) {
+                p.moveTo(x0, cy - s);
+                p.lineTo(x0 + s, cy);
+                p.lineTo(x0, cy + s);
+            } else {
+                p.moveTo(x0 + s, cy - s);
+                p.lineTo(x0, cy);
+                p.lineTo(x0 + s, cy + s);
+            }
+            g2.draw(p);
+        }
+        g2.dispose();
     }
 
     private static Shape rounded(double x, double y, double w, double h, double r) {
@@ -737,6 +806,18 @@ final class DamageMeterWindow extends JWindow {
         if (st.panel2 != null) g2.setPaint(new GradientPaint(0, 0, st.panel, st.panelDown ? 0 : w, h, st.panel2));
         else g2.setColor(st.panel);
         g2.fill(body);
+        if (isFolded() && !adjusting) {
+            // folded away: the arrow alone, pointing the way it unfolds
+            if (st.border != null) {
+                if (st.border2 != null) g2.setPaint(new GradientPaint(0, 0, st.border, w, h, st.border2));
+                else g2.setColor(st.border);
+                g2.setStroke(new BasicStroke(st.borderWidth));
+                g2.draw(rounded(st.borderWidth / 2.0, st.borderWidth / 2.0, w - st.borderWidth, h - st.borderWidth, Math.min(st.radius, h / 2.0)));
+            }
+            paintChevrons(g2, new Rectangle(0, 0, w, h), true, st.headInk);
+            g2.dispose();
+            return;
+        }
         Shape clip = g2.getClip();
         g2.clip(body);
         if (st.innerGlow != null) {
@@ -762,8 +843,15 @@ final class DamageMeterWindow extends JWindow {
         Rectangle pill = switchZone(w, h);
         g2.setColor(st.headInk);
         int titleRoom = (adjusting ? doneZone(w).x : pill.x) - pad - 8;
-        if (bossBoard && !adjusting) paintBossButton(g2, bossZone(w, h), b, head, hy);
-        else g2.drawString(SonarTheme.fit(title, hm, Math.max(10, titleRoom)), pad + 2, hy);
+        if (!adjusting) {
+            Rectangle fold = foldZone(w, h);
+            g2.setColor(st.buttonBg);
+            g2.fill(rounded(fold.x, fold.y, fold.width, fold.height, st.radius <= 0 ? 0 : 6));
+            paintChevrons(g2, fold, false, st.headMuted);
+        }
+        Rectangle titleAt = bossZone(w, h);
+        if (bossBoard && !adjusting) paintBossButton(g2, titleAt, b, head, hy);
+        else g2.drawString(SonarTheme.fit(title, hm, Math.max(10, titleRoom - (adjusting ? 0 : titleAt.x - pad))), adjusting ? pad + 2 : titleAt.x + 2, hy);
         if (!adjusting) {
             g2.setFont(headFont(head));
             if (st.clockChip && !clock.isEmpty()) {

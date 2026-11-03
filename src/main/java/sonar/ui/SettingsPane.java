@@ -156,6 +156,7 @@ class SettingsPane extends Pane {
                 + HEAD + keywordsHeight(ChatPings.keywords().size())  // words to watch for
                 + HEAD + METER_H                       // damage meter on the game
                 + HEAD + POTS_H                        // floating pots
+                + HEAD + PICTURE_H                     // shared pictures
                 + HEAD + 60                            // themes
                 + HEAD + SWATCH + 30                   // accent
                 + HEAD + 62                            // zoom
@@ -198,6 +199,8 @@ class SettingsPane extends Pane {
         y = paintMeter(g, width, y);
         y = heading(g, width, y, "FLOATING POTS");
         y = paintPots(g, width, y);
+        y = heading(g, width, y, "SHARED PICTURES");
+        y = paintPicture(g, width, y);
         y = heading(g, width, y, "THEME");
         y = paintThemes(g, y);
         y = heading(g, width, y, "ACCENT COLOUR");
@@ -299,6 +302,29 @@ class SettingsPane extends Pane {
         g.drawString("Every potion a realm enemy drops, or only your picks while the realm filter has potions picked.", PAD, y + 12);
         g.drawString("To line up, stand still near enemies: drag the lime ring onto your character, scroll until the white rings sit on the enemies, shift + scroll to raise the pots, then Done.", PAD, y + 28);
         return y + 44;
+    }
+
+    static final int PICTURE_H = 36 + 24;
+
+    /**
+     * The look of the per-boss picture that Share copies: Neon edge unless this is on, which
+     * swaps in Neon arcade - the same page with a grid floor, pixel headings and scanlines.
+     */
+    private int paintPicture(Graphics2D g, int width, int y) {
+        boolean arcade = SpotlightImage.look() == SpotlightImage.Look.ARCADE;
+        paintSwitch(g, 2, y + 4, arcade);
+        g.setFont(SonarTheme.font(12.5f));
+        g.setColor(SonarTheme.TEXT);
+        g.drawString("Neon arcade look for the boss pictures you share", 50, y + 18);
+        zone(new Rectangle(0, y, width, 28), () -> {
+            SpotlightImage.setLook(SpotlightImage.look() == SpotlightImage.Look.ARCADE ? SpotlightImage.Look.EDGE : SpotlightImage.Look.ARCADE);
+            repaint();
+        });
+        y += 36;
+        g.setFont(SonarTheme.font(10.5f));
+        g.setColor(SonarTheme.FAINT);
+        g.drawString("Off, they use Neon edge. Either way each fight shows its share strip and ranking; minibosses list their top 20.", PAD, y + 12);
+        return y + 24;
     }
 
     private void setOpacityAt(int x) {

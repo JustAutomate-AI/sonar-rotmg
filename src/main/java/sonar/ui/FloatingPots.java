@@ -298,6 +298,9 @@ final class FloatingPots {
 
     /** The pots an enemy floats: every potion it drops, or only the picked ones while potions are picked. */
     static synchronized List<RealmFilter.Potion> potsOf(int objectType) {
+        // asked before the realm filter has matched its names to the game's objects, every answer
+        // is "nothing" - and kept, it stays nothing for the whole session
+        if (!RealmFilter.resolved()) return Collections.emptyList();
         String picks = RealmFilter.potionPicks().toString();
         if (!picks.equals(potsFor)) {
             potsOf.clear();
@@ -392,7 +395,7 @@ final class FloatingPots {
             List<RealmFilter.Potion> pots = potsOf(m.id);
             Point2D.Double at = screenOf(m.drawX(), m.drawY() - f.lift, px, py, client, f);
             int w = size * pots.size() + (pots.size() - 1) * 2;
-            double bob = Math.sin(nanos / 1e9 * Math.PI * 2 / 1.6 + m.eid) * Math.max(1.5, size * 0.06);
+            double bob = Math.sin(nanos / 1e9 * Math.PI * 2 / 1.6 + m.eid) * Math.max(1, size * 0.035);
             int x = (int) Math.round(at.x + ppt * 0.42 - w / 2.0), y = (int) Math.round(at.y - size + bob);
             if (x + w > worldRight || x < client.x || y < client.y || y + size > client.y + client.height) continue;
             out.add(new Pot(m.eid, pots, x, y, size));
@@ -404,7 +407,32 @@ final class FloatingPots {
     static final int MOST = 24;
 
     private static final class Runner {
-        private final Timer frame = new Timer(15, e -> frame());
+        /*
+         * Stepped by the animation clock at the display's own rate while the game is in front, as
+         * the minimap overlay is. A Swing timer asked for 15 ms lands on Windows' 15.6 ms tick and
+         * gives a frame every 31 ms, which on a pot moving with its enemy reads as jitter. A slow
+         * timer starts the clock again when the game comes back to the front.
+         */
+        private volatile boolean animating, stopped;
+        private final AnimationClock.Animated anim = dt -> {
+            if (stopped) {
+                animating = false;
+                return false;
+            }
+            frame();
+            boolean keep = MinimapPlacement.gameInFront();
+            if (!keep) animating = false;
+            return keep;
+        };
+        private final Timer wake = new Timer(200, e -> {
+            if (stopped || animating) return;
+            if (MinimapPlacement.gameInFront()) {
+                animating = true;
+                AnimationClock.start(anim);
+            } else {
+                frame();
+            }
+        });
         private final Map<Integer, PotWindow> showing = new HashMap<>();
         private final List<PotWindow> spare = new ArrayList<>();
         private LineUpWindow board;
@@ -413,11 +441,12 @@ final class FloatingPots {
         private long nextCameraRead;
 
         void start() {
-            frame.start();
+            wake.start();
         }
 
         void stop() {
-            frame.stop();
+            stopped = true;
+            wake.stop();
             for (PotWindow w : showing.values()) w.dispose();
             for (PotWindow w : spare) w.dispose();
             showing.clear();
@@ -435,6 +464,58 @@ final class FloatingPots {
             if (board != null && board.isVisible()) board.setVisible(false);
         }
 
+        /** The last reason nothing was drawn, and when the log last heard how it was going. */
+        private String hiddenBecause = "";
+        private long toldAt;
+
+        private void hide(String why) {
+            hideAll();
+            if (!why.equals(hiddenBecause)) {
+                hiddenBecause = why;
+                System.out.println("[pots] standing aside: " + why);
+            }
+        }
+
+        /** Every five seconds in the realm: how many enemies, how many drop your pots, how many were drawn, and where. */
+        private void tell(List<ShattersRadar.Mark> live, List<Pot> pots, Rectangle client, Rectangle mm, Fit f, double px, double py) {
+            long now = System.currentTimeMillis();
+            if (now - toldAt < 5000) return;
+            toldAt = now;
+            int foes = 0, droppers = 0;
+            Map<String, Integer> byPot = new java.util.TreeMap<>();
+            List<String> who = new ArrayList<>();
+            java.util.Set<Integer> drawn = new java.util.HashSet<>();
+            for (Pot pot : pots) drawn.add(pot.eid);
+            double ppt = f.k * client.height;
+            double halfW = ((mm == null ? client.x + client.width : mm.x) - (client.x + f.ax * client.width)) / ppt, halfH = client.height / 2.0 / ppt;
+            for (ShattersRadar.Mark m : live) {
+                if (m.type != ShattersRadar.FOE) continue;
+                foes++;
+                List<RealmFilter.Potion> ps = potsOf(m.id);
+                if (ps.isEmpty()) continue;
+                droppers++;
+                for (RealmFilter.Potion p : ps) byPot.merge(p.name, 1, Integer::sum);
+                if (who.size() < 6) {
+                    double dx = m.drawX() - px, dy = m.drawY() - py;
+                    String name;
+                    try {
+                        name = sonar.assets.IdToAsset.getDisplayName(m.id);
+                    } catch (RuntimeException unknown) {
+                        name = "#" + m.id;
+                    }
+                    String why = drawn.contains(m.eid) ? "drawn"
+                            : Math.abs(dy) > halfH || dx > halfW || -dx > f.ax * client.width / ppt ? "beyond your view" : "not drawn";
+                    who.add(String.format(java.util.Locale.ROOT, "%s %+.0f,%+.0f %s", name, dx, dy, why));
+                }
+            }
+            String first = pots.isEmpty() ? "" : String.format(java.util.Locale.ROOT, "; first at %d,%d (%d px)", pots.get(0).x, pots.get(0).y, pots.get(0).size);
+            System.out.println(String.format(java.util.Locale.ROOT,
+                    "[pots] realm: %d enemies near, %d drop your pots %s, %d drawn%s; you at tile %.1f,%.1f; view %.0f x %.0f tiles each side; %.0f px a tile; picks %s%s",
+                    foes, droppers, byPot, pots.size(), first, px, py, halfW, halfH, ppt, RealmFilter.potionPicks(),
+                    who.isEmpty() ? "" : "; droppers (tiles from you): " + String.join(" | ", who)));
+            hiddenBecause = "";
+        }
+
         private void frame() {
             long now = System.currentTimeMillis();
             if (!cameraRead || now > nextCameraRead) {
@@ -443,15 +524,33 @@ final class FloatingPots {
             }
             MinimapPlacement.Placement p = MinimapPlacement.current();
             boolean front = MinimapPlacement.gameInFront();
-            if (p == null || p.client == null || !front) {
-                hideAll();
+            if (p == null || p.client == null) {
+                hide("the game's minimap has not been found yet");
+                return;
+            }
+            if (!front) {
+                hide("the game is not the window in front");
                 return;
             }
             Rectangle client = p.client.logical, mm = p.rect;
             GameMenu.watch(mm);
-            boolean realm = RealmFilter.inRealm();
-            if (GameMenu.up() || camera.rotated || (!realm && !lining)) {
+            // the game's item tooltips open over the world from the inventory; the pots keep clear
+            PointerInfo pointer = MouseInfo.getPointerInfo();
+            if (!lining && pointer != null && DamageMeterWindow.overItems(pointer.getLocation(), mm)) {
                 hideAll();
+                return;
+            }
+            boolean realm = RealmFilter.inRealm();
+            if (GameMenu.up()) {
+                hide("the game's menu is up");
+                return;
+            }
+            if (camera.rotated) {
+                hide("the camera was turned with its rotate key; press its reset key to bring the pots back");
+                return;
+            }
+            if (!realm && !lining) {
+                hide("not in the realm (" + ShattersRadar.mapName() + ")");
                 return;
             }
             Fit f = working != null ? working : fit(camera.zoom, camera.offset, client, mm);
@@ -461,7 +560,10 @@ final class FloatingPots {
                 return;
             }
             if (board != null && board.isVisible()) board.setVisible(false);
-            List<Pot> pots = layout(ShattersRadar.live(), ShattersRadar.drawPlayerX(), ShattersRadar.drawPlayerY(), client, mm, f, System.nanoTime());
+            List<ShattersRadar.Mark> live = ShattersRadar.live();
+            double px = ShattersRadar.drawPlayerX(), py = ShattersRadar.drawPlayerY();
+            List<Pot> pots = layout(live, px, py, client, mm, f, System.nanoTime());
+            tell(live, pots, client, mm, f, px, py);
             Map<Integer, PotWindow> next = new HashMap<>();
             for (Pot pot : pots) {
                 PotWindow w = showing.remove(pot.eid);
@@ -742,7 +844,14 @@ final class FloatingPots {
             g.setFont(SonarTheme.font(11.5f));
             g.setColor(SonarTheme.MUTED);
             g.drawString("Drag the lime ring onto your character. Scroll until the white rings sit on the enemies.", c.x + 16, c.y + 44);
-            g.drawString(String.format(java.util.Locale.ROOT, "Shift + scroll raises or lowers the pots.   Camera zoom %d   %.0f px a tile", camera.zoom, ppt), c.x + 16, c.y + 62);
+            int foes = 0, droppers = 0;
+            for (ShattersRadar.Mark m : ShattersRadar.live()) {
+                if (m.type != ShattersRadar.FOE) continue;
+                foes++;
+                if (!potsOf(m.id).isEmpty()) droppers++;
+            }
+            g.drawString(String.format(java.util.Locale.ROOT, "Shift + scroll raises or lowers the pots.   %d enemies near, %d drop your pots.   %.0f px a tile",
+                    foes, droppers, ppt), c.x + 16, c.y + 62);
             Rectangle done = doneZone(), back = backZone();
             g.setColor(RealmFilter.LIME);
             g.fill(SonarTheme.round(done.x, done.y, done.width, done.height, 9));
