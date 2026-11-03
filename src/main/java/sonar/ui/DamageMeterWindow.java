@@ -10,15 +10,21 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * The damage meter on the game: the current instance's top ten damage per minute, in a panel
- * beside the minimap, the way a WoW damage meter sits at the edge of the screen.
+ * The damage meter on the game: damage per minute on one boss - ten players at its first size,
+ * more as it is made taller - in a panel beside the minimap, the way a WoW damage meter sits at
+ * the edge of the screen.
  * <p>
  * One bar per player in their class colour, longest first, with their rank, name, damage per
- * minute and share of the total written on it. The same figures as the Live page's Overall list.
+ * minute and share of the total written on it. Only the boss counts, over its own fight - not
+ * the trash on the way, and not the adds around it, the same figures the boss's own board and
+ * the server's announcement give. It follows the boss hit last; the button at the header's left,
+ * the boss's picture and name, opens {@link BossPickerWindow} to pick another for the rest of
+ * the run.
  * <p>
  * It is a window of its own, over the game: clicks go straight through it and it never takes the
  * keyboard, so it costs nothing to play with it there. It shows only while the game is in front
- * and has damage to show, and steps aside for the game's Escape menu (see {@link GameMenu}).
+ * and has damage to show, steps aside for the game's Escape menu (see {@link GameMenu}), and
+ * fades out while the pointer is over the game's inventory, whose item tooltips open over it.
  * <p>
  * Its place is kept relative to the minimap, in minimap widths, so it follows the minimap when
  * the game's window moves or changes size. How see-through it is, and where and how big it sits,
@@ -51,19 +57,54 @@ final class DamageMeterWindow extends JWindow {
         }
     }
 
-    /** What the meter shows: where, for how long, and the lines, most damage first. */
+    /** One boss the meter can be pointed at, for the picker. */
+    static final class Choice {
+        final String key, name;
+        final int objectType;
+
+        Choice(String key, String name, int objectType) {
+            this.key = key == null ? "" : key;
+            this.name = name == null ? "" : name;
+            this.objectType = objectType;
+        }
+    }
+
+    /** What the meter shows: where, which boss, for how long, and the lines, most damage first. */
     static final class Board {
         final String dungeon;
         final long elapsedMs;
         final List<Line> lines;
+        /** The boss shown and its picture; an empty name when no boss has been fought yet. */
+        final String boss;
+        final int bossType;
+        /** The key of the boss shown, to mark it in the picker. */
+        final String shownKey;
+        /** True when the boss is followed - the one hit last - rather than picked. */
+        final boolean auto;
+        /** Every boss of the run, biggest first, for the picker. */
+        final List<Choice> choices;
+        /** Which run this is, so a pick and the players' colours last as long as it does. */
+        final String run;
 
         Board(String dungeon, long elapsedMs, List<Line> lines) {
+            this(dungeon, elapsedMs, lines, "", -1, "", true, null, dungeon);
+        }
+
+        Board(String dungeon, long elapsedMs, List<Line> lines, String boss, int bossType, String shownKey,
+              boolean auto, List<Choice> choices, String run) {
             this.dungeon = dungeon == null ? "" : dungeon;
             this.elapsedMs = elapsedMs;
             this.lines = lines == null ? Collections.emptyList() : lines;
+            this.boss = boss == null ? "" : boss;
+            this.bossType = bossType;
+            this.shownKey = shownKey == null ? "" : shownKey;
+            this.auto = auto;
+            this.choices = choices == null ? Collections.emptyList() : choices;
+            this.run = run == null ? this.dungeon : run;
         }
     }
 
+    /** The rows it shows at its first size. Made taller, it shows more. */
     static final int MOST = 10;
 
     // ---- settings ----
@@ -115,6 +156,25 @@ final class DamageMeterWindow extends JWindow {
     static void setOverallForTest(boolean on) {
         overall = on;
     }
+
+    private static volatile String pinnedRun, pinnedKey;
+
+    /** The boss picked for this run, or null while the meter follows the fight. */
+    static String pinned(String run) {
+        String r = pinnedRun;
+        return run != null && run.equals(r) ? pinnedKey : null;
+    }
+
+    /** Points the meter at one boss for the rest of this run; null goes back to following the fight. */
+    static void pin(String run, String key) {
+        pinnedKey = key;
+        pinnedRun = key == null ? null : run;
+        DamageMeterWindow m = running;
+        if (m != null) m.tick();
+    }
+
+    /** True while the boss picker is open, for the button's arrow. */
+    static volatile boolean pickerOpen;
 
     /** What a line says on its bar in the view chosen: its damage per minute or its damage, then its share. */
     static String valueText(Line l, boolean overallView) {
@@ -209,6 +269,10 @@ final class DamageMeterWindow extends JWindow {
     private final Supplier<Board> board;
     private final Supplier<Rectangle> minimap;
     private final Timer ticker = new Timer(250, e -> tick());
+    /** Watches the pointer for the inventory, often enough that the meter is gone before a tooltip is read. */
+    private final Timer hoverWatch = new Timer(40, e -> watchHover());
+    /** How much of the meter is drawn, 0 to 1: under 1 while it fades for the inventory's tooltips. */
+    private double fade = 1;
     private boolean adjusting;
     private Board shown;
     private Rectangle lastMinimap;
@@ -216,6 +280,15 @@ final class DamageMeterWindow extends JWindow {
     DamageMeterWindow(Supplier<Board> board, Supplier<Rectangle> minimap) {
         this.board = board;
         this.minimap = minimap;
+        switchWindow = spot(DamageMeterWindow::toggleOverall);
+        bossWindow = spot(this::togglePicker);
+        picker = new BossPickerWindow(key -> {
+            Board b = shown;
+            if (b != null) pin(b.run, key);
+        }, () -> {
+            pickerOpen = false;
+            repaint();
+        });
         try {
             setBackground(new Color(0, 0, 0, 0));
         } catch (Throwable unsupported) {
@@ -227,7 +300,7 @@ final class DamageMeterWindow extends JWindow {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = SonarTheme.quality(g.create());
-                draw(g2, getWidth(), getHeight(), shown, opacity(), adjusting);
+                draw(g2, getWidth(), getHeight(), shown, opacity(), adjusting, adjusting ? 1 : fade);
                 g2.dispose();
             }
         };
@@ -275,28 +348,28 @@ final class DamageMeterWindow extends JWindow {
         };
         content.addMouseListener(mouse);
         content.addMouseMotionListener(mouse);
-        buildSwitch();
     }
 
-    // ---- the DPM / OVERALL switch: the one spot that takes clicks ----
+    // ---- the DPM / OVERALL switch and the boss button: the spots that take clicks ----
 
     /**
-     * A window of its own over the switch drawn in the meter's header. The meter has to stay
-     * click-through - it sits over the game, where every click is a shot - so only this small
-     * spot takes clicks, and it never takes the keyboard from the game: it cannot be focused and
-     * is marked never to activate.
+     * Windows of their own over the switch and the boss button drawn in the meter's header. The
+     * meter has to stay click-through - it sits over the game, where every click is a shot - so
+     * only these small spots take clicks, and they never take the keyboard from the game: they
+     * cannot be focused and are marked never to activate.
      */
-    private final JWindow switchWindow = new JWindow();
-    private boolean switchHot;
+    private final JWindow switchWindow, bossWindow;
+    private final BossPickerWindow picker;
 
-    private void buildSwitch() {
+    private static JWindow spot(Runnable onClick) {
+        JWindow w = new JWindow();
         try {
-            switchWindow.setBackground(new Color(0, 0, 0, 0));
+            w.setBackground(new Color(0, 0, 0, 0));
         } catch (Throwable unsupported) {
             // no translucency; the spot is drawn by the meter underneath either way
         }
-        switchWindow.setAlwaysOnTop(true);
-        switchWindow.setFocusableWindowState(false);
+        w.setAlwaysOnTop(true);
+        w.setFocusableWindowState(false);
         JComponent spot = new JComponent() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -321,50 +394,95 @@ final class DamageMeterWindow extends JWindow {
             public void mouseReleased(MouseEvent e) {
                 boolean clicked = pressX >= 0 && Math.abs(e.getX() - pressX) <= Pane.DRAG_SLOP && Math.abs(e.getY() - pressY) <= Pane.DRAG_SLOP;
                 pressX = -1;
-                if (clicked) toggleOverall();
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                switchHot = true;
-                repaint();
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                switchHot = false;
-                repaint();
+                if (clicked) onClick.run();
             }
         };
         spot.addMouseListener(click);
-        switchWindow.setContentPane(spot);
+        w.setContentPane(spot);
+        return w;
     }
 
-    private void placeSwitch() {
-        if (!isVisible() || adjusting) {
-            if (switchWindow.isVisible()) switchWindow.setVisible(false);
+    private void togglePicker() {
+        Board b = shown;
+        if (picker.isOpen()) {
+            picker.close();
+        } else if (b != null && !b.boss.isEmpty() && isVisible()) {
+            pickerOpen = true;
+            picker.open(getBounds(), b, bossWindow.getBounds());
+            repaint();
+        }
+    }
+
+    /** Puts the click spots over the switch and the boss button, and keeps the picker with the meter. */
+    private void placeSpots() {
+        // faded, it takes no clicks at all: an invisible switch must not catch a shot
+        boolean on = isVisible() && !adjusting && fade >= 1;
+        boolean bossy = on && shown != null && !shown.boss.isEmpty();
+        place(switchWindow, on ? switchZone(getWidth(), getHeight()) : null);
+        place(bossWindow, bossy ? bossZone(getWidth(), getHeight()) : null);
+        if (bossy) picker.follow(getBounds(), shown, bossWindow.getBounds());
+        else picker.close();
+    }
+
+    private void place(JWindow spot, Rectangle zone) {
+        if (zone == null) {
+            if (spot.isVisible()) spot.setVisible(false);
             return;
         }
-        Rectangle pill = switchZone(getWidth(), getHeight());
-        Rectangle want = new Rectangle(getX() + pill.x, getY() + pill.y, pill.width, pill.height);
-        if (!switchWindow.getBounds().equals(want)) switchWindow.setBounds(want);
-        if (!switchWindow.isVisible()) {
-            switchWindow.setVisible(true);
-            neverActivate(switchWindow);
+        Rectangle want = new Rectangle(getX() + zone.x, getY() + zone.y, zone.width, zone.height);
+        if (!spot.getBounds().equals(want)) spot.setBounds(want);
+        if (!spot.isVisible()) {
+            spot.setVisible(true);
+            neverActivate(spot);
         }
     }
 
     void start() {
         running = this;
         ticker.start();
+        hoverWatch.start();
         tick();
+    }
+
+    // ---- fading out for the game's item tooltips ----
+
+    /**
+     * Whether the pointer is over the game's side panel under the minimap - gear, inventory,
+     * backpack, loot bags, vault chests - where hovering an item opens its tooltip. The tooltip
+     * opens beside and above the pointer, over whatever is there, and the meter beside the
+     * minimap was drawn on top of it. The panel is the minimap's width and runs from under it
+     * to the bottom of the game.
+     */
+    static boolean overItems(Point p, Rectangle minimap) {
+        if (p == null || minimap == null || minimap.width <= 0) return false;
+        int margin = Math.max(4, minimap.width / 40);
+        return p.y >= minimap.y + minimap.height && p.x >= minimap.x - margin && p.x <= minimap.x + minimap.width + margin;
+    }
+
+    private void watchHover() {
+        if (!isVisible()) return;
+        Rectangle mm = lastMinimap;
+        PointerInfo info = MouseInfo.getPointerInfo();
+        boolean away = !adjusting && info != null && overItems(info.getLocation(), mm);
+        double to = away ? 0 : 1;
+        if (fade == to) return;
+        // out quickly, before the tooltip is read; back a little slower, so a pass over the panel does not flicker
+        fade = to < fade ? Math.max(to, fade - 0.34) : Math.min(to, fade + 0.15);
+        if (away && picker.isOpen()) picker.close();
+        placeSpots();
+        repaint();
     }
 
     void stop() {
         ticker.stop();
+        hoverWatch.stop();
         if (running == this) running = null;
+        picker.close();
+        picker.dispose();
         switchWindow.setVisible(false);
         switchWindow.dispose();
+        bossWindow.setVisible(false);
+        bossWindow.dispose();
         setVisible(false);
         dispose();
     }
@@ -372,7 +490,7 @@ final class DamageMeterWindow extends JWindow {
     private void setAdjusting(boolean on) {
         adjusting = on;
         applyClickThrough();
-        placeSwitch();
+        placeSpots();
         repaint();
         fire();
     }
@@ -392,7 +510,7 @@ final class DamageMeterWindow extends JWindow {
         boolean show = adjusting || (front && hasLines && !GameMenu.up());
         if (!show) {
             if (isVisible()) setVisible(false);
-            placeSwitch();
+            placeSpots();
             return;
         }
         Rectangle want = boundsFor(mm, place());
@@ -402,7 +520,7 @@ final class DamageMeterWindow extends JWindow {
             setVisible(true);
             applyClickThrough();
         }
-        placeSwitch();
+        placeSpots();
         repaint();
     }
 
@@ -519,12 +637,26 @@ final class DamageMeterWindow extends JWindow {
 
     private static final java.awt.image.BufferedImage MEASURE = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
 
-    static int headHeight(int h) {
-        return Math.max(16, Math.min(30, (int) Math.round(h * 0.105)));
+    /**
+     * How tall a row is, set by the meter's width: wider, the bars and their words grow; taller,
+     * more rows fit - the eleventh player, the twelfth, and on - rather than the same ten
+     * stretched. At its first size it is ten rows exactly.
+     */
+    static double rowHeight(int w) {
+        return Math.max(12, Math.min(34, w * 0.0695));
     }
 
-    static int padOf(int h) {
-        return Math.max(3, h / 70);
+    static int headHeight(int w) {
+        return Math.max(16, Math.min(30, (int) Math.round(rowHeight(w) * 1.2)));
+    }
+
+    static int padOf(int w) {
+        return Math.max(3, (int) Math.round(rowHeight(w) / 6));
+    }
+
+    /** How many players a meter this size shows. */
+    static int rowsThatFit(int w, int h) {
+        return Math.max(1, (int) Math.floor((h - headHeight(w) - padOf(w) * 2 + 0.5) / rowHeight(w)));
     }
 
     private static Font headFont(int head) {
@@ -537,7 +669,7 @@ final class DamageMeterWindow extends JWindow {
 
     /** Where the DPM / OVERALL switch sits in the header: just left of the clock. */
     static Rectangle switchZone(int w, int h) {
-        int head = headHeight(h), pad = padOf(h);
+        int head = headHeight(w), pad = padOf(w);
         Graphics2D g = MEASURE.createGraphics();
         FontMetrics hm = g.getFontMetrics(headFont(head)), sm = g.getFontMetrics(switchFont(head));
         g.dispose();
@@ -547,26 +679,42 @@ final class DamageMeterWindow extends JWindow {
         return new Rectangle(w - pad - 2 - clockW - 8 - pw, (head - ph) / 2, pw, ph);
     }
 
+    /** Where the boss button sits in the header: from the left edge up to the switch. */
+    static Rectangle bossZone(int w, int h) {
+        int head = headHeight(w), pad = padOf(w);
+        Rectangle pill = switchZone(w, h);
+        int bh = Math.max(12, head - 4);
+        return new Rectangle(pad, (head - bh) / 2, Math.max(24, pill.x - pad - 6), bh);
+    }
+
     /**
      * The meter itself, at any size: rows share the height below the header, and the type
      * follows the rows. Static, so the screenshots draw exactly what the game gets.
      */
     static void draw(Graphics2D g, int w, int h, Board b, double opacity, boolean adjusting) {
+        draw(g, w, h, b, opacity, adjusting, 1);
+    }
+
+    /** The same, faded: {@code fade} 0 draws nothing, 1 draws it whole. */
+    static void draw(Graphics2D g, int w, int h, Board b, double opacity, boolean adjusting, double fade) {
+        if (fade <= 0 && !adjusting) return;
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g2.setComposite(AlphaComposite.SrcOver.derive((float) clampOpacity(opacity)));
-        int pad = padOf(h);
-        int head = headHeight(h);
+        opacity = clampOpacity(opacity) * Math.max(0, Math.min(1, adjusting ? 1 : fade));
+        g2.setComposite(AlphaComposite.SrcOver.derive((float) opacity));
+        int pad = padOf(w);
+        int head = headHeight(w);
         boolean overallView = showsOverall();
-        double rowH = Math.max(9, (h - head - pad * 2) / (double) MOST);
+        double rowH = rowHeight(w);
+        int rows = rowsThatFit(w, h);
         if (adjusting) {
             // every pixel solid enough to be pressed, corners included: Windows passes a click on
             // a fully transparent pixel through to the game, and the rounded corners were that
             g2.setComposite(AlphaComposite.SrcOver);
             g2.setColor(new Color(0, 0, 0, 2));
             g2.fillRect(0, 0, w, h);
-            g2.setComposite(AlphaComposite.SrcOver.derive((float) clampOpacity(opacity)));
+            g2.setComposite(AlphaComposite.SrcOver.derive((float) opacity));
         }
         g2.setColor(new Color(PANEL.getRed(), PANEL.getGreen(), PANEL.getBlue(), 215));
         g2.fill(SonarTheme.round(0, 0, w, h, 7));
@@ -578,12 +726,14 @@ final class DamageMeterWindow extends JWindow {
         FontMetrics hm = g2.getFontMetrics();
         String clock = b == null ? "" : SonarTheme.clock(b.elapsedMs);
         int clockW = hm.stringWidth(clock);
-        String title = b == null || b.dungeon.isEmpty() ? (overallView ? "Overall" : "DPM") : b.dungeon;
+        boolean bossBoard = b != null && !b.boss.isEmpty();
+        String title = bossBoard ? b.boss : b == null || b.dungeon.isEmpty() ? "No boss yet" : b.dungeon;
         int hy = (head - hm.getHeight()) / 2 + hm.getAscent() + 1;
         Rectangle pill = switchZone(w, h);
         g2.setColor(SonarTheme.TEXT);
         int titleRoom = (adjusting ? doneZone(w).x : pill.x) - pad - 8;
-        g2.drawString(SonarTheme.fit(title, hm, Math.max(10, titleRoom)), pad + 2, hy);
+        if (bossBoard && !adjusting) paintBossButton(g2, bossZone(w, h), b, head, hy);
+        else g2.drawString(SonarTheme.fit(title, hm, Math.max(10, titleRoom)), pad + 2, hy);
         if (!adjusting) {
             g2.setColor(SonarTheme.MUTED);
             g2.drawString(clock, w - pad - 2 - clockW, hy);
@@ -594,11 +744,11 @@ final class DamageMeterWindow extends JWindow {
 
         // the rows: longest first, a bar in the class colour, the words on it
         List<Line> lines = b == null ? Collections.emptyList() : b.lines;
-        Color[] colours = barColours(lines, b == null ? "" : b.dungeon);
+        Color[] colours = barColours(lines, b == null ? "" : b.run);
         double top = lines.isEmpty() ? 1 : Math.max(1, lines.get(0).dpm);
         float rowFont = (float) Math.max(8.5, rowH * 0.58);
         Font nameFont = SonarTheme.bold(rowFont), numFont = SonarTheme.bold(rowFont);
-        for (int i = 0; i < MOST; i++) {
+        for (int i = 0; i < rows; i++) {
             double y = head + pad + i * rowH;
             int barX = pad, barW = w - pad * 2;
             double inner = Math.max(6, rowH - 2);
@@ -609,7 +759,7 @@ final class DamageMeterWindow extends JWindow {
                     g2.setFont(SonarTheme.font(rowFont));
                     g2.setColor(SonarTheme.MUTED);
                     FontMetrics fm = g2.getFontMetrics();
-                    g2.drawString("No damage yet - drag to move, an edge or corner to resize", barX + 6,
+                    g2.drawString("No boss yet - drag to move, an edge or corner to resize", barX + 6,
                             (float) (y + 1 + (inner - fm.getHeight()) / 2 + fm.getAscent()));
                 }
                 continue;
@@ -662,6 +812,36 @@ final class DamageMeterWindow extends JWindow {
         g2.dispose();
     }
 
+    /** The boss button at the header's left: the boss's picture and name, and an arrow for the picker. */
+    private static void paintBossButton(Graphics2D g, Rectangle r, Board b, int head, int baseline) {
+        g.setColor(new Color(255, 255, 255, pickerOpen ? 44 : 16));
+        g.fill(SonarTheme.round(r.x, r.y, r.width, r.height, 6));
+        int icon = Math.max(10, r.height - 2);
+        double x = r.x + 3;
+        if (Glyph.object(g, b.bossType, x, r.y + (r.height - icon) / 2.0, icon)) x += icon + 3;
+        else x += 2;
+        // the arrow: down to open, up while open
+        double aw = Math.max(6, r.height * 0.4), ah = aw * 0.55;
+        double ax = r.x + r.width - aw - 5, ay = r.y + (r.height - ah) / 2.0;
+        java.awt.geom.Path2D arrow = new java.awt.geom.Path2D.Double();
+        if (pickerOpen) {
+            arrow.moveTo(ax, ay + ah);
+            arrow.lineTo(ax + aw / 2, ay);
+            arrow.lineTo(ax + aw, ay + ah);
+        } else {
+            arrow.moveTo(ax, ay);
+            arrow.lineTo(ax + aw / 2, ay + ah);
+            arrow.lineTo(ax + aw, ay);
+        }
+        g.setColor(pickerOpen ? RealmFilter.LIME : SonarTheme.MUTED);
+        g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(arrow);
+        g.setFont(headFont(head));
+        FontMetrics fm = g.getFontMetrics();
+        g.setColor(SonarTheme.TEXT);
+        g.drawString(SonarTheme.fit(b.boss, fm, (int) Math.max(10, ax - 4 - x)), (float) x, baseline);
+    }
+
     /** The two-way switch in the header: the view shown lit, the other one quiet. */
     private static void paintSwitch(Graphics2D g, Rectangle r, boolean overallView, int head) {
         g.setFont(switchFont(head));
@@ -694,12 +874,23 @@ final class DamageMeterWindow extends JWindow {
         int GetWindowLongW(com.sun.jna.Pointer hwnd, int index);
 
         int SetWindowLongW(com.sun.jna.Pointer hwnd, int index, int value);
+
+        short GetAsyncKeyState(int vKey);
+    }
+
+    /** Whether a mouse button is held down anywhere on screen, the game included. */
+    static boolean mouseDown() {
+        try {
+            return (User32.INSTANCE.GetAsyncKeyState(0x01) & 0x8000) != 0 || (User32.INSTANCE.GetAsyncKeyState(0x02) & 0x8000) != 0;
+        } catch (Throwable notWindows) {
+            return false;
+        }
     }
 
     private static final int GWL_EXSTYLE = -20, WS_EX_TRANSPARENT = 0x00000020, WS_EX_NOACTIVATE = 0x08000000;
 
     /** Marks a window never to be activated by a click, so clicking it leaves the game in front. */
-    private static void neverActivate(Window w) {
+    static void neverActivate(Window w) {
         try {
             long id = com.sun.jna.Native.getWindowID(w);
             if (id == 0) return;
@@ -725,10 +916,10 @@ final class DamageMeterWindow extends JWindow {
         }
     }
 
-    /** The lines of a board, for the self-test: up to ten, most damage first. */
+    /** Every player on a board, most damage first; the meter shows as many as its height fits. */
     static List<Line> topOf(List<Line> all) {
         List<Line> out = new ArrayList<>(all);
         out.sort((a, b) -> Double.compare(b.dpm, a.dpm));
-        return out.size() > MOST ? new ArrayList<>(out.subList(0, MOST)) : out;
+        return out;
     }
 }

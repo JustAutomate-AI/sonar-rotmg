@@ -2,6 +2,15 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.66.0
+
+**A boss meter with a picker of every boss, out of the way of item tooltips, and more players when taller**
+
+- **The damage meter counts one boss at a time.** It shows each player's damage on the boss itself, timed over that boss's own fight - not the trash on the way and not the adds around it, the same figures as the boss's own board, the MVP card and the server's announcement. It follows the boss you hit last, and stays off the game until the first boss is hit.
+- **Pick the boss from its picture.** The top left of the meter is now a button with the boss's picture and name. Click it for a picker under the header: Auto, which follows the fight, then every boss fought so far, biggest first, each as its own picture with its name under it. A pick lasts for the rest of the run, and every new run starts on Auto. The picker closes on a pick or on any click elsewhere, a shot at the game included, and like the DPM / OVERALL switch it never takes the keyboard from the game.
+- **The meter fades out over your inventory.** It was drawn over the game's item tooltips. Now it fades whenever the pointer is over the panel under the minimap - gear, inventory, backpack, loot bags and vault chests - and comes back a moment after the pointer leaves. While faded it takes no clicks.
+- **A taller meter shows more players.** Pulling it taller used to stretch the same ten rows; now the rows keep their size and more players come into view, ranked 11, 12 and on. Making it wider makes the rows and text bigger. At its first size it still shows exactly ten.
+
 ## 2.65.0
 
 **Events back on the minimap after windowed mode, and a damage meter you can switch, resize and tell apart**

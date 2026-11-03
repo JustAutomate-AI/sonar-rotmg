@@ -37,6 +37,8 @@ final class LiveModel {
     /** Identity of the instance; changes whenever a new map is loaded. */
     Object instanceKey;
     String instance = "";
+    /** When this instance began, on the PC's clock; with the name, it tells one run from the next. */
+    long startedPc;
     String realm = "";
     long elapsedMs;
     int players;
@@ -1159,6 +1161,7 @@ final class LiveModel {
      */
     private static LiveModel build(MapInfoPacket map, Object auditKey, Collection<Entity> hit, long elapsedMs, long startTimePc) {
         LiveModel m = new LiveModel();
+        m.startedPc = startTimePc;
         // No map load means Sonar was started after this instance began - it missed the one
         // packet that names the place. Everything else still arrives, and the damage has been
         // accumulating all along, so the run is shown rather than thrown away; it is marked

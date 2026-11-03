@@ -220,7 +220,7 @@ class SettingsPane extends Pane {
         paintSwitch(g, 2, y + 4, on);
         g.setFont(SonarTheme.font(12.5f));
         g.setColor(SonarTheme.TEXT);
-        g.drawString("Show the top 10 damage per minute beside your minimap", 50, y + 18);
+        g.drawString("Show each boss's damage per minute beside your minimap", 50, y + 18);
         zone(new Rectangle(0, y, width, 28), () -> {
             DamageMeterWindow.setOn(!DamageMeterWindow.isOn());
             repaint();
@@ -259,7 +259,7 @@ class SettingsPane extends Pane {
         y += 36;
         g.setFont(SonarTheme.font(10.5f));
         g.setColor(SonarTheme.FAINT);
-        g.drawString("While moving, the meter takes the mouse on the game: drag it, or any edge or corner to resize, then click Done on it.", PAD, y + 12);
+        g.drawString("While moving, the meter takes the mouse on the game: drag it, or any edge or corner to resize - taller shows more players - then click Done on it.", PAD, y + 12);
         return y + 24;
     }
 

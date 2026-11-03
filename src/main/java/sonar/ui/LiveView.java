@@ -463,7 +463,7 @@ class LiveView {
         javax.swing.Box row = javax.swing.Box.createHorizontalBox();
         row.add(meterButton);
         row.add(javax.swing.Box.createHorizontalStrut(4));
-        meterButton.setToolTipText("Show the top 10 damage per minute on the game, beside your minimap");
+        meterButton.setToolTipText("Show each boss's damage per minute on the game, beside your minimap");
         DamageMeterWindow.onChange(() -> javax.swing.SwingUtilities.invokeLater(this::syncMeter));
         javax.swing.SwingUtilities.invokeLater(this::syncMeter);
         row.add(mvpShare);
@@ -1062,20 +1062,72 @@ class LiveView {
     }
 
     /**
-     * What the damage meter shows: the instance being played, never one being reviewed, top ten
-     * by damage, in the same damage per minute as the Overall list.
+     * What the damage meter shows: the instance being played, never one being reviewed, and in
+     * it one boss - the one picked on the meter, or else the one hit last - with every player's
+     * damage on that boss alone, over that boss's own fight.
      */
     DamageMeterWindow.Board meterBoard() {
         LiveModel m = reviewed == null ? shown() : live;
-        if (m == null || !m.tracked || m.whole == null) return null;
-        double seconds = Math.max(1, m.whole.fightMs / 1000.0);
-        long total = Math.max(1, m.whole.total);
+        if (m == null || !m.tracked) return null;
+        return meterBoardFor(m, DamageMeterWindow.pinned(meterRun(m)));
+    }
+
+    static String meterRun(LiveModel m) {
+        return m.instance + "|" + m.startedPc;
+    }
+
+    static DamageMeterWindow.Board meterBoardFor(LiveModel m, String pinned) {
+        String run = meterRun(m);
+        java.util.List<LiveModel.Group> bosses = meterBosses(m.groups);
+        java.util.List<DamageMeterWindow.Choice> choices = new java.util.ArrayList<>();
+        for (LiveModel.Group g : bosses) choices.add(new DamageMeterWindow.Choice(bossKey(g), g.name, g.objectType));
+        LiveModel.Group g = bossFor(bosses, pinned);
+        if (g == null) return new DamageMeterWindow.Board(m.instance, 0, null, "", -1, "", true, choices, run);
+        LiveModel.Target t = fightOf(g);
+        double seconds = Math.max(1, t.fightMs / 1000.0);
+        long sum = 0;
+        for (LiveModel.Row r : t.rows) sum += Math.max(0, r.damage);
+        long total = Math.max(1, t.total > 0 ? t.total : sum);
         java.util.List<DamageMeterWindow.Line> lines = new java.util.ArrayList<>();
-        for (LiveModel.Row r : m.whole.rows) {
+        for (LiveModel.Row r : t.rows) {
             if (r.damage <= 0) continue;
             lines.add(new DamageMeterWindow.Line(r.name, r.cls, r.damage / seconds * 60, r.damage / (double) total, r.damage, r.me));
         }
-        return new DamageMeterWindow.Board(m.instance, m.whole.fightMs, DamageMeterWindow.topOf(lines));
+        boolean auto = pinned == null || !pinned.equals(bossKey(g));
+        return new DamageMeterWindow.Board(m.instance, t.fightMs, DamageMeterWindow.topOf(lines), g.name, g.objectType,
+                bossKey(g), auto, choices, run);
+    }
+
+    /**
+     * The fights the meter can show: the run's bosses, lesser bosses and outsized enemies,
+     * biggest first - the same fights and the same order as the Damage window's pictures.
+     */
+    static java.util.List<LiveModel.Group> meterBosses(java.util.List<LiveModel.Group> groups) {
+        java.util.List<LiveModel.Group> out = new java.util.ArrayList<>();
+        for (LiveModel.Group g : groups) if (g.boss()) out.add(g);
+        out.sort((a, b) -> {
+            long ah = Math.max(a.target.maxHp, a.target.healthLost);
+            long bh = Math.max(b.target.maxHp, b.target.healthLost);
+            return ah == bh ? Long.compare(b.target.total, a.target.total) : Long.compare(bh, ah);
+        });
+        return out;
+    }
+
+    static String bossKey(LiveModel.Group g) {
+        return g.objectType + "|" + g.name;
+    }
+
+    /** The boss itself, without the adds folded into its fight - see {@link LiveModel.Group#anchor}. */
+    static LiveModel.Target fightOf(LiveModel.Group g) {
+        return g.anchor != null ? g.anchor : g.target;
+    }
+
+    /** The boss the meter shows: the one picked, while it is in the run, or else the one hit last. */
+    static LiveModel.Group bossFor(java.util.List<LiveModel.Group> bosses, String pinned) {
+        if (pinned != null) for (LiveModel.Group g : bosses) if (bossKey(g).equals(pinned)) return g;
+        LiveModel.Group latest = null;
+        for (LiveModel.Group g : bosses) if (latest == null || fightOf(g).lastHit > fightOf(latest).lastHit) latest = g;
+        return latest;
     }
 
     /** The minimap the meter sits beside: where the overlay is when it is on, or where the detector finds it. */
@@ -1103,11 +1155,25 @@ class LiveView {
                     {"same-class-before.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
                     {"same-class-after.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
                     {"overall.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
+                    {"taller.png", new double[]{-0.575, 0.0, 0.56, 0.62}, 0.85, false},
+                    {"boss-picker.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
+                    {"boss-picked.png", DamageMeterWindow.DEFAULT_PLACE, 0.85, false},
             };
+            // the same run with another boss picked: the second biggest, when it is not the one followed
+            LiveModel pm = reviewed == null ? shown() : live;
+            DamageMeterWindow.Board pickedBoard = null;
+            if (pm != null && b != null) {
+                for (LiveModel.Group g : meterBosses(pm.groups)) {
+                    if (bossKey(g).equals(b.shownKey)) continue;
+                    pickedBoard = meterBoardFor(pm, bossKey(g));
+                    if (g.name.startsWith("Archbishop")) break;
+                }
+            }
             // the same board with everyone on one class, as a run often is
             java.util.List<DamageMeterWindow.Line> one = new java.util.ArrayList<>();
             if (b != null) for (DamageMeterWindow.Line l : b.lines) one.add(new DamageMeterWindow.Line(l.name, "Wizard", l.dpm, l.share, l.damage, l.me));
-            DamageMeterWindow.Board oneClass = new DamageMeterWindow.Board(b == null ? "" : b.dungeon + " ", b == null ? 0 : b.elapsedMs, one);
+            DamageMeterWindow.Board oneClass = b == null ? null : new DamageMeterWindow.Board(b.dungeon + " ", b.elapsedMs, one,
+                    b.boss, b.bossType, b.shownKey, b.auto, b.choices, b.run + " ");
             for (Object[] s : scenes) {
                 java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(base.getWidth(), base.getHeight(),
                         java.awt.image.BufferedImage.TYPE_INT_RGB);
@@ -1119,13 +1185,25 @@ class LiveView {
                 DamageMeterWindow.spreadColours = !((String) s[0]).equals("same-class-before.png");
                 boolean wasOverall = DamageMeterWindow.showsOverall();
                 DamageMeterWindow.setOverallForTest(((String) s[0]).equals("overall.png"));
-                DamageMeterWindow.draw(g, at.width, at.height, sameClass ? oneClass : b, (Double) s[2], (Boolean) s[3]);
+                boolean picking = ((String) s[0]).equals("boss-picker.png");
+                DamageMeterWindow.pickerOpen = picking;
+                boolean pickedScene = ((String) s[0]).equals("boss-picked.png") && pickedBoard != null;
+                DamageMeterWindow.draw(g, at.width, at.height, sameClass ? oneClass : pickedScene ? pickedBoard : b, (Double) s[2], (Boolean) s[3]);
+                if (picking && b != null) {
+                    java.awt.Rectangle pk = BossPickerWindow.boundsFor(at, BossPickerWindow.tiles(b));
+                    java.awt.Graphics2D gp = (java.awt.Graphics2D) g.create();
+                    gp.translate(pk.x - at.x, pk.y - at.y);
+                    BossPickerWindow.draw(gp, pk.width, pk.height, b, -1);
+                    gp.dispose();
+                }
+                DamageMeterWindow.pickerOpen = false;
                 DamageMeterWindow.setOverallForTest(wasOverall);
                 DamageMeterWindow.spreadColours = true;
                 g.dispose();
                 javax.imageio.ImageIO.write(img, "png", new java.io.File(outDir, (String) s[0]));
             }
-            System.out.println("[preview] meter pictures written to " + outDir + " for " + (b == null ? 0 : b.lines.size()) + " players");
+            System.out.println("[preview] meter pictures written to " + outDir + " for " + (b == null ? 0 : b.lines.size()) + " players on "
+                    + (b == null ? "-" : b.boss) + "; bosses " + (b == null ? "-" : b.choices.stream().map(c -> c.name).collect(java.util.stream.Collectors.joining(", "))));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -3658,20 +3736,95 @@ class LiveView {
                         && DamageMeterWindow.valueText(shown, true).endsWith("21%"));
         java.awt.Rectangle sw = DamageMeterWindow.switchZone(263, 215);
         report.accept("and the switch sits in the header, left of the clock",
-                sw.y >= 0 && sw.y + sw.height <= DamageMeterWindow.headHeight(215) && sw.x > 263 / 3 && sw.x + sw.width < 263 - 20);
+                sw.y >= 0 && sw.y + sw.height <= DamageMeterWindow.headHeight(263) && sw.x > 263 / 3 && sw.x + sw.width < 263 - 20);
         report.accept("its opacity stays between 30% and 100%",
                 DamageMeterWindow.clampOpacity(0.1) == 0.3 && DamageMeterWindow.clampOpacity(2) == 1.0);
         DamageMeterWindow.Board b = meterBoard();
         boolean sorted = b != null;
         if (b != null) for (int i = 1; i < b.lines.size(); i++) sorted &= b.lines.get(i - 1).dpm >= b.lines.get(i).dpm;
-        report.accept("the meter shows at most ten players, most damage per minute first",
-                b != null && !b.lines.isEmpty() && b.lines.size() <= 10 && sorted);
+        report.accept("the meter lists every player on the boss, most damage per minute first",
+                b != null && !b.lines.isEmpty() && sorted);
+        report.accept("it shows ten at its first size, and made taller it uncovers more players rather than stretching the ten",
+                DamageMeterWindow.rowsThatFit(at.width, at.height) == 10
+                        && DamageMeterWindow.rowsThatFit(at.width, at.height * 2) >= 20
+                        && DamageMeterWindow.rowHeight(at.width) == DamageMeterWindow.rowHeight(at.width));
+        report.accept("while made wider, its rows and their words grow",
+                DamageMeterWindow.rowHeight(at.width * 3 / 2) > DamageMeterWindow.rowHeight(at.width));
         LiveModel whole = shown();
+        java.util.List<LiveModel.Group> bossList = meterBosses(whole.groups);
+        LiveModel.Group followed = bossFor(bossList, null);
+        LiveModel.Target fight = followed == null ? null : fightOf(followed);
         LiveModel.Row top = null;
-        for (LiveModel.Row r : whole.whole.rows) if (top == null || r.damage > top.damage) top = r;
-        double expected = top == null ? -1 : top.damage / Math.max(1, whole.whole.fightMs / 1000.0) * 60;
-        report.accept("with the same damage per minute as the Live page's Overall list",
-                b != null && !b.lines.isEmpty() && Math.abs(b.lines.get(0).dpm - expected) < 1);
+        if (fight != null) for (LiveModel.Row r : fight.rows) if (top == null || r.damage > top.damage) top = r;
+        double expected = top == null ? -1 : top.damage / Math.max(1, fight.fightMs / 1000.0) * 60;
+        report.accept("it counts damage on the boss alone, over the boss's own fight",
+                b != null && fight != null && b.boss.equals(followed.name) && b.elapsedMs == fight.fightMs
+                        && !b.lines.isEmpty() && Math.abs(b.lines.get(0).dpm - expected) < 1);
+        long onBoss = 0;
+        if (b != null) for (DamageMeterWindow.Line l : b.lines) onBoss += l.damage;
+        report.accept("so the trash and the adds are left out: less than the whole instance's damage",
+                onBoss > 0 && onBoss < whole.whole.total);
+        boolean onlyBosses = !bossList.isEmpty(), biggestFirst = true;
+        for (LiveModel.Group g : bossList) onlyBosses &= g.boss();
+        for (int i = 1; i < bossList.size(); i++)
+            biggestFirst &= Math.max(bossList.get(i - 1).target.maxHp, bossList.get(i - 1).target.healthLost)
+                    >= Math.max(bossList.get(i).target.maxHp, bossList.get(i).target.healthLost);
+        report.accept("the picker offers the run's bosses only, biggest first, each with its picture",
+                b != null && onlyBosses && biggestFirst && b.choices.size() == bossList.size() && b.choices.get(0).objectType > 0);
+        LiveModel.Group otherBoss = bossList.size() < 2 ? null : bossList.get(0) == followed ? bossList.get(1) : bossList.get(0);
+        DamageMeterWindow.Board pickedBoard = otherBoss == null ? null : meterBoardFor(whole, bossKey(otherBoss));
+        report.accept("picking another boss shows that boss instead, marked as picked rather than followed",
+                pickedBoard != null && b.auto && pickedBoard.boss.equals(otherBoss.name) && !pickedBoard.auto
+                        && pickedBoard.shownKey.equals(bossKey(otherBoss)) && pickedBoard.elapsedMs == fightOf(otherBoss).fightMs);
+        LiveModel.Group firstBoss = new LiveModel.Group(), secondBoss = new LiveModel.Group();
+        firstBoss.kind = "boss";
+        firstBoss.name = "First";
+        firstBoss.objectType = 1;
+        firstBoss.anchor = new LiveModel.Target();
+        firstBoss.anchor.lastHit = 100;
+        secondBoss.kind = "miniboss";
+        secondBoss.name = "Second";
+        secondBoss.objectType = 2;
+        secondBoss.anchor = new LiveModel.Target();
+        secondBoss.anchor.lastHit = 200;
+        java.util.List<LiveModel.Group> twoBosses = java.util.Arrays.asList(firstBoss, secondBoss);
+        report.accept("it follows the boss hit last until one is picked, and follows again if the pick is not in the run",
+                bossFor(twoBosses, null) == secondBoss && bossFor(twoBosses, bossKey(firstBoss)) == firstBoss
+                        && bossFor(twoBosses, "9|Gone") == secondBoss);
+        DamageMeterWindow.pin("test run A", bossKey(firstBoss));
+        boolean lasts = bossKey(firstBoss).equals(DamageMeterWindow.pinned("test run A")) && DamageMeterWindow.pinned("test run B") == null;
+        DamageMeterWindow.pin("test run A", null);
+        report.accept("a pick lasts for its own run only, and Auto clears it", lasts && DamageMeterWindow.pinned("test run A") == null);
+        LiveModel noBoss = new LiveModel();
+        noBoss.instance = "Test";
+        DamageMeterWindow.Board none = meterBoardFor(noBoss, null);
+        report.accept("before any boss is fought it has nothing to show, so it stays off the game",
+                none.lines.isEmpty() && none.boss.isEmpty());
+        java.awt.Rectangle bz = DamageMeterWindow.bossZone(263, 215);
+        report.accept("the boss button sits at the header's top left, clear of the switch",
+                bz.x <= 6 && bz.y >= 0 && bz.y + bz.height <= DamageMeterWindow.headHeight(263) && bz.x + bz.width < sw.x && bz.width > 263 / 3);
+        java.awt.Rectangle meterAt = new java.awt.Rectangle(1000, 0, 263, 215);
+        java.awt.Rectangle pk = BossPickerWindow.boundsFor(meterAt, 6);
+        boolean tilesFit = true, tilesApart = true;
+        for (int i = 0; i < 6; i++) {
+            java.awt.Rectangle ti = BossPickerWindow.tile(i, pk.width);
+            tilesFit &= ti.x >= 0 && ti.x + ti.width <= pk.width && ti.y + ti.height <= pk.height;
+            for (int j = 0; j < i; j++) tilesApart &= !ti.intersects(BossPickerWindow.tile(j, pk.width));
+            tilesApart &= BossPickerWindow.tileAt(new java.awt.Point(ti.x + ti.width / 2, ti.y + ti.height / 2), pk.width, 6) == i;
+        }
+        report.accept("the picker opens under the meter's header, a tile for Auto and each boss, and a click finds the one under it",
+                pk.x == meterAt.x && pk.y == meterAt.y + DamageMeterWindow.headHeight(263) + 2 && tilesFit && tilesApart);
+        java.awt.Rectangle btn = new java.awt.Rectangle(1003, 2, 120, 18);
+        report.accept("a press anywhere else closes the picker - a shot at the game included - but not one on it or its button",
+                BossPickerWindow.closesOn(new java.awt.Point(400, 500), pk, btn)
+                        && !BossPickerWindow.closesOn(new java.awt.Point(pk.x + 10, pk.y + 40), pk, btn)
+                        && !BossPickerWindow.closesOn(new java.awt.Point(1010, 8), pk, btn));
+        java.awt.Rectangle mmTest = new java.awt.Rectangle(2000, 0, 470, 481);
+        report.accept("it fades while the pointer is over the game's inventory under the minimap, where item tooltips open",
+                DamageMeterWindow.overItems(new java.awt.Point(2200, 900), mmTest)
+                        && DamageMeterWindow.overItems(new java.awt.Point(2465, 500), mmTest)
+                        && !DamageMeterWindow.overItems(new java.awt.Point(1200, 900), mmTest)
+                        && !DamageMeterWindow.overItems(new java.awt.Point(2200, 300), mmTest));
         java.awt.image.BufferedImage solid = new java.awt.image.BufferedImage(263, 215, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         java.awt.image.BufferedImage faint = new java.awt.image.BufferedImage(263, 215, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         java.awt.Graphics2D g1 = solid.createGraphics();
@@ -3682,6 +3835,17 @@ class LiveView {
         g2.dispose();
         int a85 = solid.getRGB(131, 213) >>> 24, a30 = faint.getRGB(131, 213) >>> 24;   // plain panel, clear of bars and corners
         report.accept("and draws solid enough to read at 85% opacity and see-through at 30%", a85 > 150 && a30 < 80 && a30 > 0);
+        java.awt.image.BufferedImage gone = new java.awt.image.BufferedImage(263, 215, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.image.BufferedImage half = new java.awt.image.BufferedImage(263, 215, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g3 = gone.createGraphics();
+        DamageMeterWindow.draw(g3, 263, 215, b, 0.85, false, 0);
+        g3.dispose();
+        java.awt.Graphics2D g4 = half.createGraphics();
+        DamageMeterWindow.draw(g4, 263, 215, b, 0.85, false, 0.5);
+        g4.dispose();
+        int aHalf = half.getRGB(131, 213) >>> 24;
+        report.accept("faded out it draws nothing at all, and halfway it is half as solid",
+                (gone.getRGB(131, 213) >>> 24) == 0 && (gone.getRGB(60, 40) >>> 24) == 0 && aHalf > a85 / 3 && aHalf < a85 * 2 / 3 + 10);
         report.accept("its switch sits on the damage window, lit while the meter is on",
                 meterButton.getParent() != null && javax.swing.SwingUtilities.getAncestorOfClass(FloatWindow.class, meterButton) != null);
     }

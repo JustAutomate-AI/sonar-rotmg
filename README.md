@@ -53,7 +53,7 @@ The **Realm filter** beside the overlay's switch picks up to three dungeons and 
 
 ### A damage meter on the game
 
-The three-bar button on the Live page's damage window puts the current dungeon's **top 10 damage per minute beside your minimap**, the way a WoW damage meter sits at the edge of the screen: class-coloured bars, rank, damage per minute and share of the total. Clicks go straight through it. Set how see-through it is, and move and resize it right on the game, in Settings.
+The three-bar button on the Live page's damage window puts **each boss's damage per minute beside your minimap**, the way a WoW damage meter sits at the edge of the screen: class-coloured bars, rank, damage per minute and share of the total, with a switch to overall damage. It counts the boss alone, over its own fight, and follows the boss you hit last; the boss's picture at its top left opens a picker of every boss in the run. It shows ten players at first; pull it taller to see more of the dungeon. It fades while your pointer is over your inventory, so item tooltips stay readable, and clicks go straight through it. Set how see-through it is, and move and resize it right on the game, in Settings.
 
 ### Full screen or windowed
 
