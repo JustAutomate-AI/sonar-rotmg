@@ -26,6 +26,39 @@ Most meters give you one number for the whole run. Sonar splits the run the way 
 - **Damage into a boss's guard is counted separately**, and shown as **red on the right end of that player's bar**. In Oryx's Sanctuary, damage put into the guard fills it rather than hurting him, and filling it pushes the fight into its next phase early — so somebody who did nothing but shoot the guard has a bar that is red nearly all the way along. Read from the boss's own state at the moment of each hit
 - **A two-click reset** zeroes the current instance, with undo
 
+## Your minimap, working for you
+
+![Sonar's damage meter beside the game's minimap, and the minimap with the waypoints to the biomes where Life and Mana drop most ringed in each potion's colour](docs/screenshots/overlay.png)
+
+Turn on **Minimap overlay** in Sonar's top bar and the game's own minimap starts answering questions: which event is which, where the thing you are hunting is, and who is doing the damage. It sits on the game's minimap and follows its zoom, every click still goes straight to the game, and it steps aside for the game's Escape menu.
+
+### Every realm event, by name
+
+![The game's minimap and Sonar's overlay side by side over a whole realm: the game shows every event as the same purple icon, Sonar shows each one as the actual boss, numbered and named below](docs/screenshots/realm-events.png)
+
+Just landed on the beach and every event is the same purple skull? Zoom your minimap all the way out and Sonar shows you which is which: the actual boss, right where it is on the map. Bosses, events, minibosses and your quest get their pictures; ordinary enemies stay the game's red dot, so the ones that matter stand out. In the Shatters it also marks the Void Phantasm, the Stone Idol, the Derelict Monument and the void cracks.
+
+### Hunt a dungeon, or farm a potion
+
+![The realm filter: the eight stat potions as their sprites, with Potion of Life picked and its best biomes ranked, the Floral Escape and the Sanguine Forest first](docs/screenshots/realm-filter.png)
+
+The **Realm filter** beside the overlay's switch picks up to three dungeons and any of the eight stat potions.
+
+- **Every realm enemy that can drop one gets its picture back**, in a ring: lime for a dungeon, the potion's own colour for a potion. Who drops what comes from the RealmEye wiki, matched to the game's own files, biome copies and all.
+- **When a picked dungeon's portal drops, it gets a mark of its own and Sonar pings** - the game gives a portal no minimap icon at all.
+- **A potion's best biomes are ranked** by how many of its droppers live there, and the **waypoint that teleports you there is ringed** in the potion's colour.
+- **Switch "Show all events" off** and only the events that drop what you picked keep their pictures.
+
+![Two minimaps: an Undead Lair portal that has just dropped, ringed and pinging, with the note "portal is up!"; and two droppers of the Potion of Mana ringed in Mana's gold](docs/screenshots/hunt-minimap.png)
+
+### A damage meter on the game
+
+The three-bar button on the Live page's damage window puts the current dungeon's **top 10 damage per minute beside your minimap**, the way a WoW damage meter sits at the edge of the screen: class-coloured bars, rank, damage per minute and share of the total. Clicks go straight through it. Set how see-through it is, and move and resize it right on the game, in Settings.
+
+### Full screen or windowed
+
+The overlay looks for the game's minimap by itself - full screen or windowed, at any window size, aspect ratio and display scaling - and looks again whenever the window moves or is resized.
+
 ## Every player, down to the item
 
 ![The Players page, showing one player's gear, stats and damage by item](docs/screenshots/players.png)
@@ -61,17 +94,6 @@ Boss segments laid out in proportion to how long each fight took, top contributo
 One click copies a finished run straight to your clipboard as an image, ready to paste into Discord — the full roster, or a card for whoever led the final boss, with their loadout. Built for the way these runs actually get organised, where somebody always asks where they stood.
 
 Drawn at **three times the resolution**, because a picture posted in a Discord gets read by zooming in on it — and the game's own art is drawn at a whole multiple of its own pixels, so an item is still an item and an enchant gem is still a gem when you do.
-
-## Every realm event, on your minimap
-
-![The game's minimap and Sonar's overlay side by side over a whole realm: the game shows every event as the same purple icon, Sonar shows each one as the actual boss, numbered and named below](docs/screenshots/realm-events.png)
-
-Just landed on the beach and every event is the same purple skull? Zoom your minimap all the way out and Sonar shows you which is which: the actual boss, right where it is on the map. Pick the one you want and go, no running around checking.
-
-- **Turn it on** with **Minimap overlay** in Sonar's top bar, then zoom out with your minimap's minus key.
-- **It sits on the game's own minimap** and follows its zoom. Every click still goes straight to the game.
-- **Big things get big rings.** Bosses, events and quest targets stand out; zoomed out, the trash stays off the map.
-- **In the Shatters** it also marks the Void Phantasm, the Stone Idol, the Derelict Monument and the void cracks.
 
 ## The Shatters, solved
 
