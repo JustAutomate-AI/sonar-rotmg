@@ -3666,14 +3666,11 @@ class LiveView {
      * window size - and the damage meter itself.
      */
     private void checkPlacementAndMeter(java.util.function.BiConsumer<String, Boolean> report) {
-        // a session's worth of unsure readings, all saying the overlay has missed a zoom
-        double[] ladder = {9.79, 6.46, 4.9, 3.23, 2.45, 1.62, 1.22, 0.81, 0.61, 0.4, 0.31, 0.2};
-        report.accept("five readings in a row that agree on 0.66, far from an overlay stuck at 9.79, move it to the 0.61 step",
-                Math.abs(ShattersOverlayWindow.agreedStep(new double[]{0.66, 0.66, 0.68, 0.66, 0.65}, 5, 9.79, ladder) - 0.61) < 1e-9);
-        report.accept("but readings that wander, or that agree with the overlay already, leave it alone",
-                ShattersOverlayWindow.agreedStep(new double[]{0.66, 0.9, 0.66, 0.66, 0.66}, 5, 9.79, ladder) == 0
-                        && ShattersOverlayWindow.agreedStep(new double[]{9.6, 9.6, 9.6, 9.6, 9.6}, 5, 9.79, ladder) == 0
-                        && ShattersOverlayWindow.agreedStep(new double[]{0.66, 0.66, 0.66, 0.66, 0.66}, 4, 9.79, ladder) == 0);
+        // the game run as administrator hides its input from Sonar, which must say so
+        report.accept("with the game running as administrator and Sonar not, the overlay says it cannot see the zoom; with the same rights it does not",
+                Elevation.blind(true, false) && Elevation.blind(true, null) && !Elevation.blind(true, true)
+                        && !Elevation.blind(false, false) && !Elevation.blind(null, false));
+        report.accept("Sonar can tell how it is running itself", Elevation.sonarElevated() != null);
         report.accept("the wheel's watchdog calls the hook deaf only for a press it never heard",
                 MouseWheelWatch.missed(1_000_000_000L, 0L, 1_500_000_000L, 400_000_000L)
                         && !MouseWheelWatch.missed(1_000_000_000L, 1_000_050_000L, 1_500_000_000L, 400_000_000L)

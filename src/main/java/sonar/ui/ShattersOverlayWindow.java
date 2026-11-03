@@ -217,48 +217,6 @@ class ShattersOverlayWindow extends JWindow {
 
     private int agreeingMeasurements;
 
-    /** How many unsure readings in a row must agree before they are believed. */
-    static final int AGREE = 5;
-    private final double[] recentReadings = new double[AGREE];
-    private int readingCount;
-
-    /**
-     * The step to move the overlay to when the unsure readings keep saying the same thing, or 0.
-     * <p>
-     * A single reading has to be clearly better than every other scale to be taken, because
-     * black ground agrees with black ground at any zoom. That was right for one reading and
-     * wrong for forty: a whole session's log said 0.66 again and again, a little short of sure
-     * each time, while the overlay sat at 9.79 - so nothing ever corrected it. Five in a row
-     * within six percent of one another, each at least a little better than chance, and more
-     * than one step of the game's zoom away from the overlay, now move it to the nearest step.
-     */
-    double agreedReading(double reading, double sure, double current, double[] rungs) {
-        if (reading <= 0 || sure < 1.08) {
-            readingCount = 0;
-            return 0;
-        }
-        recentReadings[readingCount % AGREE] = reading;
-        readingCount++;
-        return agreedStep(recentReadings, Math.min(readingCount, AGREE), current, rungs);
-    }
-
-    /** Pure, for the self-test: the nearest step when the last {@code n} readings agree and are far from {@code current}. */
-    static double agreedStep(double[] readings, int n, double current, double[] rungs) {
-        if (n < AGREE || rungs == null || rungs.length == 0) return 0;
-        double lo = Double.MAX_VALUE, hi = 0, sum = 0;
-        for (int i = 0; i < AGREE; i++) {
-            lo = Math.min(lo, readings[i]);
-            hi = Math.max(hi, readings[i]);
-            sum += readings[i];
-        }
-        if (hi / lo > 1.06) return 0;
-        double mean = sum / AGREE;
-        if (Math.abs(Math.log(mean / current)) < Math.log(1.8)) return 0;
-        double best = rungs[0];
-        for (double r : rungs) if (Math.abs(Math.log(r / mean)) < Math.abs(Math.log(best / mean))) best = r;
-        return Math.abs(Math.log(best / current)) < 1e-6 ? 0 : best;
-    }
-
     private volatile boolean syncing;
 
     /**
@@ -305,25 +263,8 @@ class ShattersOverlayWindow extends JWindow {
                     "[zoom] measured %.2f px/tile (%.2fx sure) - %s; overlay at %.2f; ladder %s; frame %dx%d; best [%s]",
                     MinimapSync.lastScale(), MinimapSync.lastConfidence(), MinimapSync.state(),
                     pixelsPerTile, java.util.Arrays.toString(round2(candidates)), w, h, MinimapMatch.lastCurve));
-            if (scale <= 0) {
-                // not sure enough on its own; but the same answer again and again, far from the
-                // overlay, is sure enough - it is what a missed zoom looks like from here
-                double agreed = agreedReading(MinimapSync.lastScale(), MinimapSync.lastConfidence(), pixelsPerTile, candidates);
-                if (agreed <= 0) return;
-                System.out.println(String.format(java.util.Locale.ROOT,
-                        "[zoom] %d readings in a row agree on %.2f px/tile; the overlay was at %.2f, so it moves to that step",
-                        AGREE, MinimapSync.lastScale(), pixelsPerTile));
-                scale = agreed;
-            }
+            if (scale <= 0) return;
             final double use = scale;
-            if (use != got) {
-                javax.swing.SwingUtilities.invokeLater(() -> {
-                    pixelsPerTile = clampScale(use);
-                    agreeingMeasurements = 0;
-                    repaint();
-                });
-                return;
-            }
             javax.swing.SwingUtilities.invokeLater(() -> {
                 boolean same = Math.abs(use - pixelsPerTile) / Math.max(use, pixelsPerTile) < 0.005;
                 if (same) {
@@ -385,6 +326,36 @@ class ShattersOverlayWindow extends JWindow {
     }
 
     private void paintOverlay(Graphics2D g) {
+        paintOverlayBody(g);
+        if (!standingAside() && !GameMenu.up() && !calibrating && Elevation.gameAboveUs()) paintBlindNote(g, getWidth());
+    }
+
+    /**
+     * Says so, on the minimap itself, when Windows is hiding the game's input from Sonar: the
+     * overlay cannot follow the zoom, so its marks are at the wrong scale and it must not look
+     * as though it were working. See {@link Elevation}.
+     */
+    private void paintBlindNote(Graphics2D g, int w) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setComposite(java.awt.AlphaComposite.SrcOver);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        String a = "RotMG runs as administrator, so Windows hides your zoom", b = "from Sonar. Restart the launcher normally.";
+        g2.setFont(SonarTheme.bold(11f));
+        FontMetrics fm = g2.getFontMetrics();
+        int bw = Math.min(w - 16, Math.max(fm.stringWidth(a), fm.stringWidth(b)) + 20), bh = fm.getHeight() * 2 + 12;
+        int x = (w - bw) / 2, y = 8;
+        g2.setColor(new Color(20, 14, 30, 235));
+        g2.fill(SonarTheme.round(x, y, bw, bh, 10));
+        g2.setColor(SonarTheme.GOLD);
+        g2.setStroke(new BasicStroke(1.4f));
+        g2.draw(SonarTheme.round(x + 0.7, y + 0.7, bw - 1.4, bh - 1.4, 10));
+        g2.drawString(SonarTheme.fit(a, fm, bw - 16), x + 10, y + 6 + fm.getAscent());
+        g2.setColor(SonarTheme.TEXT);
+        g2.drawString(SonarTheme.fit(b, fm, bw - 16), x + 10, y + 6 + fm.getHeight() + fm.getAscent());
+        g2.dispose();
+    }
+
+    private void paintOverlayBody(Graphics2D g) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         int w = getWidth(), h = getHeight();
         // a menu the game drew under us is more use than anything we would draw over it

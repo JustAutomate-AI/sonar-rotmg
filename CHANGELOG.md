@@ -2,6 +2,13 @@
 
 Every release of Sonar, newest first. The version number is also shown at the bottom of the app's left rail.
 
+## 2.67.1
+
+**The minimap overlay says so when Windows hides your zoom from it**
+
+- **Found why the overlay stopped following the zoom, and why Show all events looked broken.** The game was running as administrator and Sonar was not. Windows keeps a program from seeing the input of one with more rights, so Sonar never heard a scroll, a click on the minimap's buttons or a zoom key aimed at the game. The overlay stayed at the closest zoom while the minimap moved out, its marks were drawn at the wrong scale, and the events landed outside the frame. The overlay now checks, and while it is so it says on the minimap itself: start the game's launcher normally, or Sonar as administrator, so both run with the same rights. The log says it too.
+- **The zoom check is back to trusting only a clear reading.** 2.67.0 also let five unsure readings in a row move the overlay. The game's minimap is too dim and patchy for that to be safe, as was settled when the zoom was first lined up, so it is gone again.
+
 ## 2.67.0
 
 **Floating Pots, a new look for the damage meter, a smarter potion finder, and the minimap overlay following your zoom again**

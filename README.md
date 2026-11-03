@@ -59,7 +59,7 @@ The three-bar button on the Live page's damage window puts **each boss's damage 
 
 ### Full screen or windowed
 
-The overlay looks for the game's minimap by itself - full screen or windowed, at any window size, aspect ratio and display scaling - and looks again whenever the window moves or is resized.
+The overlay looks for the game's minimap by itself - full screen or windowed, at any window size, aspect ratio and display scaling - and looks again whenever the window moves or is resized. Run the game and Sonar with the same rights: if the game runs as administrator and Sonar does not, Windows hides your zoom from Sonar, and the overlay says so on the minimap.
 
 ## Every player, down to the item
 
